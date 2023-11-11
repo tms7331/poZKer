@@ -1,6 +1,15 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
 import { PoZKerApp, Actions } from './PoZKer.js';
+//import { readline } from 'readline';
+//const readline = require('readline');
+import readline from 'readline';
 // import { evaluate_7_cards } from './evaluator7.js';
+//ReadLine.
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
 
 import {
   isReady,
@@ -38,7 +47,9 @@ const root = map.getRoot();
 //console.log("ROOT", root);
 console.log("ROOT STR", root.toString());
 
-
+function question(theQuestion: string) {
+  return new Promise(resolve => rl.question(theQuestion, answ => resolve(answ)))
+}
 
 // ----------------------------------------------------
 // Create a public/private key pair. The public key is your address and where you deploy the zkApp to
@@ -64,6 +75,7 @@ await txn1.prove();
 await txn1.sign([playerPrivKey1]).send();
 
 
+
 const txn2 = await Mina.transaction(playerPubKey1, () => {
   zkAppInstance.deposit(playerPrivKey1)
 });
@@ -81,7 +93,6 @@ const bal1 = zkAppInstance.stack1.get();
 const bal2 = zkAppInstance.stack2.get();
 console.log("Balances", bal1.toString(), bal2.toString());
 
-// Just do checks all the way through for the action
 
 let card1;
 let card2;
@@ -89,16 +100,10 @@ const txn90 = await Mina.transaction(playerPubKey1, () => {
   const retVal = zkAppInstance.getHolecards(playerPrivKey1)
   card1 = retVal[0];
   card2 = retVal[1];
-  console.log("RETVAL", retVal);
+  //console.log("RETVAL", retVal);
 });
-
-const n1 = await txn90.prove();
-const n2 = await txn90.sign([playerPrivKey1]).send();
-console.log("n1", n1) // undefined
-console.log("n2", n2)
-
-console.log("n1out", card1) // undefined
-console.log("n2out", card2)
+await txn90.prove();
+await txn90.sign([playerPrivKey1]).send();
 
 
 ///////////// Flop
@@ -184,15 +189,15 @@ console.log("Turn:", zkAppInstance.turnGameOver.get().toString());
 console.log("LastAction:", zkAppInstance.lastAction.get().toString());
 console.log("Game complete?", zkAppInstance.turnGameOver.get().toString());
 
+const key1 = await question("Card 1?") as string;
+const key2 = await question("Card 2?") as string;
+const v1 = map.get(Field(parseInt(key1)));
+const v2 = map.get(Field(parseInt(key2)));
 
-
-
-const v1 = map.get(Field(0));
-const v2 = map.get(Field(1));
-
+console.log("## Field vals", v1.toString(), v2.toString());
 
 const txn10 = await Mina.transaction(playerPubKey2, () => {
-  zkAppInstance.showdown(v1, v2)
+  zkAppInstance.showdown((v1), (v2))
 });
 await txn10.prove();
 await txn10.sign([playerPrivKey2]).send();
@@ -254,3 +259,4 @@ try {
 // ----------------------------------------------------
 console.log('Shutting down');
 await shutdown();
+rl.close();
