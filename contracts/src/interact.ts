@@ -1,6 +1,6 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
 import { PoZKerApp, Actions } from './PoZKer.js';
-import { evaluate_7_cards } from './evaluator7.js';
+// import { evaluate_7_cards } from './evaluator7.js';
 
 import {
   isReady,
@@ -83,14 +83,22 @@ console.log("Balances", bal1.toString(), bal2.toString());
 
 // Just do checks all the way through for the action
 
-
+let card1;
+let card2;
 const txn90 = await Mina.transaction(playerPubKey1, () => {
-  zkAppInstance.getHolecards(playerPrivKey1)
+  const retVal = zkAppInstance.getHolecards(playerPrivKey1)
+  card1 = retVal[0];
+  card2 = retVal[1];
+  console.log("RETVAL", retVal);
 });
+
 const n1 = await txn90.prove();
 const n2 = await txn90.sign([playerPrivKey1]).send();
 console.log("n1", n1) // undefined
 console.log("n2", n2)
+
+console.log("n1out", card1) // undefined
+console.log("n2out", card2)
 
 
 ///////////// Flop
@@ -106,7 +114,7 @@ await txn4.sign([playerPrivKey1]).send();
 
 console.log("############")
 console.log("Street:", zkAppInstance.street.get().toString());
-console.log("Turn:", zkAppInstance.turn.get().toString());
+console.log("Turn:", zkAppInstance.turnGameOver.get().toString());
 console.log("LastAction:", zkAppInstance.lastAction.get().toString());
 
 
@@ -118,7 +126,7 @@ await txn5.sign([playerPrivKey2]).send();
 
 console.log("############")
 console.log("Street:", zkAppInstance.street.get().toString());
-console.log("Turn:", zkAppInstance.turn.get().toString());
+console.log("Turn:", zkAppInstance.turnGameOver.get().toString());
 console.log("LastAction:", zkAppInstance.lastAction.get().toString());
 
 
@@ -132,7 +140,7 @@ await txn6.sign([playerPrivKey1]).send();
 
 console.log("############")
 console.log("Street:", zkAppInstance.street.get().toString());
-console.log("Turn:", zkAppInstance.turn.get().toString());
+console.log("Turn:", zkAppInstance.turnGameOver.get().toString());
 console.log("LastAction:", zkAppInstance.lastAction.get().toString());
 
 
@@ -144,7 +152,7 @@ await txn7.sign([playerPrivKey2]).send();
 
 console.log("############")
 console.log("Street:", zkAppInstance.street.get().toString());
-console.log("Turn:", zkAppInstance.turn.get().toString());
+console.log("Turn:", zkAppInstance.turnGameOver.get().toString());
 console.log("LastAction:", zkAppInstance.lastAction.get().toString());
 
 
@@ -160,7 +168,7 @@ await txn8.sign([playerPrivKey1]).send();
 
 console.log("############")
 console.log("Street:", zkAppInstance.street.get().toString());
-console.log("Turn:", zkAppInstance.turn.get().toString());
+console.log("Turn:", zkAppInstance.turnGameOver.get().toString());
 console.log("LastAction:", zkAppInstance.lastAction.get().toString());
 
 
@@ -172,9 +180,9 @@ await txn9.sign([playerPrivKey2]).send();
 
 console.log("############")
 console.log("Street:", zkAppInstance.street.get().toString());
-console.log("Turn:", zkAppInstance.turn.get().toString());
+console.log("Turn:", zkAppInstance.turnGameOver.get().toString());
 console.log("LastAction:", zkAppInstance.lastAction.get().toString());
-console.log("Game complete?", zkAppInstance.isGameOver.get().toString());
+console.log("Game complete?", zkAppInstance.turnGameOver.get().toString());
 
 
 
@@ -184,13 +192,13 @@ const v2 = map.get(Field(1));
 
 
 const txn10 = await Mina.transaction(playerPubKey2, () => {
-  zkAppInstance.showdown(Field(0), Field(1))
+  zkAppInstance.showdown(v1, v2)
 });
 await txn10.prove();
 await txn10.sign([playerPrivKey2]).send();
 
 console.log("############")
-console.log("Game complete?", zkAppInstance.isGameOver.get().toString());
+console.log("Game complete?", zkAppInstance.turnGameOver.get().toString());
 
 
 console.log("############ WITHDRAWING")
