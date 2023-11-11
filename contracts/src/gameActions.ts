@@ -23,7 +23,7 @@ export function createGame(): GameData {
 }
 
 export function joinGame(oldGameData: GameData, player: PlayerKeys): GameData {
-  const newGameData = GameData.fromFields(GameData.toFields(oldGameData), []);
+  const newGameData = GameData.fromFields(GameData.toFields(oldGameData));
   newGameData.nonce = newGameData.nonce.add(1);
   newGameData.gameState = Field(GameState.introductions);
   newGameData.currentPlayer = bumpCurrentPlayer(oldGameData);
@@ -40,7 +40,7 @@ export function bumpCurrentPlayer(oldGameData: GameData): Field {
 }
 
 export function applyShuffle(oldGameData: GameData, player: Player): GameData {
-  const newGameData = GameData.fromFields(GameData.toFields(oldGameData), []);
+  const newGameData = GameData.fromFields(GameData.toFields(oldGameData));
   newGameData.nonce = newGameData.nonce.add(1);
   newGameData.gameState = Field(GameState.shuffle);
   newGameData.currentPlayer = bumpCurrentPlayer(oldGameData);
@@ -49,7 +49,7 @@ export function applyShuffle(oldGameData: GameData, player: Player): GameData {
 }
 
 export function applyMask(oldGameData: GameData, player: Player): GameData {
-  const newGameData = GameData.fromFields(GameData.toFields(oldGameData), []);
+  const newGameData = GameData.fromFields(GameData.toFields(oldGameData));
   newGameData.nonce = newGameData.nonce.add(1);
   newGameData.gameState = Field(GameState.mask);
   newGameData.currentPlayer = bumpCurrentPlayer(oldGameData);
@@ -58,7 +58,7 @@ export function applyMask(oldGameData: GameData, player: Player): GameData {
 }
 
 export function dealFirstHand(oldGameData: GameData, player: Player): GameData {
-  const newGameData = GameData.fromFields(GameData.toFields(oldGameData), []);
+  const newGameData = GameData.fromFields(GameData.toFields(oldGameData));
   newGameData.nonce = newGameData.nonce.add(1);
   newGameData.gameState = Field(GameState.deal);
   newGameData.currentPlayer = bumpCurrentPlayer(oldGameData);
@@ -84,7 +84,7 @@ export function dealFirstHand(oldGameData: GameData, player: Player): GameData {
 }
 
 export function broadcastDemoState(oldGameData: GameData): GameData {
-  const newGameData = GameData.fromFields(GameData.toFields(oldGameData), []);
+  const newGameData = GameData.fromFields(GameData.toFields(oldGameData));
   newGameData.nonce = newGameData.nonce.add(1);
   newGameData.gameState = Field(GameState.demo);
   newGameData.currentPlayer = bumpCurrentPlayer(oldGameData);

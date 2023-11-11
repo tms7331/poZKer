@@ -59,7 +59,7 @@ export class GameData extends Struct({
 
   static parse(input: string): GameData {
     const array: string[] = JSON.parse(input);
-    return GameData.fromFields(array.map(Field.fromJSON), []);
+    return GameData.fromFields(array.map(Field.fromJSON));
   }
 }
 
