@@ -3,7 +3,7 @@ import { evaluate_7_cards } from './evaluator7.js';
 
 
 
-const enum Streets {
+export const enum Streets {
     // We'll use 'Null' when it's the first action on a given street
     Preflop,
     Flop,
@@ -12,7 +12,7 @@ const enum Streets {
     Showdown,
 }
 
-const enum Actions {
+export const enum Actions {
     // We'll use 'Null' when it's the first action on a given street
     Null,
     Bet,
@@ -27,6 +27,7 @@ const GAME_BUYIN = 1000000;
 
 
 export class PoZKerApp extends SmartContract {
+    root = Field(706658705228152685713447102194564896352128976013742567056765536952384688062);
     //@state(Field) num = State<Field>();
     //@state(Field) gameHash = State<Field>();
     //@state(Field) gameId = State<Field>();
@@ -34,18 +35,19 @@ export class PoZKerApp extends SmartContract {
     // Player balances for the hand
     @state(Field) player1Hash = State<Field>(); // State<PublicKey>();
     @state(Field) player2Hash = State<Field>();
-    @state(Field) street = State<Field>();
-    @state(Bool) turn = State<Bool>();
-    @state(Bool) isGameOver = State<Bool>();
     @state(UInt64) stack1 = State<UInt64>();
     @state(UInt64) stack2 = State<UInt64>();
+    // all 4 of these could potentially be combined if we were desperate
+    @state(Bool) turn = State<Bool>();
+    @state(Bool) isGameOver = State<Bool>();
     // These two are both actually enums
     @state(Field) lastAction = State<Field>();
+    @state(Field) street = State<Field>();
     // @state(PublicKey) winner = State<PublicKey>();
 
     init() {
         super.init();
-        this.street.set(Field(Streets.Flop));
+        this.street.set(Field(Streets.Preflop));
         // For now - player1 always goes first
         this.turn.set(Bool(true));
     }
@@ -136,9 +138,23 @@ export class PoZKerApp extends SmartContract {
             stack2
         );
         this.stack2.set(stack2New);
-
     }
 
+    @method getHolecards(playerSecKey: PrivateKey) {
+        const street = this.street.getAndAssertEquals();
+        const lastAction = this.lastAction.getAndAssertEquals();
+        lastAction.assertEquals(Field(Actions.Null));
+        street.assertEquals(Field(Streets.Preflop));
+
+        const player = PublicKey.fromPrivateKey(playerSecKey);
+        const player1Hash = this.player1Hash.getAndAssertEquals();
+        const player2Hash = this.player2Hash.getAndAssertEquals();
+        const playerHash = Poseidon.hash(player.toFields());
+        const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
+        cond0.assertTrue('Player is not part of this game!')
+
+        return [31, 32];
+    }
 
     @method getFlop() {
         const street = this.street.getAndAssertEquals();
@@ -193,23 +209,21 @@ export class PoZKerApp extends SmartContract {
         // Call - valid when facing [Bet]
         // Fold - valid when facing [Bet, Raise]
         // Raise - valid when facing [Bet]
-        // Check - valid when facing [Null]
+        // Check - valid when facing [Null, Check]
         let act1 = action.equals(Field(Actions.Bet)).and(lastAction.equals(Field(Actions.Null)).or(lastAction.equals(Field(Actions.Check))));
         let act2 = action.equals(Field(Actions.Call)).and(lastAction.equals(Field(Actions.Bet)));
         let act3 = action.equals(Field(Actions.Fold)).and(lastAction.equals(Field(Actions.Bet)).or(lastAction.equals(Field(Actions.Raise))));
         let act4 = action.equals(Field(Actions.Raise)).and(lastAction.equals(Field(Actions.Bet)));
-        let act5 = action.equals(Field(Actions.Check)).and(lastAction.equals(Field(Actions.Null)));
+        let act5 = action.equals(Field(Actions.Check)).and(lastAction.equals(Field(Actions.Null)).or(lastAction.equals(Field(Actions.Check))));
         act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
 
         //or(action.equals(Field(Actions.Bet)).and(lastAction.equals(Field(Actions.Null)).or(lastAction.equals(Field(Actions.Check)))).assertTrue('Bet is valid when facing [Null, Check]'));
 
-        action.assertEquals(Field(Actions.Bet));
-
         // Make sure the player has enough funds to take the action
         const stack1 = this.stack1.getAndAssertEquals();
         const stack2 = this.stack2.getAndAssertEquals();
-        const case1 = playerHash.equals(player1Hash).and(betSize < stack1);
-        const case2 = playerHash.equals(player2Hash).and(betSize < stack2);
+        const case1 = playerHash.equals(player1Hash).and(betSize.lessThan(stack1));
+        const case2 = playerHash.equals(player2Hash).and(betSize.lessThan(stack2));
         case1.or(case2).assertTrue("Not enough balance for bet!");
 
         const stack1New = Provable.if(
@@ -225,6 +239,7 @@ export class PoZKerApp extends SmartContract {
             stack2
         );
         this.stack2.set(stack2New);
+
 
         // Need to check if we've hit the end of the street - transition to next street
         // Scenario for this would be:
@@ -246,6 +261,7 @@ export class PoZKerApp extends SmartContract {
             action
         );
         this.lastAction.set(action);
+
 
         // Game over conditions:
         // Someone folds - other player wins
@@ -270,18 +286,32 @@ export class PoZKerApp extends SmartContract {
             stack2
         );
         this.stack2.set(stack2Final);
+
+
+        // Other player's turn!
+        // TODO - UNLESS a street ends with player 1 taking an action
+
+        this.turn.set(turn.not());
+
     }
 
-    @method showdown(c1: Field, c2: Field, c3: Field, c4: Field, c5: Field, c6: Field, c7: Field, c8: Field, c9: Field) {
+    @method showdown(v1: Field, v2: Field) {
         const stack1 = this.stack1.getAndAssertEquals();
         const stack2 = this.stack2.getAndAssertEquals();
         stack1.assertEquals(stack2);
 
         // Do accounting for showdowno
 
+        //const cardMap0 = { 0: 1, 2: 3, 4: 5 }
+        //const cardMap1 = { Field(0): 1, Field(2): 3, Field(4: ) 5 }
+        //const conv = cardMap0[c1];
+        //const conv = cardMap0[c1.toNumber()];
+
+
         // Try and use external js library first
-        let val1 = evaluate_7_cards(c1, c2, c5, c6, c7, c8, c9);
-        let val2 = evaluate_7_cards(c3, c4, c5, c6, c7, c8, c9);
+        //let val1 = evaluate_7_cards(c1.toBigInt(), c2.toBigInt(), c5.toBigInt(), c6.toBigInt(), c7.toBigInt(), c8.toBigInt(), c9.toBigInt());
+        //let val2 = evaluate_7_cards(c3, c4, c5, c6, c7, c8, c9);
+        //let val2 = evaluate_7_cards(c3, c4, c5, c6, c7, c8, c9);
 
         // Player1 wins - send funds to player1
 
@@ -291,19 +321,19 @@ export class PoZKerApp extends SmartContract {
 
         // Lower is better for the hand rankings
         const stack1Final = Provable.if(
-            Bool(val1 < val2),
+            Bool(v1.lessThan(v2)),
             p1WinnerBal,
             stack1
         );
         const stack2Final = Provable.if(
-            Bool(val2 < val1),
+            Bool(v2.lessThan(v1)),
             p2WinnerBal,
             stack2
         );
 
         // If we get a tie - split the pot
         const tieAdj = Provable.if(
-            Bool(val2 === val1),
+            Bool(v2 === v1),
             startingBal.sub(stack2),
             UInt64.from(0),
         );
