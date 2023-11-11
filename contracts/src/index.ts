@@ -1,3 +1,3 @@
-import { Add } from './Add.js';
+import { PoZKerApp } from './PoZKer.js';
 
-export { Add };
+export { PoZKerApp };
