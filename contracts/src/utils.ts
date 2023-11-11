@@ -76,10 +76,9 @@ export function partialUnmask(card: Card, playerSecret: PrivateKey): Card {
   );
   const d1 = computeSharedSecret(playerSecret, safeEpk);
   const msg = PublicKey.fromGroup(card.msg.toGroup().sub(d1.toGroup()));
-//   const sameCard = new Card(epk, card.msg, card.pk)
-  const unmaskedCard = new Card(epk, msg, pk)
-  //return Provable.if(isUnmasked, new Card(epk, card.msg, card.pk), new Card(epk, msg, pk))
-    return unmaskedCard;
+  const msg_ = Provable.if(isUnmasked, card.msg, msg);
+  const pk_ = Provable.if(isUnmasked, card.pk, pk);
+  return new Card(epk, msg_, pk_);
 }
 
 /**
