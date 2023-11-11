@@ -1,7 +1,4 @@
 import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, AccountUpdate, Poseidon } from 'o1js';
-import { evaluate_7_cards } from './evaluator7.js';
-
-
 
 export const enum Streets {
     // We'll use 'Null' when it's the first action on a given street
@@ -29,28 +26,22 @@ export const enum TurnGameOver {
     GameOver,
 }
 
-// Hardcode 100 mina as game size
-const GAME_BUYIN = 1000000;
+// Hardcode 100 as game size
+const GAME_BUYIN = 100;
 
 
 export class PoZKerApp extends SmartContract {
     root = Field(706658705228152685713447102194564896352128976013742567056765536952384688062);
-    //@state(Field) num = State<Field>();
-    //@state(Field) gameHash = State<Field>();
-    //@state(Field) gameId = State<Field>();
-
-    // Player balances for the hand
-    @state(Field) player1Hash = State<Field>(); // State<PublicKey>();
+    @state(Field) player1Hash = State<Field>();
     @state(Field) player2Hash = State<Field>();
+    // Player balances for the hand
     @state(UInt64) stack1 = State<UInt64>();
     @state(UInt64) stack2 = State<UInt64>();
-    //@state(Bool) turn = State<Bool>();
-    //@state(Bool) isGameOver = State<Bool>();
+    // combined 'turn' bool and 'isGameOver' bool into this enum
     @state(Field) turnGameOver = State<Field>();
-    // These two are both actually enums
+    // These two are both enums
     @state(Field) lastAction = State<Field>();
     @state(Field) street = State<Field>();
-    // @state(PublicKey) winner = State<PublicKey>();
 
     init() {
         super.init();
@@ -203,8 +194,8 @@ export class PoZKerApp extends SmartContract {
 
         playerHash
             .equals(player1Hash)
-            .and(turn.equals(0))
-            .or(playerHash.equals(player2Hash).and(turn.equals(1)))
+            .and(turn.equals(TurnGameOver.Player1Turn))
+            .or(playerHash.equals(player2Hash).and(turn.equals(TurnGameOver.Player2Turn)))
             .assertTrue('player is allowed to make the move');
 
         // Confirm actions is valid, must be some combination below:
