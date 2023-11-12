@@ -4,6 +4,16 @@ import { PoZKerApp, Actions, Streets } from './PoZKer.js';
 //const readline = require('readline');
 import readline from 'readline';
 import { promisify } from 'util';
+import { Cipher, ElGamalFF } from 'o1js-elgamal';
+
+const cards = ['2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh', 'Qh', 'Kh', 'Ah',
+    '2d', '3d', '4d', '5d', '6d', '7d', '8d', '9d', 'Td', 'Jd', 'Qd', 'Kd', 'Ad',
+    '2c', '3c', '4c', '5c', '6c', '7c', '8c', '9c', 'Tc', 'Jc', 'Qc', 'Kc', 'Ac',
+    '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', 'Ts', 'Js', 'Qs', 'Ks', 'As']
+
+
+
+
 
 // import { evaluate_7_cards } from './evaluator7.js';
 //ReadLine.
@@ -36,14 +46,24 @@ const { privateKey: deployerKey, publicKey: deployerAccount } = Local.testAccoun
 const { privateKey: playerPrivKey1, publicKey: playerPubKey1 } = Local.testAccounts[1];
 const { privateKey: playerPrivKey2, publicKey: playerPubKey2 } = Local.testAccounts[2];
 
+// Keys for elgamal encryption/decryption
+let keys1 = ElGamalFF.generateKeys();
+let keys2 = ElGamalFF.generateKeys();
+
+
 function getRandomInt(min: number, max: number) {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-const SLEEP_TIME_SHORT = 0
-const SLEEP_TIME_LONG = 0
+function parseCardInt(cardInt: number): string {
+    return cards[cardInt];
+}
+
+
+const SLEEP_TIME_SHORT = 1000
+const SLEEP_TIME_LONG = 3000
 const GAME_ID = getRandomInt(1, 9999999999)
 console.log(" GENERATING GAME WITH ID ", GAME_ID);
 
@@ -100,44 +120,45 @@ await txn3.sign([playerPrivKey2]).send();
 const bal2 = zkAppInstance.stack2.get();
 console.log("Player 2 Stack:", bal2.toString());
 
+await sleep(SLEEP_TIME_LONG);
+
 console.log("Dealing cards to player 1, look away player 2!");
 await sleep(SLEEP_TIME_SHORT);
 let card1 = -1
 let card2 = -1;
-const txn90 = await Mina.transaction(playerPubKey1, async () => {
-    const retVal = await getHoleFromOracle(GAME_ID.toString());
-    const retValHand = retVal.hand 
-    card1 = retValHand[0];
-    card2 = retValHand[1];
-    //console.log("RETVAL", retVal);
-});
-await txn90.prove();
-await txn90.sign([playerPrivKey1]).send();
-console.log("player 1 hole cards:", card1.toString(), card2.toString());
+
+const retVal = await getHoleFromOracle(GAME_ID.toString());
+const retValHand = retVal.hand
+card1 = retValHand[0];
+card2 = retValHand[1];
+
+//const txn90 = await Mina.transaction(playerPubKey1, async () => {
+//    console.log("RETVAL", retVal);
+//});
+//await txn90.prove();
+//await txn90.sign([playerPrivKey1]).send();
+console.log("player 1 hole cards:", parseCardInt(parseInt(card1.toString())), parseCardInt(parseInt(card2.toString())));
 console.log("Screen will be cleared after 3 seconds...")
 
 await sleep(SLEEP_TIME_LONG);
-clear();
+//clear();
 
 
 console.log("Dealing cards to player 2, look away player 1!");
 await sleep(SLEEP_TIME_SHORT);
 let card3 = -1
 let card4 = -1;
-const txn91 = await Mina.transaction(playerPubKey2, async () => {
-    const retVal = await getHoleFromOracle(GAME_ID.toString());
-    const retValHand = retVal.hand 
-    card3 = retValHand[0];
-    card4 = retValHand[1];
-    //console.log("RETVAL", retVal);
-});
-await txn91.prove();
-await txn91.sign([playerPrivKey2]).send();
-console.log("player 2 hole cards:", card3.toString(), card4.toString());
+
+const retVal2 = await getHoleFromOracle(GAME_ID.toString());
+const retValHand2 = retVal2.hand
+card3 = retValHand2[0];
+card4 = retValHand2[1];
+
+console.log("player 2 hole cards:", parseCardInt(parseInt(card3.toString())), parseCardInt(parseInt(card4.toString())));
 console.log("Screen will be cleared after 3 seconds...")
 
 await sleep(SLEEP_TIME_LONG);
-clear();
+//clear();
 
 
 // now start game loop...
@@ -157,6 +178,8 @@ const actionMap = {
 }
 
 let currStreet = zkAppInstance.street.get().toString()
+
+const board: string[] = []
 
 // Main game loop - keep accepting actions until hand ends
 while (true) {
@@ -201,7 +224,7 @@ while (true) {
         // Showdown means no more actions, need to handle card logic though
         // showdown(v1: Field, v2: Field)
         const txn = await Mina.transaction(playerPubKey2, () => {
-            zkAppInstance.showdown((Field(1)), (Field(2)))
+            zkAppInstance.showdown()
         });
         await txn.prove();
         await txn.sign([playerPrivKey2]).send();
@@ -214,21 +237,30 @@ while (true) {
             console.log("DEALING FLOP...")
             let flop = await getFlopFromOracle(GAME_ID.toString());
             let flopHand = flop.hand
+            board.push(parseCardInt(parseInt(flopHand[0])));
+            board.push(parseCardInt(parseInt(flopHand[1])));
+            board.push(parseCardInt(parseInt(flopHand[2])));
+            console.log("BOARD IS", board);
         }
         else if (parseInt(street) == Streets.Turn) {
             console.log("DEALING TURN...")
             let take = await getTakeFromOracle(GAME_ID.toString());
             let takeHand = take.hand
+            board.push(parseCardInt(parseInt(takeHand[0])));
+            console.log("BOARD IS", board);
         }
-        else if (parseInt(street) == Streets.River) {
-            console.log("DEALING RIVER...")
-            let river = await getRiverFromOracle(GAME_ID.toString());
-            let riverHand = river.hand
-        }
-        currStreet = street;
     }
-
+    else if (parseInt(street) == Streets.River) {
+        console.log("DEALING RIVER...")
+        let river = await getRiverFromOracle(GAME_ID.toString());
+        let riverHand = river.hand
+        board.push(parseCardInt(parseInt(riverHand[0])));
+        console.log("BOARD IS", board);
+    }
+    currStreet = street;
 }
+
+
 
 
 
