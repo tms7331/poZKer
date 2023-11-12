@@ -82,11 +82,3 @@ export function dealFirstHand(oldGameData: GameData, player: Player): GameData {
   newGameData.playerSecrets[currentPlayerIndex]._cardKeys[cardIndex] = player.secrets._cardKeys[cardIndex];
   return newGameData;
 }
-
-export function broadcastDemoState(oldGameData: GameData): GameData {
-  const newGameData = GameData.fromFields(GameData.toFields(oldGameData));
-  newGameData.nonce = newGameData.nonce.add(1);
-  newGameData.gameState = Field(GameState.demo);
-  newGameData.currentPlayer = bumpCurrentPlayer(oldGameData);
-  return newGameData;
-}
