@@ -57,8 +57,8 @@ const playerPubKey2 = playerPrivKey2.toPublicKey();
 //await txnFund.sign([feePayer1.privateKey, zkAppPrivateKey]).send();
 
 
-//const p1Hash = Poseidon.hash(playerPubKey1.toFields());
-//const p2Hash = Poseidon.hash(playerPubKey2.toFields());
+//const p1Hash = Poseidon.hash(playerPrivKey1.toFields());
+//const p2Hash = Poseidon.hash(playerPrivKey2.toFields());
 //console.log("HASHes", p1Hash.toString())
 //console.log("HASHes", p2Hash.toString())
 
@@ -79,8 +79,8 @@ function parseCardInt(cardInt: number): string {
 }
 
 
-const SLEEP_TIME_SHORT = 0; // 1000
-const SLEEP_TIME_LONG = 0; //3000
+const SLEEP_TIME_SHORT = 1000;
+const SLEEP_TIME_LONG = 3000;
 const GAME_ID = getRandomInt(1, 9999999999)
 console.log(" GENERATING GAME WITH ID ", GAME_ID);
 
@@ -116,6 +116,23 @@ await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
 //await txn1.prove();
 //await txn1.sign([playerPrivKey1]).send();
 
+let txSend1 = await Mina.transaction(fundedPubKey1, () => {
+    AccountUpdate.fundNewAccount(fundedPubKey1).send({
+        to: playerPubKey1,
+        amount: 100,
+    });
+});
+await txSend1.prove();
+await txSend1.sign([fundedPrivKey1]).send();
+
+let txSend2 = await Mina.transaction(fundedPubKey1, () => {
+    AccountUpdate.fundNewAccount(fundedPubKey1).send({
+        to: playerPubKey2,
+        amount: 100,
+    });
+});
+await txSend2.prove();
+await txSend2.sign([fundedPrivKey1]).send();
 
 
 /////////////// Stage 1 - Deposit
@@ -261,7 +278,6 @@ console.log("Check: 5")
 
 const actionList = ["", "Bets", "Calls", "Folds", "Raises", "Checks"]
 
-
 let currStreet = zkAppInstance.street.get().toString()
 
 const board: string[] = []
@@ -311,7 +327,6 @@ while (true) {
 
     const street = zkAppInstance.street.get().toString()
     if (parseInt(street) == Streets.Showdown) {
-
         // BOTH players must show cards before we can do showdown...
 
         const txnA = await Mina.transaction(playerPubKey1, () => {
@@ -402,23 +417,23 @@ while (true) {
             await txnA.sign([playerPrivKey2]).send();
 
         }
-    }
-    else if (parseInt(street) == Streets.River) {
-        console.log("DEALING RIVER...")
-        let river = await getRiverFromOracle(GAME_ID.toString());
-        let riverHand = river.hand
-        board.push(parseCardInt(parseInt(riverHand[0])));
-        console.log("BOARD IS", board);
+        else if (parseInt(street) == Streets.River) {
+            console.log("DEALING RIVER...")
+            let river = await getRiverFromOracle(GAME_ID.toString());
+            let riverHand = river.hand
+            board.push(parseCardInt(parseInt(riverHand[0])));
+            console.log("BOARD IS", board);
 
-        const cardPrime1 = riverHand[0] % 13;
-        boardPrimes *= cardPrime1;
-        const txnA = await Mina.transaction(playerPubKey2, () => {
-            zkAppInstance.tallyBoardCards(Field(cardPrime1))
-        });
-        await txnA.prove();
-        await txnA.sign([playerPrivKey2]).send();
+            const cardPrime1 = riverHand[0] % 13;
+            boardPrimes *= cardPrime1;
+            const txnA = await Mina.transaction(playerPubKey2, () => {
+                zkAppInstance.tallyBoardCards(Field(cardPrime1))
+            });
+            await txnA.prove();
+            await txnA.sign([playerPrivKey2]).send();
+        }
+        currStreet = street;
     }
-    currStreet = street;
 }
 
 
