@@ -27,6 +27,7 @@ import {
     PrivateKey,
     AccountUpdate,
     UInt64,
+    Poseidon,
     MerkleMap,
 } from 'o1js';
 import { getHoleFromOracle, getFlopFromOracle, getRiverFromOracle, getTakeFromOracle } from "./oracleLib.js";
@@ -39,8 +40,28 @@ console.log("Funds will be auto-deposited and gameplay will start automatically.
 const Local = Mina.LocalBlockchain({ proofsEnabled: useProof });
 Mina.setActiveInstance(Local);
 const { privateKey: deployerKey, publicKey: deployerAccount } = Local.testAccounts[0];
-const { privateKey: playerPrivKey1, publicKey: playerPubKey1 } = Local.testAccounts[1];
-const { privateKey: playerPrivKey2, publicKey: playerPubKey2 } = Local.testAccounts[2];
+const { privateKey: fundedPrivKey1, publicKey: fundedPubKey1 } = Local.testAccounts[1];
+//const { privateKey: playerPrivKey2, publicKey: playerPubKey2 } = Local.testAccounts[2];
+
+const playerPrivKey1: PrivateKey = PrivateKey.fromBase58("EKE3TZ7PYTyf4XSyEcqCUuyFZAtiW5w9Enm5PUjruTLFUHangY3k");;
+const playerPubKey1 = playerPrivKey1.toPublicKey();
+const playerPrivKey2: PrivateKey = PrivateKey.fromBase58("EKErvBujci5uiqL5nBv5kBP5d2MMz2zE8E5EtdZZPSF6p7AhzSK5");;
+const playerPubKey2 = playerPrivKey2.toPublicKey();
+
+//txnFund = await Mina.transaction(fundedPubKey1, () => {
+//  AccountUpdate.fundNewAccount(playerPubKey1);
+//
+//    send({ to: player, amount: sendAmount });
+//  //zkAppInstance.deploy();
+//});
+//await txnFund.sign([feePayer1.privateKey, zkAppPrivateKey]).send();
+
+
+//const p1Hash = Poseidon.hash(playerPubKey1.toFields());
+//const p2Hash = Poseidon.hash(playerPubKey2.toFields());
+//console.log("HASHes", p1Hash.toString())
+//console.log("HASHes", p2Hash.toString())
+
 
 // Keys for elgamal encryption/decryption
 let keys1 = ElGamalFF.generateKeys();
@@ -89,11 +110,11 @@ const deployTxn = await Mina.transaction(deployerAccount, () => {
 await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
 // ----------------------------------------------------
 
-const txn1 = await Mina.transaction(playerPubKey1, () => {
-    zkAppInstance.initState(playerPubKey1, playerPubKey2)
-});
-await txn1.prove();
-await txn1.sign([playerPrivKey1]).send();
+//const txn1 = await Mina.transaction(playerPubKey1, () => {
+//    zkAppInstance.initState(playerPubKey1, playerPubKey2)
+//});
+//await txn1.prove();
+//await txn1.sign([playerPrivKey1]).send();
 
 
 

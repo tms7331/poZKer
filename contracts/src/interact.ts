@@ -31,6 +31,8 @@ const { privateKey: deployerKey, publicKey: deployerAccount } = Local.testAccoun
 const { privateKey: playerPrivKey1, publicKey: playerPubKey1 } = Local.testAccounts[1];
 const { privateKey: playerPrivKey2, publicKey: playerPubKey2 } = Local.testAccounts[2];
 
+console.log("ACCOUNTS", playerPubKey1.toBase58(), playerPubKey2.toBase58());
+
 const map = new MerkleMap();
 map.set(Field(0), Field(100));
 map.set(Field(1), Field(101));
@@ -68,11 +70,11 @@ await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
 //console.log('state after init:', num0.toString());
 // ----------------------------------------------------
 
-const txn1 = await Mina.transaction(playerPubKey1, () => {
-  zkAppInstance.initState(playerPubKey1, playerPubKey2)
-});
-await txn1.prove();
-await txn1.sign([playerPrivKey1]).send();
+//const txn1 = await Mina.transaction(playerPubKey1, () => {
+//  zkAppInstance.initState(playerPubKey1, playerPubKey2)
+//});
+//await txn1.prove();
+//await txn1.sign([playerPrivKey1]).send();
 
 
 
@@ -197,7 +199,7 @@ const v2 = map.get(Field(parseInt(key2)));
 console.log("## Field vals", v1.toString(), v2.toString());
 
 const txn10 = await Mina.transaction(playerPubKey2, () => {
-  zkAppInstance.showdown((v1), (v2))
+  zkAppInstance.showdown()
 });
 await txn10.prove();
 await txn10.sign([playerPrivKey2]).send();
