@@ -33,6 +33,7 @@ const GAME_BUYIN = 100;
 
 export class PoZKerApp extends SmartContract {
     root = Field(706658705228152685713447102194564896352128976013742567056765536952384688062);
+    //player1Key = PublicKey("B62qkyTq79yooTr4wWUMSYDgxz1DFJstpeoDa2LuLBEF9i9HgUaLMfn");
     @state(Field) player1Hash = State<Field>();
     @state(Field) player2Hash = State<Field>();
     // Player balances for the hand

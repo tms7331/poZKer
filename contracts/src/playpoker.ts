@@ -11,10 +11,6 @@ const cards = ['2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh', 'Qh',
     '2c', '3c', '4c', '5c', '6c', '7c', '8c', '9c', 'Tc', 'Jc', 'Qc', 'Kc', 'Ac',
     '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', 'Ts', 'Js', 'Qs', 'Ks', 'As']
 
-
-
-
-
 // import { evaluate_7_cards } from './evaluator7.js';
 //ReadLine.
 const rl = readline.createInterface({
@@ -62,8 +58,8 @@ function parseCardInt(cardInt: number): string {
 }
 
 
-const SLEEP_TIME_SHORT = 1000
-const SLEEP_TIME_LONG = 3000
+const SLEEP_TIME_SHORT = 0; // 1000
+const SLEEP_TIME_LONG = 0; //3000
 const GAME_ID = getRandomInt(1, 9999999999)
 console.log(" GENERATING GAME WITH ID ", GAME_ID);
 
@@ -132,6 +128,46 @@ const retValHand = retVal.hand
 card1 = retValHand[0];
 card2 = retValHand[1];
 
+
+// Player 1 will encrypt their cards - we'll pretend that we've done 
+// shuffles and encryptions, and player 2 has decrypted their half of the
+// key and that is what player2 is committing to the blockchain...
+let c0 = ElGamalFF.encrypt(Field(card1), keys1.pk);
+let c1 = ElGamalFF.encrypt(Field(card2), keys1.pk);
+
+const txnC1 = await Mina.transaction(playerPubKey2, () => {
+    // Have to put it in slots 1 and 2
+    const slotI = Field(1);
+    zkAppInstance.commitCard(slotI, c0.c1)
+});
+await txnC1.prove();
+await txnC1.sign([playerPrivKey2]).send();
+
+const txnC2 = await Mina.transaction(playerPubKey2, () => {
+    // Have to put it in slots 1 and 2
+    const slotI = Field(2);
+    zkAppInstance.commitCard(slotI, c1.c1)
+});
+await txnC2.prove();
+await txnC2.sign([playerPrivKey2]).send();
+
+// Now player 1 can call to store a hashed version of card onchain
+const txnC3 = await Mina.transaction(playerPubKey1, () => {
+    // Have to put it in slots 1 and 2
+    const slotI = Field(0);
+    const c2a = c0.c2;
+    const c2b = c1.c2;
+    const cipherKeys = keys1.sk;
+    const playerSecKey = playerPrivKey1;
+    zkAppInstance.storeCardHash(slotI, c2a, c2b, cipherKeys, playerSecKey)
+});
+await txnC3.prove();
+await txnC3.sign([playerPrivKey1]).send();
+
+
+
+
+
 //const txn90 = await Mina.transaction(playerPubKey1, async () => {
 //    console.log("RETVAL", retVal);
 //});
@@ -141,7 +177,7 @@ console.log("player 1 hole cards:", parseCardInt(parseInt(card1.toString())), pa
 console.log("Screen will be cleared after 3 seconds...")
 
 await sleep(SLEEP_TIME_LONG);
-//clear();
+clear();
 
 
 console.log("Dealing cards to player 2, look away player 1!");
@@ -157,8 +193,41 @@ card4 = retValHand2[1];
 console.log("player 2 hole cards:", parseCardInt(parseInt(card3.toString())), parseCardInt(parseInt(card4.toString())));
 console.log("Screen will be cleared after 3 seconds...")
 
+// Exact same logic as for player 1
+let c3 = ElGamalFF.encrypt(Field(card1), keys1.pk);
+let c4 = ElGamalFF.encrypt(Field(card2), keys1.pk);
+
+const txnC4 = await Mina.transaction(playerPubKey1, () => {
+    // Have to put it in slots 1 and 2
+    const slotI = Field(1);
+    zkAppInstance.commitCard(slotI, c3.c1)
+});
+await txnC4.prove();
+await txnC4.sign([playerPrivKey1]).send();
+
+const txnC5 = await Mina.transaction(playerPubKey1, () => {
+    // Have to put it in slots 1 and 2
+    const slotI = Field(2);
+    zkAppInstance.commitCard(slotI, c4.c1)
+});
+await txnC5.prove();
+await txnC5.sign([playerPrivKey1]).send();
+
+// Now player 1 can call to store a hashed version of card onchain
+const txnC6 = await Mina.transaction(playerPubKey2, () => {
+    // Have to put it in slots 1 and 2
+    const slotI = Field(1);
+    const c2a = c3.c2;
+    const c2b = c4.c2;
+    const cipherKeys = keys2.sk;
+    const playerSecKey = playerPrivKey2;
+    zkAppInstance.storeCardHash(slotI, c2a, c2b, cipherKeys, playerSecKey)
+});
+await txnC6.prove();
+await txnC6.sign([playerPrivKey2]).send();
+
 await sleep(SLEEP_TIME_LONG);
-//clear();
+clear();
 
 
 // now start game loop...
@@ -169,17 +238,13 @@ console.log("Fold: 3")
 console.log("Raise: 4")
 console.log("Check: 5")
 
-const actionMap = {
-    1: "Bet",
-    2: "Call",
-    3: "Fold",
-    4: "Raise",
-    5: "Check",
-}
+const actionList = ["", "Bets", "Calls", "Folds", "Raises", "Checks"]
+
 
 let currStreet = zkAppInstance.street.get().toString()
 
 const board: string[] = []
+let boardPrimes = 1;
 
 // Main game loop - keep accepting actions until hand ends
 while (true) {
@@ -198,6 +263,8 @@ while (true) {
         });
         await txn.prove();
         await txn.sign([playerPrivKey1]).send();
+        const actionStr = actionList[action];
+        console.log("Player 1", actionStr)
     }
     else if (player == "1") {
         const action = await question("Player 2 - Choose your action\n") as number;
@@ -213,6 +280,8 @@ while (true) {
         });
         await txn.prove();
         await txn.sign([playerPrivKey2]).send();
+        const actionStr = actionList[action];
+        console.log("Player 2", actionStr)
     }
     else {
         // This condition would mean game is over...
@@ -221,6 +290,32 @@ while (true) {
 
     const street = zkAppInstance.street.get().toString()
     if (parseInt(street) == Streets.Showdown) {
+
+        // BOTH players must show cards before we can do showdown...
+
+        const txnA = await Mina.transaction(playerPubKey1, () => {
+            const slotI = Field(0)
+            // Key is SUM of primes...
+            const merkleMapKey: Field = Field((card1 & 13) * (card2 & 13) * boardPrimes);
+            const merkleMapVal: Field = Field(getRandomInt(0, 6500));
+            const playerSecKey = playerPrivKey2;
+            zkAppInstance.showCards(slotI, Field(card1 & 13), Field(card2 & 13), merkleMapKey, merkleMapVal, playerSecKey)
+        });
+        await txnA.prove();
+        await txnA.sign([playerPrivKey1]).send();
+
+
+        const txnB = await Mina.transaction(playerPubKey2, () => {
+            const slotI = Field(1)
+            // Key is SUM of primes...
+            const merkleMapKey: Field = Field((card3 & 13) * (card4 & 13) * boardPrimes);
+            const merkleMapVal: Field = Field(getRandomInt(0, 6500));
+            const playerSecKey = playerPrivKey2;
+            zkAppInstance.showCards(slotI, Field(card3 & 13), Field(card4 & 13), merkleMapKey, merkleMapVal, playerSecKey)
+        });
+        await txnB.prove();
+        await txnB.sign([playerPrivKey2]).send();
+
         // Showdown means no more actions, need to handle card logic though
         // showdown(v1: Field, v2: Field)
         const txn = await Mina.transaction(playerPubKey2, () => {
@@ -241,6 +336,34 @@ while (true) {
             board.push(parseCardInt(parseInt(flopHand[1])));
             board.push(parseCardInt(parseInt(flopHand[2])));
             console.log("BOARD IS", board);
+
+            // We have to keep track of the board cards...
+            const cardPrime1 = flopHand[0] % 13;
+            const cardPrime2 = flopHand[1] % 13;
+            const cardPrime3 = flopHand[2] % 13;
+            // have to keep our own tally of primes...
+            boardPrimes *= cardPrime1;
+            boardPrimes *= cardPrime2;
+            boardPrimes *= cardPrime3;
+            const txnA = await Mina.transaction(playerPubKey2, () => {
+                zkAppInstance.tallyBoardCards(Field(cardPrime1))
+            });
+            await txnA.prove();
+            await txnA.sign([playerPrivKey2]).send();
+
+            const txnB = await Mina.transaction(playerPubKey2, () => {
+                zkAppInstance.tallyBoardCards(Field(cardPrime2))
+            });
+            await txnB.prove();
+            await txnB.sign([playerPrivKey2]).send();
+
+
+            const txnC = await Mina.transaction(playerPubKey2, () => {
+                zkAppInstance.tallyBoardCards(Field(cardPrime3))
+            });
+            await txnC.prove();
+            await txnC.sign([playerPrivKey2]).send();
+
         }
         else if (parseInt(street) == Streets.Turn) {
             console.log("DEALING TURN...")
@@ -248,6 +371,15 @@ while (true) {
             let takeHand = take.hand
             board.push(parseCardInt(parseInt(takeHand[0])));
             console.log("BOARD IS", board);
+
+            const cardPrime1 = (takeHand[0] % 13);
+            boardPrimes *= cardPrime1;
+            const txnA = await Mina.transaction(playerPubKey2, () => {
+                zkAppInstance.tallyBoardCards(Field(cardPrime1))
+            });
+            await txnA.prove();
+            await txnA.sign([playerPrivKey2]).send();
+
         }
     }
     else if (parseInt(street) == Streets.River) {
@@ -256,6 +388,14 @@ while (true) {
         let riverHand = river.hand
         board.push(parseCardInt(parseInt(riverHand[0])));
         console.log("BOARD IS", board);
+
+        const cardPrime1 = riverHand[0] % 13;
+        boardPrimes *= cardPrime1;
+        const txnA = await Mina.transaction(playerPubKey2, () => {
+            zkAppInstance.tallyBoardCards(Field(cardPrime1))
+        });
+        await txnA.prove();
+        await txnA.sign([playerPrivKey2]).send();
     }
     currStreet = street;
 }
