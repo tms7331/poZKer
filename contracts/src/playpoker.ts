@@ -23,6 +23,8 @@ import {
     UInt64,
     MerkleMap,
 } from 'o1js';
+import { getHoleFromOracle, getFlopFromOracle, getRiverFromOracle, getTakeFromOracle } from "./oracleLib.js";
+
 
 await isReady;
 const useProof = false;
@@ -34,8 +36,16 @@ const { privateKey: deployerKey, publicKey: deployerAccount } = Local.testAccoun
 const { privateKey: playerPrivKey1, publicKey: playerPubKey1 } = Local.testAccounts[1];
 const { privateKey: playerPrivKey2, publicKey: playerPubKey2 } = Local.testAccounts[2];
 
+function getRandomInt(min: number, max: number) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 const SLEEP_TIME_SHORT = 0
 const SLEEP_TIME_LONG = 0
+const GAME_ID = getRandomInt(1, 9999999999)
+console.log(" GENERATING GAME WITH ID ", GAME_ID);
 
 //console.log("ACCOUNTS", playerPubKey1.toBase58(), playerPubKey2.toBase58());
 
@@ -94,10 +104,11 @@ console.log("Dealing cards to player 1, look away player 2!");
 await sleep(SLEEP_TIME_SHORT);
 let card1 = -1
 let card2 = -1;
-const txn90 = await Mina.transaction(playerPubKey1, () => {
-    const retVal = zkAppInstance.getHolecards(playerPrivKey1)
-    card1 = retVal[0];
-    card2 = retVal[1];
+const txn90 = await Mina.transaction(playerPubKey1, async () => {
+    const retVal = await getHoleFromOracle(GAME_ID.toString());
+    const retValHand = retVal.hand 
+    card1 = retValHand[0];
+    card2 = retValHand[1];
     //console.log("RETVAL", retVal);
 });
 await txn90.prove();
@@ -113,10 +124,11 @@ console.log("Dealing cards to player 2, look away player 1!");
 await sleep(SLEEP_TIME_SHORT);
 let card3 = -1
 let card4 = -1;
-const txn91 = await Mina.transaction(playerPubKey2, () => {
-    const retVal = zkAppInstance.getHolecards(playerPrivKey2)
-    card3 = retVal[0];
-    card4 = retVal[1];
+const txn91 = await Mina.transaction(playerPubKey2, async () => {
+    const retVal = await getHoleFromOracle(GAME_ID.toString());
+    const retValHand = retVal.hand 
+    card3 = retValHand[0];
+    card4 = retValHand[1];
     //console.log("RETVAL", retVal);
 });
 await txn91.prove();
@@ -200,12 +212,18 @@ while (true) {
     else if (currStreet != street) {
         if (parseInt(street) == Streets.Flop) {
             console.log("DEALING FLOP...")
+            let flop = await getFlopFromOracle(GAME_ID.toString());
+            let flopHand = flop.hand
         }
         else if (parseInt(street) == Streets.Turn) {
             console.log("DEALING TURN...")
+            let take = await getTakeFromOracle(GAME_ID.toString());
+            let takeHand = take.hand
         }
         else if (parseInt(street) == Streets.River) {
             console.log("DEALING RIVER...")
+            let river = await getRiverFromOracle(GAME_ID.toString());
+            let riverHand = river.hand
         }
         currStreet = street;
     }
