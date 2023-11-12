@@ -38,9 +38,10 @@
     "typescript": "^4.7.2"
   },
   "peerDependencies": {
-    "o1js": "0.14.*"
+    "o1js": "^0.13.*"
   },
   "dependencies": {
+    "o1js-elgamal": "^0.0.10",
     "snarkyjs": "^0.12.1",
     "uint8arrays": "^4.0.6"
   }
