@@ -21,7 +21,8 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "testw": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "lint": "npx eslint src/* --fix",
-    "interact": "npm run build && node build/src/interact.js"
+    "interact": "npm run build && node build/src/interact.js",
+    "stuff": "npm run build && node build/src/runStuff.js"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.16.4",
