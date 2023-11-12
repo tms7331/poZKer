@@ -447,6 +447,9 @@ export class PoZKerApp extends SmartContract {
 
         this.slot0.set(slot0New);
         this.slot1.set(slot1New);
+
+        // We want this to be '1' so we can properly multiply our board values
+        this.slot2.set(Field(1));
     }
 
     @method commitCard(slotI: Field, encryptedCard: Field) {
