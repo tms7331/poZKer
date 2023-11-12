@@ -5,6 +5,8 @@ console.log("hole", responseA);
 
 const responseB = await getFlopFromOracle("32");
 console.log("flop", responseB);
+let flopHand = responseB.hand
+console.log("flop hand", flopHand);
 
 const responseC = await getTakeFromOracle("32");
 console.log("take", responseC);
