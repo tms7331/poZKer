@@ -1,4 +1,5 @@
-import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, AccountUpdate, Poseidon } from 'o1js';
+import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, AccountUpdate, Poseidon, MerkleMapWitness } from 'o1js';
+import { Cipher, ElGamalFF } from 'o1js-elgamal';
 
 export const enum Streets {
     // We'll use 'Null' when it's the first action on a given street
@@ -42,6 +43,11 @@ export class PoZKerApp extends SmartContract {
     // These two are both enums
     @state(Field) lastAction = State<Field>();
     @state(Field) street = State<Field>();
+
+    // Free memory slots for storing data
+    @state(Field) slot0 = State<Field>();
+    @state(Field) slot1 = State<Field>();
+    @state(Field) slot2 = State<Field>();
 
     init() {
         super.init();
@@ -296,45 +302,40 @@ export class PoZKerApp extends SmartContract {
         this.stack2.set(stack2Final);
     }
 
-    @method showdown(v1: Field, v2: Field) {
+    @method showdown() {
+        // We should only call this if we actually made it to showdown
+        const street = this.street.getAndAssertEquals();
+        street.assertEquals(Field(Streets.Showdown));
+
         const stack1 = this.stack1.getAndAssertEquals();
         const stack2 = this.stack2.getAndAssertEquals();
         stack1.assertEquals(stack2);
 
-        // Do accounting for showdowno
-
-        //const cardMap0 = { 0: 1, 2: 3, 4: 5 }
-        //const cardMap1 = { Field(0): 1, Field(2): 3, Field(4: ) 5 }
-        //const conv = cardMap0[c1];
-        //const conv = cardMap0[c1.toNumber()];
-
-
-        // Try and use external js library first
-        //let val1 = evaluate_7_cards(c1.toBigInt(), c2.toBigInt(), c5.toBigInt(), c6.toBigInt(), c7.toBigInt(), c8.toBigInt(), c9.toBigInt());
-        //let val2 = evaluate_7_cards(c3, c4, c5, c6, c7, c8, c9);
-        //let val2 = evaluate_7_cards(c3, c4, c5, c6, c7, c8, c9);
-
-        // Player1 wins - send funds to player1
 
         const startingBal = UInt64.from(GAME_BUYIN);
         const p1WinnerBal = stack1.add(startingBal.sub(stack2));
         const p2WinnerBal = stack2.add(startingBal.sub(stack1));
 
+        // Convention is we'll have stored player1's lookup value for their hand 
+        // in slot0, and player2's lookup value in slot1
+        const slot0 = this.slot0.getAndAssertEquals();
+        const slot1 = this.slot1.getAndAssertEquals();
+
         // Lower is better for the hand rankings
         const stack1Final = Provable.if(
-            Bool(v1.lessThan(v2)),
+            Bool(slot0.lessThan(slot1)),
             p1WinnerBal,
             stack1
         );
         const stack2Final = Provable.if(
-            Bool(v2.lessThan(v1)),
+            Bool(slot1.lessThan(slot0)),
             p2WinnerBal,
             stack2
         );
 
         // If we get a tie - split the pot
         const tieAdj = Provable.if(
-            Bool(v2 === v1),
+            Bool(slot0 === slot1),
             startingBal.sub(stack2),
             UInt64.from(0),
         );
@@ -342,6 +343,137 @@ export class PoZKerApp extends SmartContract {
         this.stack2.set(stack2Final.add(tieAdj));
 
         this.turnGameOver.set(Field(TurnGameOver.GameOver));
+    }
 
+
+    @method tallyBoardCards(cardPrime: Field) {
+        // We'll always store the board card product in slot2
+        const slot2 = this.slot2.getAndAssertEquals();
+        const slot2New = slot2.mul(cardPrime);
+        this.slot2.set(slot2New)
+    }
+
+    @method showCards(slotI: Field, card1: Field, card2: Field, merkleMapKey: Field, merkleMapVal: Field, playerSecKey: PrivateKey) {
+        // Ideally add in merkleWitness: MerkleMapWitness, and confirm that too...
+        slotI.assertLessThanOrEqual(1);
+        slotI.assertGreaterThanOrEqual(0);
+        // Players will have to call this with their claimed cards, along with the lookup value.
+
+        // We need to:
+        // 1. confirm the card lookup key and value are valid entries in the merkle map
+        // 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
+        // 3. re-hash the cards and confirm it matches their stored hash
+
+        // We are going to be storing the product of all the board card primes here!
+        const slot0 = this.slot0.getAndAssertEquals();
+        const slot1 = this.slot1.getAndAssertEquals();
+        const slot2 = this.slot2.getAndAssertEquals();
+
+        // Check 2
+        const expectedMerkleMapKey = card1.mul(card2).mul(slot2);
+        expectedMerkleMapKey.assertEquals(merkleMapKey);
+
+        // Check 3
+        const cardHash = this.generateHash(card1, card2, playerSecKey);
+        const compareHash = Provable.if(
+            slotI.equals(0),
+            slot0,
+            slot1,
+        );
+        cardHash.assertEquals(compareHash);
+
+        // Assuming we made it past all our checks - 
+        // We are now storing the merkleMapVal, which represents
+        // hand strength in these slots!  Lower is better!
+        const slot0New = Provable.if(
+            slotI.equals(0),
+            merkleMapVal,
+            slot0,
+        );
+        const slot1New = Provable.if(
+            slotI.equals(1),
+            merkleMapVal,
+            slot1,
+        );
+
+        this.slot0.set(slot0New);
+        this.slot1.set(slot1New);
+    }
+
+    generateHash(card1: Field, card2: Field, privateKey: PrivateKey): Field {
+        // Apply a double hash to get a single value for both cards
+        // We'll use this to generate the hash for a given card
+        // We'll use the same hash function as the lookup table
+        const pkField = privateKey.toFields()[0];
+        const round1 = Poseidon.hash([pkField, card1]);
+        const round2 = Poseidon.hash([round1, card2]);
+        return round2
+    }
+
+    @method storeCardHash(slotI: Field, c2a: Field, c2b: Field, cipherKeys: Field, playerSecKey: PrivateKey) {
+        // Used to store a hash of the player's cards
+        // 1. decrypt both cards
+        // 2. double hash the resulting value
+        // 3. and store the hash in a slot
+
+        // For both players their encrypted card will be stored here
+        const slot0 = this.slot1.getAndAssertEquals();
+        const slot1 = this.slot1.getAndAssertEquals();
+        const slot2 = this.slot2.getAndAssertEquals();
+
+        // We are ALWAYS storing the encrypted cards in slots1 and 2
+
+        // Want to decrypt BOTH cards, and multiply them together
+
+        // Need to recreate ciphers - we ONLY stashed the first value before...
+        const c1 = new Cipher({ c1: slot1, c2: c2a });
+        const c2 = new Cipher({ c1: slot2, c2: c2b });
+        const card1: Field = ElGamalFF.decrypt(c1, cipherKeys);
+        const card2: Field = ElGamalFF.decrypt(c2, cipherKeys);
+
+        const cardHash = this.generateHash(card1, card2, playerSecKey);
+
+        const slot0New = Provable.if(
+            slotI.equals(0),
+            cardHash,
+            slot0,
+        );
+
+        const slot1New = Provable.if(
+            slotI.equals(1),
+            cardHash,
+            slot1,
+        );
+
+        this.slot0.set(slot0New);
+        this.slot1.set(slot1New);
+    }
+
+    @method commitCard(slotI: Field, encryptedCard: Field) {
+        // For each player we want to store their encrypyted card in slots 1 and 2
+        // and then we'll decrypt it and store the hash
+
+        // Note - encryptedCard will be the 'c1' value of a elgamal Cipher
+        // the user will have to pass in the 'c2' value in the decrypt function
+
+        // 'slotI' param is just the memory slot where we will save this card
+        slotI.assertLessThanOrEqual(2);
+        slotI.assertGreaterThanOrEqual(1);
+        const slot1 = this.slot1.getAndAssertEquals();
+        const slot2 = this.slot2.getAndAssertEquals();
+
+        const slot1New = Provable.if(
+            slotI.equals(1),
+            encryptedCard,
+            slot1,
+        );
+        const slot2New = Provable.if(
+            slotI.equals(2),
+            encryptedCard,
+            slot2,
+        );
+
+        this.slot1.set(slot1New);
+        this.slot2.set(slot2New);
     }
 }
