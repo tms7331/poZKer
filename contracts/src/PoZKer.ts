@@ -47,7 +47,7 @@ export class PoZKerApp extends SmartContract {
         super.init();
         this.street.set(Field(Streets.Preflop));
         // For now - player1 always goes first
-        this.turnGameOver.set(Field(0));
+        this.turnGameOver.set(Field(TurnGameOver.Player1Turn));
     }
 
     @method initState(player1: PublicKey, player2: PublicKey) {
@@ -242,10 +242,7 @@ export class PoZKerApp extends SmartContract {
 
         const street = this.street.getAndAssertEquals();
 
-        // TODO - this logic is flawed!
-        // player 1 can also end action with a call if it goes: Bet Raise Call
-        const endAction = action.equals(Field(Actions.Call)).or(action.equals(Field(Actions.Check)));
-        const newStreet = playerHash.equals(player2Hash).and(endAction);
+        const newStreet = action.equals(Field(Actions.Call)).or(playerHash.equals(player2Hash).and(action.equals(Field(Actions.Check))));
         const streetUpdate = Provable.if(
             newStreet,
             street.add(1),
@@ -254,7 +251,7 @@ export class PoZKerApp extends SmartContract {
         this.street.set(streetUpdate);
         // If we did go to the next street, previous action should be 'Null'
         const actionMaybeNull = Provable.if(
-            playerHash.equals(player2Hash).and(endAction),
+            newStreet,
             Field(Actions.Null),
             action
         );
