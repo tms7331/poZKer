@@ -203,9 +203,6 @@ await txnC3.prove();
 await txnC3.sign([playerPrivKey1]).send();
 
 
-
-
-
 //const txn90 = await Mina.transaction(playerPubKey1, async () => {
 //    console.log("RETVAL", retVal);
 //});
@@ -232,8 +229,8 @@ console.log("player 2 hole cards:", parseCardInt(parseInt(card3.toString())), pa
 console.log("Screen will be cleared after 3 seconds...")
 
 // Exact same logic as for player 1
-let c3 = ElGamalFF.encrypt(Field(card1), keys1.pk);
-let c4 = ElGamalFF.encrypt(Field(card2), keys1.pk);
+let c3 = ElGamalFF.encrypt(Field(card3), keys1.pk);
+let c4 = ElGamalFF.encrypt(Field(card4), keys1.pk);
 
 const txnC4 = await Mina.transaction(playerPubKey1, () => {
     // Have to put it in slots 1 and 2
