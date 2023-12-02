@@ -178,11 +178,32 @@ describe('PoZKer', () => {
 
     const actionField = Field(1);
     const betSize = UInt64.from(10);
+
+    // Player 2 should not be able to act
+    try {
+      const txnFail = await Mina.transaction(playerPubKey2, () => {
+        zkAppInstance.takeAction(playerPrivKey2, actionField, betSize)
+      });
+      await txnFail.prove();
+      await txnFail.sign([playerPrivKey2]).send();
+    } catch (e: any) {
+      const err_str = e.toString();
+      console.log("ERROR IS:");
+      console.log(err_str);
+      console.log("PRINTED ERROR...:");
+      expect(err_str).toMatch('Error: player is not allowed to make a move');
+    }
+
     const txn = await Mina.transaction(playerPubKey1, () => {
       zkAppInstance.takeAction(playerPrivKey1, actionField, betSize)
     });
     await txn.prove();
     await txn.sign([playerPrivKey1]).send();
+
+    // TODO - why does this fail!?
+    // Player 1's turn should have been successful - bet 10, make sure stack is 90?
+    const bal = zkAppInstance.stack1.get();
+    expect(bal.toString()).toMatch('90');
   });
 
   it.todo('prevents players from betting more than their stack');

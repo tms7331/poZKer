@@ -208,7 +208,7 @@ export class PoZKerApp extends SmartContract {
             .equals(this.player1Hash)
             .and(turn.equals(TurnGameOver.Player1Turn))
             .or(playerHash.equals(this.player2Hash).and(turn.equals(TurnGameOver.Player2Turn)))
-            .assertTrue('player is allowed to make the move');
+            .assertTrue('player is not allowed to make a move');
 
         // Confirm actions is valid, must be some combination below:
         // actions:
