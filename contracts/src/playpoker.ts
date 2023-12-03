@@ -1,5 +1,5 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
-import { PoZKerApp, Actions, Streets } from './PoZKer.js';
+import { PoZKerApp, LastActions, Streets } from './PoZKer.js';
 //import { readline } from 'readline';
 //const readline = require('readline');
 import readline from 'readline';
@@ -282,7 +282,10 @@ let boardPrimes = 1;
 
 // Main game loop - keep accepting actions until hand ends
 while (true) {
-    const player = zkAppInstance.turnGameOver.get().toString()
+    // TODO - 
+    const lastAction = parseInt(zkAppInstance.lastAction.get().toString());
+    let player: string = lastAction < LastActions.Bet_P1 ? "0" : "1";
+
     if (player == "0") {
         const action = await question("Player 1 - Choose your action\n") as number;
         // If it's a bet/call/raise - need to include amount
