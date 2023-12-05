@@ -1,5 +1,5 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
-import { PoZKerApp, Actions } from './PoZKer.js';
+import { PoZKerApp } from './PoZKer.js';
 //import { readline } from 'readline';
 //const readline = require('readline');
 import readline from 'readline';
@@ -95,6 +95,7 @@ const bal1 = zkAppInstance.stack1.get();
 const bal2 = zkAppInstance.stack2.get();
 console.log("Balances", bal1.toString(), bal2.toString());
 
+/*
 
 let card1;
 let card2;
@@ -226,6 +227,7 @@ await txn12.sign([playerPrivKey1]).send();
 const bal3 = zkAppInstance.stack1.get();
 const bal4 = zkAppInstance.stack2.get();
 console.log("Balances", bal3.toString(), bal4.toString());
+*/
 
 
 /*

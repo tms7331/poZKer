@@ -150,45 +150,6 @@ export class PoZKerApp extends SmartContract {
         this.stack2.set(stack2New);
     }
 
-    @method getHolecards(playerSecKey: PrivateKey) {
-        const street = this.street.getAndAssertEquals();
-        const lastAction = this.lastAction.getAndAssertEquals();
-        lastAction.assertEquals(Field(LastActions.Null));
-        street.assertEquals(Field(Streets.Preflop));
-
-        const player = PublicKey.fromPrivateKey(playerSecKey);
-        //const player1Hash = this.player1Hash.getAndAssertEquals();
-        //const player2Hash = this.player2Hash.getAndAssertEquals();
-        const playerHash = Poseidon.hash(player.toFields());
-        const cond0 = playerHash.equals(this.player1Hash).or(playerHash.equals(this.player2Hash));
-        cond0.assertTrue('Player is not part of this game!')
-
-        return [31, 32];
-    }
-
-    @method getFlop() {
-        const street = this.street.getAndAssertEquals();
-        const lastAction = this.lastAction.getAndAssertEquals();
-        lastAction.assertEquals(Field(LastActions.Null));
-        street.assertEquals(Field(Streets.Flop));
-        return [1, 3, 5];
-    }
-
-    @method getTurn() {
-        const street = this.street.getAndAssertEquals();
-        const lastAction = this.lastAction.getAndAssertEquals();
-        lastAction.assertEquals(Field(LastActions.Null));
-        return 2;
-    }
-
-    @method getRiver() {
-        const street = this.street.getAndAssertEquals();
-        const lastAction = this.lastAction.getAndAssertEquals();
-        lastAction.assertEquals(Field(LastActions.Null));
-        return 9;
-    }
-
-
     @method takeAction(playerSecKey: PrivateKey, action: Field, betSize: UInt64) {
         // Need to check that it's the current player's turn, 
         // and the action is valid
