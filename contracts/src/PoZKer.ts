@@ -276,13 +276,21 @@ export class PoZKerApp extends SmartContract {
         // 2. Player 2 has checked
         const newStreetBool = action.equals(this.Call).or(playerHash.equals(player2Hash).and(action.equals(this.Check)));
 
-        // TODO - how can we cleanly calcuate this?  Do we need a transition map or something?
-        const currstreet = this.Flop;
-        //const currstreet = Provable.if(
-        //    newStreet,
-        //    street.add(1),
-        //    street
-        //);
+        // Is there any way we could simplify this with something like:
+        // If newStreetBool and (isPreflop or isTurn) -> Add 2
+        // If newStreetBool and (isFlop or isRiver) -> Add 4
+        // Else keep same street
+        const nextPreflop = Provable.if(isPreflop.and(!newStreetBool), Bool(true), Bool(false));
+        const nextFlop = Provable.if(isFlop.and(!newStreetBool).or(isPreflop.and(newStreetBool)), Bool(true), Bool(false));
+        const nextTurn = Provable.if(isTurn.and(!newStreetBool).or(isFlop.and(newStreetBool)), Bool(true), Bool(false));
+        const nextRiver = Provable.if(isRiver.and(!newStreetBool).or(isTurn.and(newStreetBool)), Bool(true), Bool(false));
+        const nextShowdown = Provable.if(isTurn.and(newStreetBool), Bool(true), Bool(false));
+
+        const currstreet = Provable.switch(
+            [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
+            UInt64,
+            [this.Preflop, this.Flop, this.Turn, this.River, this.Showdown]
+        );
 
         // If we did go to the next street, previous action should be 'Null'
         const lastaction = Provable.if(
