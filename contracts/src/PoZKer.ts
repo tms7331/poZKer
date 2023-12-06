@@ -198,28 +198,8 @@ export class PoZKerApp extends SmartContract {
         //const p2turn = p1turn.not();
         p1turn.or(p2turn).assertTrue('Invalid game state player');
 
-        const isPreflop = gamestate.divMod(this.Preflop).rest.equals(UInt64.from(0));
-        const isFlop = gamestate.divMod(this.Flop).rest.equals(UInt64.from(0));
-        const isTurn = gamestate.divMod(this.Turn).rest.equals(UInt64.from(0));
-        const isRiver = gamestate.divMod(this.River).rest.equals(UInt64.from(0));
-        const isShowdown = gamestate.divMod(this.Showdown).rest.equals(UInt64.from(0));
-
-        // TODO - think we should remove isShowdown?  That is not valid?
-        isPreflop.or(isFlop).or(isTurn).or(isRiver).or(isShowdown).assertTrue('Invalid game state street');
-
-        const facingNull = gamestate.divMod(this.Null).rest.equals(UInt64.from(0));
-        const facingBet = gamestate.divMod(this.Bet).rest.equals(UInt64.from(0));
-        const facingCall = gamestate.divMod(this.Call).rest.equals(UInt64.from(0));
-        const facingFold = gamestate.divMod(this.Fold).rest.equals(UInt64.from(0));
-        const facingRaise = gamestate.divMod(this.Raise).rest.equals(UInt64.from(0));
-        const facingCheck = gamestate.divMod(this.Check).rest.equals(UInt64.from(0));
-
-        // TODO - think we should remove facingFold?  That is not valid?
-        facingNull.or(facingBet).or(facingCall).or(facingFold).or(facingRaise).or(facingCheck).assertTrue('Invalid game state action');
-
         //const player = this.sender;
         const player = PublicKey.fromPrivateKey(playerSecKey);
-
         // Logic modified from https://github.com/betterclever/zk-chess/blob/main/src/Chess.ts
         const player1Hash = this.player1Hash.getAndAssertEquals();
         const player2Hash = this.player2Hash.getAndAssertEquals();
@@ -229,7 +209,29 @@ export class PoZKerApp extends SmartContract {
             .equals(player1Hash)
             .and(p1turn)
             .or(playerHash.equals(player2Hash).and(p2turn))
-            .assertTrue('player is not allowed to make a move');
+            .assertTrue('Player is not allowed to make a move');
+
+
+        const isPreflop = gamestate.divMod(this.Preflop).rest.equals(UInt64.from(0));
+        const isFlop = gamestate.divMod(this.Flop).rest.equals(UInt64.from(0));
+        const isTurn = gamestate.divMod(this.Turn).rest.equals(UInt64.from(0));
+        const isRiver = gamestate.divMod(this.River).rest.equals(UInt64.from(0));
+        const isShowdown = gamestate.divMod(this.Showdown).rest.equals(UInt64.from(0));
+
+        // Can't take any more actions at showdown, all others are ok
+        isShowdown.assertFalse('Showdown has been reached');
+        isPreflop.or(isFlop).or(isTurn).or(isRiver).assertTrue('Invalid game state street');
+
+
+        const facingNull = gamestate.divMod(this.Null).rest.equals(UInt64.from(0));
+        const facingBet = gamestate.divMod(this.Bet).rest.equals(UInt64.from(0));
+        const facingCall = gamestate.divMod(this.Call).rest.equals(UInt64.from(0));
+        // This should be impossible, we should be in GameOver state if 'facingFold', and earlier assertion would be hit
+        // const facingFold = gamestate.divMod(this.Fold).rest.equals(UInt64.from(0));
+        const facingRaise = gamestate.divMod(this.Raise).rest.equals(UInt64.from(0));
+        const facingCheck = gamestate.divMod(this.Check).rest.equals(UInt64.from(0));
+
+        facingNull.or(facingBet).or(facingCall).or(facingRaise).or(facingCheck).assertTrue('Invalid game state action');
 
         // Confirm actions is valid, must be some combination below:
         // actions:
@@ -238,11 +240,11 @@ export class PoZKerApp extends SmartContract {
         // Fold - valid when facing [Bet, Raise]
         // Raise - valid when facing [Bet]
         // Check - valid when facing [Null, Check]
-        let act1 = action.equals(this.Bet).and(facingNull).or(facingCheck);
+        let act1 = action.equals(this.Bet).and(facingNull.or(facingCheck));
         let act2 = action.equals(this.Call).and(facingBet);
-        let act3 = action.equals(this.Fold).and(facingBet).or(facingRaise);
+        let act3 = action.equals(this.Fold).and(facingBet.or(facingRaise));
         let act4 = action.equals(this.Raise).and(facingBet);
-        let act5 = action.equals(this.Check).and(facingNull).or(facingCheck);
+        let act5 = action.equals(this.Check).and(facingNull.or(facingCheck));
         act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
 
         //or(action.equals(Field(Actions.Bet)).and(gamestate.equals(Field(Actions.Null)).or(gamestate.equals(Field(Actions.Check)))).assertTrue('Bet is valid when facing [Null, Check]'));
