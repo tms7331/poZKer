@@ -190,9 +190,7 @@ export class PoZKerApp extends SmartContract {
         // Need to check that it's the current player's turn, 
         // and the action is valid
         const gamestate = this.gamestate.getAndAssertEquals();
-        // TODO - this needs to be not equals!
-        gamestate.assertEquals(this.GameOver);
-        //, "Game has already finished!");
+        gamestate.equals(this.GameOver).not().assertTrue('Game has already finished!');
 
         const p1turn = gamestate.divMod(this.P1).rest.equals(UInt64.from(0));
         const p2turn = gamestate.divMod(this.P2).rest.equals(UInt64.from(0));
