@@ -54,9 +54,27 @@ export const actionMapping = {
 
 
 export class PoZKerApp extends SmartContract {
+    GameOver = UInt64.from(actionMapping["GameOver"]);
+
+    P1 = UInt64.from(actionMapping["P1"]);
+    P2 = UInt64.from(actionMapping["P2"]);
+
+    Preflop = UInt64.from(actionMapping["Preflop"]);
+    Flop = UInt64.from(actionMapping["Flop"]);
+    Turn = UInt64.from(actionMapping["Turn"]);
+    River = UInt64.from(actionMapping["River"]);
+    Showdown = UInt64.from(actionMapping["Showdown"]);
+
+    Null = UInt64.from(actionMapping["Null"]);
+    Bet = UInt64.from(actionMapping["Bet"]);
+    Call = UInt64.from(actionMapping["Call"]);
+    Fold = UInt64.from(actionMapping["Fold"]);
+    Raise = UInt64.from(actionMapping["Raise"]);
+    Check = UInt64.from(actionMapping["Check"]);
+
     root = Field("706658705228152685713447102194564896352128976013742567056765536952384688062");
     // Hardcode 100 as game size still?
-    game_buyin = UInt64.from(100)
+    game_buyin = UInt64.from(100);
     //player1Hash = Field(8879912305210651084592467885807902739034137217445691720217630551894134031710);
     //player2Hash = Field(17608229569872969144485439827417022479409407220457475048103405509470577631109);
 
@@ -75,9 +93,9 @@ export class PoZKerApp extends SmartContract {
 
     init() {
         super.init();
-        // Player 1 always goes first
-        const currstate = actionMapping["P1"] * actionMapping["Preflop"] * actionMapping["Null"];
-        this.gamestate.set(UInt64.from(currstate));
+        // Starting gamestate is always P1's turn preflop, with no previous action
+        const currstate = this.P1.mul(this.Preflop).mul(this.Null);
+        this.gamestate.set(currstate);
     }
 
     @method initState(player1: PublicKey, player2: PublicKey) {
@@ -90,13 +108,13 @@ export class PoZKerApp extends SmartContract {
     @method withdraw(playerSecKey: PrivateKey) {
         // Can ONLY withdraw when the hand is over!
         const isGameOver = this.gamestate.getAndAssertEquals();
-        isGameOver.assertEquals(UInt64.from(actionMapping["GameOver"]));
+        isGameOver.assertEquals(this.GameOver);
 
-        //const player1Hash = this.player1Hash.getAndAssertEquals();
-        //const player2Hash = this.player2Hash.getAndAssertEquals();
+        const player1Hash = this.player1Hash.getAndAssertEquals();
+        const player2Hash = this.player2Hash.getAndAssertEquals();
         const player = PublicKey.fromPrivateKey(playerSecKey);
         const playerHash = Poseidon.hash(player.toFields());
-        const cond0 = playerHash.equals(this.player1Hash).or(playerHash.equals(this.player2Hash));
+        const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
         cond0.assertTrue('Player is not part of this game!')
 
         // We'll have tallied up the players winnings into their stack, 
@@ -105,7 +123,7 @@ export class PoZKerApp extends SmartContract {
         const stack2 = this.stack2.getAndAssertEquals();
 
         const sendAmount = Provable.if(
-            playerHash.equals(this.player1Hash),
+            playerHash.equals(player1Hash),
             stack1,
             stack2
         );
@@ -114,7 +132,7 @@ export class PoZKerApp extends SmartContract {
 
         // We have to update the stacks so they cannot withdraw multiple times!
         const stack1New = Provable.if(
-            playerHash.equals(this.player1Hash),
+            playerHash.equals(player1Hash),
             UInt64.from(0),
             stack1
         );
@@ -122,7 +140,7 @@ export class PoZKerApp extends SmartContract {
         this.stack1.set(stack1New);
 
         const stack2New = Provable.if(
-            playerHash.equals(this.player2Hash),
+            playerHash.equals(player2Hash),
             UInt64.from(0),
             stack2
         );
@@ -133,18 +151,18 @@ export class PoZKerApp extends SmartContract {
         // Constraints:
         // Only player1 and player2 can deposit
         // They can only deposit once
-        //const player1Hash = this.player1Hash.getAndAssertEquals();
-        //const player2Hash = this.player2Hash.getAndAssertEquals();
+        const player1Hash = this.player1Hash.getAndAssertEquals();
+        const player2Hash = this.player2Hash.getAndAssertEquals();
 
         const player = PublicKey.fromPrivateKey(playerSecKey);
         const playerHash = Poseidon.hash(player.toFields());
 
         const stack1 = this.stack1.getAndAssertEquals();
         const stack2 = this.stack2.getAndAssertEquals();
-        const cond0 = playerHash.equals(this.player1Hash).or(playerHash.equals(this.player2Hash));
+        const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
         cond0.assertTrue('Player is not part of this game!')
-        const cond1 = playerHash.equals(this.player1Hash).and(stack1.equals(UInt64.from(0)));
-        const cond2 = playerHash.equals(this.player2Hash).and(stack2.equals(UInt64.from(0)));
+        const cond1 = playerHash.equals(player1Hash).and(stack1.equals(UInt64.from(0)));
+        const cond2 = playerHash.equals(player2Hash).and(stack2.equals(UInt64.from(0)));
         cond1.or(cond2).assertTrue('Player can only deposit once!');
 
         // From https://github.com/o1-labs/o1js/blob/5ca43684e98af3e4f348f7b035a0ad7320d88f3d/src/examples/zkapps/escrow/escrow.ts
@@ -153,14 +171,14 @@ export class PoZKerApp extends SmartContract {
         payerUpdate.send({ to: this.address, amount: this.game_buyin });
 
         const stack1New = Provable.if(
-            playerHash.equals(this.player1Hash),
+            playerHash.equals(player1Hash),
             this.game_buyin,
             stack1
         );
         this.stack1.set(stack1New);
 
         const stack2New = Provable.if(
-            playerHash.equals(this.player2Hash),
+            playerHash.equals(player2Hash),
             this.game_buyin,
             stack2
         );
@@ -173,30 +191,30 @@ export class PoZKerApp extends SmartContract {
         // and the action is valid
         const gamestate = this.gamestate.getAndAssertEquals();
         // TODO - this needs to be not equals!
-        gamestate.assertEquals(UInt64.from(actionMapping["GameOver"]));
+        gamestate.assertEquals(this.GameOver);
         //, "Game has already finished!");
 
-        const p1turn = gamestate.divMod(actionMapping["P1"]).rest.equals(UInt64.from(0));
-        const p2turn = gamestate.divMod(actionMapping["P2"]).rest.equals(UInt64.from(0));
+        const p1turn = gamestate.divMod(this.P1).rest.equals(UInt64.from(0));
+        const p2turn = gamestate.divMod(this.P2).rest.equals(UInt64.from(0));
         // Do a full sanity check for now, make sure one of them is true
         //const p2turn = p1turn.not();
         p1turn.or(p2turn).assertTrue('Invalid game state player');
 
-        const isPreflop = gamestate.divMod(actionMapping["Preflop"]).rest.equals(UInt64.from(0));
-        const isFlop = gamestate.divMod(actionMapping["Flop"]).rest.equals(UInt64.from(0));
-        const isTurn = gamestate.divMod(actionMapping["Turn"]).rest.equals(UInt64.from(0));
-        const isRiver = gamestate.divMod(actionMapping["River"]).rest.equals(UInt64.from(0));
-        const isShowdown = gamestate.divMod(actionMapping["Showdown"]).rest.equals(UInt64.from(0));
+        const isPreflop = gamestate.divMod(this.Preflop).rest.equals(UInt64.from(0));
+        const isFlop = gamestate.divMod(this.Flop).rest.equals(UInt64.from(0));
+        const isTurn = gamestate.divMod(this.Turn).rest.equals(UInt64.from(0));
+        const isRiver = gamestate.divMod(this.River).rest.equals(UInt64.from(0));
+        const isShowdown = gamestate.divMod(this.Showdown).rest.equals(UInt64.from(0));
 
         // TODO - think we should remove isShowdown?  That is not valid?
         isPreflop.or(isFlop).or(isTurn).or(isRiver).or(isShowdown).assertTrue('Invalid game state street');
 
-        const facingNull = gamestate.divMod(actionMapping["Null"]).rest.equals(UInt64.from(0));
-        const facingBet = gamestate.divMod(actionMapping["Bet"]).rest.equals(UInt64.from(0));
-        const facingCall = gamestate.divMod(actionMapping["Call"]).rest.equals(UInt64.from(0));
-        const facingFold = gamestate.divMod(actionMapping["Fold"]).rest.equals(UInt64.from(0));
-        const facingRaise = gamestate.divMod(actionMapping["Raise"]).rest.equals(UInt64.from(0));
-        const facingCheck = gamestate.divMod(actionMapping["Check"]).rest.equals(UInt64.from(0));
+        const facingNull = gamestate.divMod(this.Null).rest.equals(UInt64.from(0));
+        const facingBet = gamestate.divMod(this.Bet).rest.equals(UInt64.from(0));
+        const facingCall = gamestate.divMod(this.Call).rest.equals(UInt64.from(0));
+        const facingFold = gamestate.divMod(this.Fold).rest.equals(UInt64.from(0));
+        const facingRaise = gamestate.divMod(this.Raise).rest.equals(UInt64.from(0));
+        const facingCheck = gamestate.divMod(this.Check).rest.equals(UInt64.from(0));
 
         // TODO - think we should remove facingFold?  That is not valid?
         facingNull.or(facingBet).or(facingCall).or(facingFold).or(facingRaise).or(facingCheck).assertTrue('Invalid game state action');
@@ -205,14 +223,14 @@ export class PoZKerApp extends SmartContract {
         const player = PublicKey.fromPrivateKey(playerSecKey);
 
         // Logic modified from https://github.com/betterclever/zk-chess/blob/main/src/Chess.ts
-        //const player1Hash = this.player1Hash.getAndAssertEquals();
-        //const player2Hash = this.player2Hash.getAndAssertEquals();
+        const player1Hash = this.player1Hash.getAndAssertEquals();
+        const player2Hash = this.player2Hash.getAndAssertEquals();
         const playerHash = Poseidon.hash(player.toFields());
 
         playerHash
-            .equals(this.player1Hash)
+            .equals(player1Hash)
             .and(p1turn)
-            .or(playerHash.equals(this.player2Hash).and(p2turn))
+            .or(playerHash.equals(player2Hash).and(p2turn))
             .assertTrue('player is not allowed to make a move');
 
         // Confirm actions is valid, must be some combination below:
@@ -222,11 +240,11 @@ export class PoZKerApp extends SmartContract {
         // Fold - valid when facing [Bet, Raise]
         // Raise - valid when facing [Bet]
         // Check - valid when facing [Null, Check]
-        let act1 = action.equals(UInt64.from(actionMapping["Bet"])).and(facingNull).or(facingCheck);
-        let act2 = action.equals(UInt64.from(actionMapping["Call"])).and(facingBet);
-        let act3 = action.equals(UInt64.from(actionMapping["Fold"])).and(facingBet).or(facingRaise);
-        let act4 = action.equals(UInt64.from(actionMapping["Raise"])).and(facingBet);
-        let act5 = action.equals(UInt64.from(actionMapping["Check"])).and(facingNull).or(facingCheck);
+        let act1 = action.equals(this.Bet).and(facingNull).or(facingCheck);
+        let act2 = action.equals(this.Call).and(facingBet);
+        let act3 = action.equals(this.Fold).and(facingBet).or(facingRaise);
+        let act4 = action.equals(this.Raise).and(facingBet);
+        let act5 = action.equals(this.Check).and(facingNull).or(facingCheck);
         act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
 
         //or(action.equals(Field(Actions.Bet)).and(gamestate.equals(Field(Actions.Null)).or(gamestate.equals(Field(Actions.Check)))).assertTrue('Bet is valid when facing [Null, Check]'));
@@ -234,33 +252,32 @@ export class PoZKerApp extends SmartContract {
         // Make sure the player has enough funds to take the action
         const stack1 = this.stack1.getAndAssertEquals();
         const stack2 = this.stack2.getAndAssertEquals();
-        const case1 = playerHash.equals(this.player1Hash).and(betSize.lessThan(stack1));
-        const case2 = playerHash.equals(this.player2Hash).and(betSize.lessThan(stack2));
+        const case1 = playerHash.equals(player1Hash).and(betSize.lessThan(stack1));
+        const case2 = playerHash.equals(player2Hash).and(betSize.lessThan(stack2));
         case1.or(case2).assertTrue("Not enough balance for bet!");
 
         const stack1New = Provable.if(
-            playerHash.equals(this.player1Hash),
+            playerHash.equals(player1Hash),
             stack1.sub(betSize),
             stack1
         );
         this.stack1.set(stack1New);
 
         const stack2New = Provable.if(
-            playerHash.equals(this.player2Hash),
+            playerHash.equals(player2Hash),
             stack2.sub(betSize),
             stack2
         );
         this.stack2.set(stack2New);
 
-
         // Need to check if we've hit the end of the street - transition to next street
         // Scenarios for this would be:
         // 1. Either player has called
         // 2. Player 2 has checked
-        const newStreetBool = action.equals(UInt64.from(actionMapping["Call"])).or(playerHash.equals(this.player2Hash).and(action.equals(UInt64.from(actionMapping["Check"])));
+        const newStreetBool = action.equals(this.Call).or(playerHash.equals(player2Hash).and(action.equals(this.Check)));
 
         // TODO - how can we cleanly calcuate this?  Do we need a transition map or something?
-        const currstreet = UInt64.from(actionMapping["Flop"]);
+        const currstreet = this.Flop;
         //const currstreet = Provable.if(
         //    newStreet,
         //    street.add(1),
@@ -270,14 +287,14 @@ export class PoZKerApp extends SmartContract {
         // If we did go to the next street, previous action should be 'Null'
         const lastaction = Provable.if(
             newStreetBool,
-            UInt64.from(actionMapping["Null"]),
+            this.Null,
             action
         );
 
         const currplayer = Provable.if(
             newStreetBool.or(p2turn),
-            UInt64.from(actionMapping["P1"]),
-            UInt64.from(actionMapping["P2"])
+            this.P1,
+            this.P2
         );
 
         // TODO - fix gameOver check
@@ -287,21 +304,21 @@ export class PoZKerApp extends SmartContract {
         // End of street action - set it to Player1Turn
         // Otherwise - set it to the other player's turn
         const gameOverBool = Provable.if(
-            action.equals(UInt64.from(actionMapping["Fold"])),
+            action.equals(this.Fold),
             Bool(true),
             Bool(false)
         );
 
         const currgamestate = Provable.if(
             gameOverBool,
-            UInt64.from(actionMapping["GameOver"]),
+            this.GameOver,
             currstreet.mul(lastaction).mul(currplayer)
         );
 
         this.gamestate.set(currgamestate);
 
         //const gameOverBool = action.equals(Field(LastActions.Fold_P1));
-        //const alternate = Provable.if(playerHash.equals(this.player1Hash), Field(1), Field(0));
+        //const alternate = Provable.if(playerHash.equals(player1Hash), Field(1), Field(0));
 
         // Can only have one (or zero) true value with switch... have to hack values to make this hold
         // const cond2 = newStreet.and(gameOverBool.not());
@@ -321,13 +338,13 @@ export class PoZKerApp extends SmartContract {
         //const gameOver = turnGameOverVal.equals(Field(LastActions.GameOver));
         // Would be player 2 folding...
         const stack1Final = Provable.if(
-            gameOverBool.and(playerHash.equals(this.player2Hash)),
+            gameOverBool.and(playerHash.equals(player2Hash)),
             p1WinnerBal,
             stack1
         );
         this.stack1.set(stack1Final);
         const stack2Final = Provable.if(
-            gameOverBool.and(playerHash.equals(this.player1Hash)),
+            gameOverBool.and(playerHash.equals(player1Hash)),
             p2WinnerBal,
             stack2
         );
@@ -337,7 +354,7 @@ export class PoZKerApp extends SmartContract {
     @method showdown() {
         // We should only call this if we actually made it to showdown
         const gamestate = this.gamestate.getAndAssertEquals();
-        gamestate.divMod(actionMapping["Showdown"]).rest.assertEquals(UInt64.from(0));
+        gamestate.divMod(this.Showdown).rest.assertEquals(UInt64.from(0));
 
         const stack1 = this.stack1.getAndAssertEquals();
         const stack2 = this.stack2.getAndAssertEquals();
@@ -372,7 +389,7 @@ export class PoZKerApp extends SmartContract {
         this.stack1.set(stack1Final.add(tieAdj));
         this.stack2.set(stack2Final.add(tieAdj));
 
-        this.gamestate.set(UInt64.from(actionMapping["GameOver"]));
+        this.gamestate.set(this.GameOver);
     }
 
 
