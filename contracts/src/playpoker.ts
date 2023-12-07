@@ -1,5 +1,5 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
-import { PoZKerApp, LastActions, Streets } from './PoZKer.js';
+import { PoZKerApp } from './PoZKer.js';
 //import { readline } from 'readline';
 //const readline = require('readline');
 import readline from 'readline';
@@ -265,6 +265,7 @@ await sleep(SLEEP_TIME_LONG);
 clear();
 
 
+
 // now start game loop...
 console.log("ACTIONS LIST:")
 console.log("Bet: 1")
@@ -273,27 +274,72 @@ console.log("Fold: 3")
 console.log("Raise: 4")
 console.log("Check: 5")
 
+// Map actions to their prime values to keep game simple for users
+// Bet 23
+// Call 29
+// Fold 31
+// Raise 37
+// Check 41
+const actionMap: { [key: number]: number } = {
+    1: 23,
+    2: 29,
+    3: 31,
+    4: 37,
+    5: 41,
+};
+
 const actionList = ["", "Bets", "Calls", "Folds", "Raises", "Checks"]
 
-let currStreet = zkAppInstance.street.get().toString()
+function get_street(gamestate: number) {
+    if (gamestate % 5 == 0) {
+        return "Preflop";
+    }
+    else if (gamestate % 7 == 0) {
+        return "Flop";
+    }
+    else if (gamestate % 11 == 0) {
+        return "Turn";
+    }
+    else if (gamestate % 13 == 0) {
+        return "River";
+    }
+    else if (gamestate % 17 == 0) {
+        return "Showdown";
+    }
+    throw "Invalid street!";
+}
+
+function get_player(gamestate: number) {
+    if (gamestate % 2 == 0) {
+        return "p1";
+    }
+    else if (gamestate % 3 == 0) {
+        return "p2";
+    }
+    throw "Invalid player!";
+}
+
+// let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
+let currStreet = "Preflop";
 
 const board: string[] = []
 let boardPrimes = 1;
 
 // Main game loop - keep accepting actions until hand ends
 while (true) {
-    // TODO - 
-    const lastAction = parseInt(zkAppInstance.lastAction.get().toString());
-    let player: string = lastAction < LastActions.Bet_P1 ? "0" : "1";
+    let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
 
-    if (player == "0") {
+    // let player: string = lastAction < LastActions.Bet_P1 ? "0" : "1";
+    let player: string = get_player(gamestate);
+
+    if (player === "p1") {
         const action = await question("Player 1 - Choose your action\n") as number;
         // If it's a bet/call/raise - need to include amount
         let amount: number = 0;
         if (action == 1 || action == 2 || action == 4) {
             amount = await question("Player 1 - Choose amount\n") as number;
         }
-        const actionField = Field(action);
+        const actionField = UInt64.from(actionMap[action]);
         const betSize = UInt64.from(amount);
         const txn = await Mina.transaction(playerPubKey1, () => {
             zkAppInstance.takeAction(playerPrivKey1, actionField, betSize)
@@ -303,17 +349,18 @@ while (true) {
         const actionStr = actionList[action];
         console.log("Player 1", actionStr)
     }
-    else if (player == "1") {
+    else if (player === "p2") {
+
         const action = await question("Player 2 - Choose your action\n") as number;
         // If it's a bet/call/raise - need to include amount
         let amount: number = 0;
         if (action == 1 || action == 2 || action == 4) {
             amount = await question("Player 2 - Choose amount\n") as number;
         }
-        const actionField = Field(action);
+        const actionField = UInt64.from(actionMap[action]);
         const betSize = UInt64.from(amount);
         const txn = await Mina.transaction(playerPubKey2, () => {
-            zkAppInstance.takeAction(playerPrivKey2, actionField, betSize)
+            zkAppInstance.takeAction(playerPrivKey2, actionField, betSize);
         });
         await txn.prove();
         await txn.sign([playerPrivKey2]).send();
@@ -325,8 +372,10 @@ while (true) {
         break
     }
 
-    const street = zkAppInstance.street.get().toString()
-    if (parseInt(street) == Streets.Showdown) {
+    gamestate = parseInt(zkAppInstance.gamestate.get().toString());
+    let street = get_street(gamestate);
+    // const street = zkAppInstance.street.get().toString()
+    if (street == "Showdown") {
         // BOTH players must show cards before we can do showdown...
 
         const txnA = await Mina.transaction(playerPubKey1, () => {
@@ -364,7 +413,7 @@ while (true) {
     }
     // If it was a street transition, need to get board cards
     else if (currStreet != street) {
-        if (parseInt(street) == Streets.Flop) {
+        if (street == "Flop") {
             console.log("DEALING FLOP...")
             let flop = await getFlopFromOracle(GAME_ID.toString());
             let flopHand = flop.hand
@@ -401,7 +450,7 @@ while (true) {
             await txnC.sign([playerPrivKey2]).send();
 
         }
-        else if (parseInt(street) == Streets.Turn) {
+        else if (street == "Turn") {
             console.log("DEALING TURN...")
             let take = await getTakeFromOracle(GAME_ID.toString());
             let takeHand = take.hand
@@ -417,7 +466,7 @@ while (true) {
             await txnA.sign([playerPrivKey2]).send();
 
         }
-        else if (parseInt(street) == Streets.River) {
+        else if (street == "River") {
             console.log("DEALING RIVER...")
             let river = await getRiverFromOracle(GAME_ID.toString());
             let riverHand = river.hand

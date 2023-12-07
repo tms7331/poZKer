@@ -76,6 +76,15 @@ describe('PoZKer', () => {
     await txSend2.sign([fundedPrivKey1]).send();
   }
 
+  async function setPlayers() {
+    const txn = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.initState(playerPubKey1, playerPubKey1)
+    });
+    await txn.prove();
+    await txn.sign([playerPrivKey1]).send();
+  }
+
+
   async function localDeposit() {
     console.log("Auto depositing for player 1...");
     const txn2 = await Mina.transaction(playerPubKey1, () => {
@@ -173,16 +182,17 @@ describe('PoZKer', () => {
 
   it('prevents wrong player from acting', async () => {
     await localDeploy();
+    await setPlayers();
     await localDeposit();
     await localCommitCards(1, 3, 5, 7);
 
-    const actionField = Field(1);
+    const actionUint = UInt64.from(23);
     const betSize = UInt64.from(10);
 
     // Player 2 should not be able to act
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(playerPrivKey2, actionField, betSize)
+        zkAppInstance.takeAction(playerPrivKey2, actionUint, betSize)
       });
       await txnFail.prove();
       await txnFail.sign([playerPrivKey2]).send();
@@ -195,7 +205,7 @@ describe('PoZKer', () => {
     }
 
     const txn = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, actionField, betSize)
+      zkAppInstance.takeAction(playerPrivKey1, actionUint, betSize)
     });
     await txn.prove();
     await txn.sign([playerPrivKey1]).send();

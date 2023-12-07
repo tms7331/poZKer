@@ -378,7 +378,6 @@ export class PoZKerApp extends SmartContract {
         this.gamestate.set(this.GameOver);
     }
 
-
     @method tallyBoardCards(cardPrime: Field) {
         // We'll always store the board card product in slot2
         const slot2 = this.slot2.getAndAssertEquals();
@@ -404,18 +403,18 @@ export class PoZKerApp extends SmartContract {
 
         // Check 2
         // TODO - fails - why?
-        //const expectedMerkleMapKey = card1.mul(card2).mul(slot2);
-        //expectedMerkleMapKey.assertEquals(merkleMapKey);
+        const expectedMerkleMapKey = card1.mul(card2).mul(slot2);
+        expectedMerkleMapKey.assertEquals(merkleMapKey);
 
         // Check 3
         // TODO - also fails - why?
-        // const cardHash = this.generateHash(card1, card2, playerSecKey);
-        // const compareHash = Provable.if(
-        //     slotI.equals(0),
-        //     slot0,
-        //     slot1,
-        // );
-        // cardHash.assertEquals(compareHash);
+        const cardHash = this.generateHash(card1, card2, playerSecKey);
+        const compareHash = Provable.if(
+            slotI.equals(0),
+            slot0,
+            slot1,
+        );
+        cardHash.assertEquals(compareHash);
 
         // Assuming we made it past all our checks - 
         // We are now storing the merkleMapVal, which represents
