@@ -305,12 +305,6 @@ export class PoZKerApp extends SmartContract {
             this.P2
         );
 
-        // TODO - fix gameOver check
-
-        // turnGameOver over logic:
-        // Someone folds - other player wins, set it to GameOver
-        // End of street action - set it to Player1Turn
-        // Otherwise - set it to the other player's turn
         const gameOverBool = Provable.if(
             action.equals(this.Fold),
             Bool(true),
@@ -325,26 +319,10 @@ export class PoZKerApp extends SmartContract {
 
         this.gamestate.set(currgamestate);
 
-        //const gameOverBool = action.equals(Field(LastActions.Fold_P1));
-        //const alternate = Provable.if(playerHash.equals(player1Hash), Field(1), Field(0));
-
-        // Can only have one (or zero) true value with switch... have to hack values to make this hold
-        // const cond2 = newStreet.and(gameOverBool.not());
-        // const cond3 = newStreet.not().and(gameOverBool.not());
-
-        //const turnGameOverVal = Provable.switch(
-        //    [gameOverBool, cond2, cond3],
-        //    Field,
-        //    [Field(LastActions.GameOver), Field(TurnGameOver.Player1Turn), alternate]
-        //);
-        //this.turnGameOver.set(turnGameOverVal);
-
-        // If game is over - need to send funds to winner
+        // If game is over from a fold - need to send funds to winner
         const p1WinnerBal = stack1.add(this.game_buyin.sub(stack2));
         const p2WinnerBal = stack2.add(this.game_buyin.sub(stack1));
 
-        //const gameOver = turnGameOverVal.equals(Field(LastActions.GameOver));
-        // Would be player 2 folding...
         const stack1Final = Provable.if(
             gameOverBool.and(playerHash.equals(player2Hash)),
             p1WinnerBal,
