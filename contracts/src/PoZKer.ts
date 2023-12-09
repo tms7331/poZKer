@@ -1,4 +1,4 @@
-import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, AccountUpdate, Poseidon, MerkleMapWitness } from 'o1js';
+import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, AccountUpdate, Poseidon, MerkleMapWitness, provable } from 'o1js';
 import { Cipher, ElGamalFF } from 'o1js-elgamal';
 
 
@@ -84,7 +84,7 @@ export class PoZKerApp extends SmartContract {
     @state(UInt64) stack1 = State<UInt64>();
     @state(UInt64) stack2 = State<UInt64>();
     // Coded game state, logic described at top of file
-    @state(Field) gamestate = State<UInt64>();
+    @state(UInt64) gamestate = State<UInt64>();
 
     // Free memory slots for storing data
     @state(Field) slot0 = State<Field>();
@@ -190,6 +190,7 @@ export class PoZKerApp extends SmartContract {
         // Need to check that it's the current player's turn, 
         // and the action is valid
         const gamestate = this.gamestate.getAndAssertEquals();
+
         gamestate.equals(this.GameOver).not().assertTrue('Game has already finished!');
 
         const p1turn = gamestate.divMod(this.P1).rest.equals(UInt64.from(0));
@@ -280,11 +281,11 @@ export class PoZKerApp extends SmartContract {
         // If newStreetBool and (isPreflop or isTurn) -> Add 2
         // If newStreetBool and (isFlop or isRiver) -> Add 4
         // Else keep same street
-        const nextPreflop = Provable.if(isPreflop.and(!newStreetBool), Bool(true), Bool(false));
-        const nextFlop = Provable.if(isFlop.and(!newStreetBool).or(isPreflop.and(newStreetBool)), Bool(true), Bool(false));
-        const nextTurn = Provable.if(isTurn.and(!newStreetBool).or(isFlop.and(newStreetBool)), Bool(true), Bool(false));
-        const nextRiver = Provable.if(isRiver.and(!newStreetBool).or(isTurn.and(newStreetBool)), Bool(true), Bool(false));
-        const nextShowdown = Provable.if(isTurn.and(newStreetBool), Bool(true), Bool(false));
+        const nextPreflop = Provable.if(isPreflop.and(newStreetBool.not()), Bool(true), Bool(false));
+        const nextFlop = Provable.if(isFlop.and(newStreetBool.not()).or(isPreflop.and(newStreetBool)), Bool(true), Bool(false));
+        const nextTurn = Provable.if(isTurn.and(newStreetBool.not()).or(isFlop.and(newStreetBool)), Bool(true), Bool(false));
+        const nextRiver = Provable.if(isRiver.and(newStreetBool.not()).or(isTurn.and(newStreetBool)), Bool(true), Bool(false));
+        const nextShowdown = Provable.if(isRiver.and(newStreetBool), Bool(true), Bool(false));
 
         const currstreet = Provable.switch(
             [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
