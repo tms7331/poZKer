@@ -57,6 +57,7 @@ const playerPubKey2 = playerPrivKey2.toPublicKey();
 //await txnFund.sign([feePayer1.privateKey, zkAppPrivateKey]).send();
 
 
+
 //const p1Hash = Poseidon.hash(playerPrivKey1.toFields());
 //const p2Hash = Poseidon.hash(playerPrivKey2.toFields());
 //console.log("HASHes", p1Hash.toString())
@@ -79,8 +80,8 @@ function parseCardInt(cardInt: number): string {
 }
 
 
-const SLEEP_TIME_SHORT = 1000;
-const SLEEP_TIME_LONG = 3000;
+const SLEEP_TIME_SHORT = 0; // 1000;
+const SLEEP_TIME_LONG = 0; //3000;
 const GAME_ID = getRandomInt(1, 9999999999)
 console.log(" GENERATING GAME WITH ID ", GAME_ID);
 
@@ -133,6 +134,15 @@ let txSend2 = await Mina.transaction(fundedPubKey1, () => {
 });
 await txSend2.prove();
 await txSend2.sign([fundedPrivKey1]).send();
+
+
+/////////////// Stage 0 - Set players
+const txn = await Mina.transaction(fundedPubKey1, () => {
+    zkAppInstance.initState(playerPubKey1, playerPubKey2)
+});
+await txn.prove();
+await txn.sign([fundedPrivKey1]).send();
+console.log("Initialized players...");
 
 
 /////////////// Stage 1 - Deposit
