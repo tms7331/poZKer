@@ -253,23 +253,22 @@ export class PoZKerApp extends SmartContract {
         // Make sure the player has enough funds to take the action
         const stack1 = this.stack1.getAndAssertEquals();
         const stack2 = this.stack2.getAndAssertEquals();
-        const case1 = playerHash.equals(player1Hash).and(betSize.lessThan(stack1));
-        const case2 = playerHash.equals(player2Hash).and(betSize.lessThan(stack2));
+        const case1 = playerHash.equals(player1Hash).and(betSize.lessThanOrEqual(stack1));
+        const case2 = playerHash.equals(player2Hash).and(betSize.lessThanOrEqual(stack2));
         case1.or(case2).assertTrue("Not enough balance for bet!");
 
+        // We'll actually write stack sizes at the end after we check for game over condition
         const stack1New = Provable.if(
             playerHash.equals(player1Hash),
             stack1.sub(betSize),
             stack1
         );
-        this.stack1.set(stack1New);
 
         const stack2New = Provable.if(
             playerHash.equals(player2Hash),
             stack2.sub(betSize),
             stack2
         );
-        this.stack2.set(stack2New);
 
         // Need to check if we've hit the end of the street - transition to next street
         // Scenarios for this would be:
@@ -321,19 +320,19 @@ export class PoZKerApp extends SmartContract {
         this.gamestate.set(currgamestate);
 
         // If game is over from a fold - need to send funds to winner
-        const p1WinnerBal = stack1.add(this.game_buyin.sub(stack2));
-        const p2WinnerBal = stack2.add(this.game_buyin.sub(stack1));
+        const p1WinnerBal = stack1.add(this.game_buyin.sub(stack2New));
+        const p2WinnerBal = stack2.add(this.game_buyin.sub(stack1New));
 
         const stack1Final = Provable.if(
             gameOverBool.and(playerHash.equals(player2Hash)),
             p1WinnerBal,
-            stack1
+            stack1New
         );
         this.stack1.set(stack1Final);
         const stack2Final = Provable.if(
             gameOverBool.and(playerHash.equals(player1Hash)),
             p2WinnerBal,
-            stack2
+            stack2New
         );
         this.stack2.set(stack2Final);
     }

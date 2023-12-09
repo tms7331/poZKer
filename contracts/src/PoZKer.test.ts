@@ -78,7 +78,7 @@ describe('PoZKer', () => {
 
   async function setPlayers() {
     const txn = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.initState(playerPubKey1, playerPubKey1)
+      zkAppInstance.initState(playerPubKey1, playerPubKey2)
     });
     await txn.prove();
     await txn.sign([playerPrivKey1]).send();
@@ -201,7 +201,7 @@ describe('PoZKer', () => {
       console.log("ERROR IS:");
       console.log(err_str);
       console.log("PRINTED ERROR...:");
-      expect(err_str).toMatch('Error: player is not allowed to make a move');
+      expect(err_str).toMatch('Error: Player is not allowed to make a move');
     }
 
     const txn = await Mina.transaction(playerPubKey1, () => {
