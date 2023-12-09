@@ -1,4 +1,4 @@
-import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, AccountUpdate, Poseidon, MerkleMapWitness, provable } from 'o1js';
+import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, AccountUpdate, Poseidon, MerkleMapWitness } from 'o1js';
 import { Cipher, ElGamalFF } from 'o1js-elgamal';
 
 
@@ -72,7 +72,8 @@ export class PoZKerApp extends SmartContract {
     Raise = UInt64.from(actionMapping["Raise"]);
     Check = UInt64.from(actionMapping["Check"]);
 
-    root = Field("706658705228152685713447102194564896352128976013742567056765536952384688062");
+    MerkleMapRootRegular = Field("706658705228152685713447102194564896352128976013742567056765536952384688062");
+    MerkleMapRootFlush = Field("706658705228152685713447102194564896352128976013742567056765536952384688062");
     // Hardcode 100 as game size still?
     game_buyin = UInt64.from(100);
     //player1Hash = Field(8879912305210651084592467885807902739034137217445691720217630551894134031710);
@@ -385,54 +386,110 @@ export class PoZKerApp extends SmartContract {
         this.slot2.set(slot2New)
     }
 
-    @method showCards(slotI: Field, card1: Field, card2: Field, merkleMapKey: Field, merkleMapVal: Field, playerSecKey: PrivateKey) {
-        // Ideally add in merkleWitness: MerkleMapWitness, and confirm that too...
-        slotI.assertLessThanOrEqual(1);
-        slotI.assertGreaterThanOrEqual(0);
-        // Players will have to call this with their claimed cards, along with the lookup value.
+    @method showCards(allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64],
+        useCards: [Bool, Bool, Bool, Bool, Bool, Bool, Bool],
+        playerSecKey: PrivateKey,
+        merkleMapKey: Field,
+        merkleMapVal: Field
+    ) {
+        /*
+        Each player has to pass in their holecards, along with all board cards
+        And specify which cards are used to make their best 5c hand
 
-        // We need to:
-        // 1. confirm the card lookup key and value are valid entries in the merkle map
-        // 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
-        // 3. re-hash the cards and confirm it matches their stored hash
+        To make cheating impossible, we need these checks:
+        1. confirm the card lookup key and value are valid entries in the merkle map
+        2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
+        3. re-hash the cards and confirm it matches their stored hash
+        4. check that board cards are the real board cards
+        */
 
-        // We are going to be storing the product of all the board card primes here!
+        // Player card hash will be stored in slot0 or slot1
         const slot0 = this.slot0.getAndAssertEquals();
         const slot1 = this.slot1.getAndAssertEquals();
+        // We are going to be storing the product of all the board card primes here!
         const slot2 = this.slot2.getAndAssertEquals();
 
-        // Check 2
-        // TODO - fails - why?
-        const expectedMerkleMapKey = card1.mul(card2).mul(slot2);
-        expectedMerkleMapKey.assertEquals(merkleMapKey);
+        // 0 - make sure player is a part of the game...
+        const player = PublicKey.fromPrivateKey(playerSecKey);
+        const player1Hash = this.player1Hash.getAndAssertEquals();
+        const player2Hash = this.player2Hash.getAndAssertEquals();
+        const playerHash = Poseidon.hash(player.toFields());
+        playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)).assertTrue('Player is not part of this game!');
 
-        // Check 3
-        // TODO - also fails - why?
-        const cardHash = this.generateHash(card1, card2, playerSecKey);
-        const compareHash = Provable.if(
-            slotI.equals(0),
+
+        const holecardsHash = Provable.if(
+            playerHash.equals(player1Hash),
             slot0,
-            slot1,
+            slot1
         );
-        cardHash.assertEquals(compareHash);
+
+
+        const holecard1 = allCards[0];
+        const holecard2 = allCards[1];
+        const boardcard1 = allCards[2];
+        const boardcard2 = allCards[3];
+        const boardcard3 = allCards[4];
+        const boardcard4 = allCards[5];
+        const boardcard5 = allCards[6];
+
+        // 1. confirm the card lookup key and value are valid entries in the merkle map
+        // TODO - figure out how we can verify values are valid within merkle map, using our stored root
+        // MerkleMapRootRegular, MerkleMapRootFlush
+
+        const holecard1Field = holecard1.toFields()[0];
+        const holecard2Field = holecard2.toFields()[0];
+        const cardHash = this.generateHash(holecard1Field, holecard2Field, playerSecKey);
+        // CHECK 3. re-hash the cards and confirm it matches their stored hash
+        cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
+
+        const v1 = Provable.if(useCards[0], allCards[0], UInt64.from(1));
+        const v2 = Provable.if(useCards[1], allCards[1], UInt64.from(1));
+        const v3 = Provable.if(useCards[2], allCards[2], UInt64.from(1));
+        const v4 = Provable.if(useCards[3], allCards[3], UInt64.from(1));
+        const v5 = Provable.if(useCards[4], allCards[4], UInt64.from(1));
+        const v6 = Provable.if(useCards[5], allCards[5], UInt64.from(1));
+        const v7 = Provable.if(useCards[6], allCards[6], UInt64.from(1));
+
+        // CHECK 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
+        // TODO - this needs to be divMod.rest, and if it's a flush we have to verify that too...
+        const expectedMerkleMapKey = v1.mul(v2).mul(v3).mul(v4).mul(v5).mul(v6).mul(v7);
+        expectedMerkleMapKey.toFields()[0].assertEquals(merkleMapKey, 'Player did not pass in their real cards!');
+
+
+        // Prime values of the boardcards
+        const boardcard1p = boardcard1.divMod(UInt64.from(13));
+        const boardcard2p = boardcard2.divMod(UInt64.from(13));
+        const boardcard3p = boardcard3.divMod(UInt64.from(13));
+        const boardcard4p = boardcard4.divMod(UInt64.from(13));
+        const boardcard5p = boardcard5.divMod(UInt64.from(13));
+        const boardcardMul = boardcard1p.rest.mul(boardcard2p.rest).mul(boardcard3p.rest).mul(boardcard4p.rest).mul(boardcard5p.rest);
+
+
+        const boardcardMulReal = UInt64.from(slot2);
+        // CHECK 4. check that board cards are the real board cards
+        boardcardMul.assertEquals(boardcardMulReal);
+
+
+        // And now we can store the lookup value in the appropriate slot
 
         // Assuming we made it past all our checks - 
         // We are now storing the merkleMapVal, which represents
         // hand strength in these slots!  Lower is better!
         const slot0New = Provable.if(
-            slotI.equals(0),
+            playerHash.equals(player1Hash),
             merkleMapVal,
             slot0,
         );
         const slot1New = Provable.if(
-            slotI.equals(1),
+            playerHash.equals(player2Hash),
             merkleMapVal,
             slot1,
         );
-
         this.slot0.set(slot0New);
         this.slot1.set(slot1New);
     }
+
+
 
     generateHash(card1: Field, card2: Field, privateKey: PrivateKey): Field {
         // Apply a double hash to get a single value for both cards
@@ -462,10 +519,10 @@ export class PoZKerApp extends SmartContract {
         // Need to recreate ciphers - we ONLY stashed the first value before...
         const c1 = new Cipher({ c1: slot1, c2: c2a });
         const c2 = new Cipher({ c1: slot2, c2: c2b });
-        const card1: Field = ElGamalFF.decrypt(c1, cipherKeys);
-        const card2: Field = ElGamalFF.decrypt(c2, cipherKeys);
+        const holecard1: Field = ElGamalFF.decrypt(c1, cipherKeys);
+        const holecard2: Field = ElGamalFF.decrypt(c2, cipherKeys);
 
-        const cardHash = this.generateHash(card1, card2, playerSecKey);
+        const cardHash = this.generateHash(holecard1, holecard2, playerSecKey);
 
         const slot0New = Provable.if(
             slotI.equals(0),
