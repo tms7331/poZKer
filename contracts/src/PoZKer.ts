@@ -53,6 +53,24 @@ export const actionMapping = {
 }
 
 
+// Want an additional mappin for cards, using same prime idea 
+export const cardMapping = {
+    "2": 2,
+    "3": 3,
+    "4": 5,
+    "5": 7,
+    "6": 11,
+    "7": 13,
+    "8": 17,
+    "9": 19,
+    "T": 23,
+    "J": 29,
+    "Q": 31,
+    "K": 37,
+    "A": 41,
+}
+
+
 export class PoZKerApp extends SmartContract {
     GameOver = UInt64.from(actionMapping["GameOver"]);
 
@@ -386,8 +404,58 @@ export class PoZKerApp extends SmartContract {
         this.slot2.set(slot2New)
     }
 
+    calcLookupVal(allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64],
+        useCards: [Bool, Bool, Bool, Bool, Bool, Bool, Bool],
+    ): UInt64 {
+        const v1 = Provable.if(useCards[0], allCards[0], UInt64.from(1)).divMod(13).rest;
+        const v2 = Provable.if(useCards[1], allCards[1], UInt64.from(1)).divMod(13).rest;
+        const v3 = Provable.if(useCards[2], allCards[2], UInt64.from(1)).divMod(13).rest;
+        const v4 = Provable.if(useCards[3], allCards[3], UInt64.from(1)).divMod(13).rest;
+        const v5 = Provable.if(useCards[4], allCards[4], UInt64.from(1)).divMod(13).rest;
+        const v6 = Provable.if(useCards[5], allCards[5], UInt64.from(1)).divMod(13).rest;
+        const v7 = Provable.if(useCards[6], allCards[6], UInt64.from(1)).divMod(13).rest;
+
+        const lookupVal = v1.mul(v2).mul(v3).mul(v4).mul(v5).mul(v6).mul(v7);
+        return lookupVal;
+    }
+
+    calcCheckFlush(allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64],
+        useCards: [Bool, Bool, Bool, Bool, Bool, Bool, Bool],
+    ): Bool {
+        // A valid flush lookup will be one in wich all 5 cards have the same quotient when
+        // divided by 13
+        const v1 = Provable.if(useCards[0], allCards[0], UInt64.from(4)).divMod(13).quotient;
+        const v2 = Provable.if(useCards[1], allCards[1], UInt64.from(4)).divMod(13).quotient;
+        const v3 = Provable.if(useCards[2], allCards[2], UInt64.from(4)).divMod(13).quotient;
+        const v4 = Provable.if(useCards[3], allCards[3], UInt64.from(4)).divMod(13).quotient;
+        const v5 = Provable.if(useCards[4], allCards[4], UInt64.from(4)).divMod(13).quotient;
+        const v6 = Provable.if(useCards[5], allCards[5], UInt64.from(4)).divMod(13).quotient;
+        const v7 = Provable.if(useCards[6], allCards[6], UInt64.from(4)).divMod(13).quotient;
+
+        let isFlush: Bool = Bool(true);
+        for (let x of [v1, v2, v3, v4, v5, v6, v7]) {
+            const realX = Provable.if(x.equals(UInt64.from(4)), Bool(false), Bool(true));
+            for (let y of [v1, v2, v3, v4, v5, v6, v7]) {
+                // Can we do this instead?  Would simplify some logic
+                // if (x == y) {
+                //     continue
+                // }
+
+                // valid quotients are 0, 1, 2, 3
+                // we put '4' as our placeholder for unused cards
+                // So if values are anything except 4, we should confirm they're the same
+                const realY = Provable.if(y.equals(UInt64.from(4)), Bool(false), Bool(true));
+                const quotientMatch = Provable.if(realX.and(realY), x.equals(y), Bool(true));
+                isFlush = isFlush.and(quotientMatch);
+            }
+
+        }
+        return isFlush;
+    }
+
     @method showCards(allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64],
         useCards: [Bool, Bool, Bool, Bool, Bool, Bool, Bool],
+        isFlush: Bool,
         playerSecKey: PrivateKey,
         merkleMapKey: Field,
         merkleMapVal: Field
@@ -442,19 +510,15 @@ export class PoZKerApp extends SmartContract {
         // CHECK 3. re-hash the cards and confirm it matches their stored hash
         cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
 
-        const v1 = Provable.if(useCards[0], allCards[0], UInt64.from(1));
-        const v2 = Provable.if(useCards[1], allCards[1], UInt64.from(1));
-        const v3 = Provable.if(useCards[2], allCards[2], UInt64.from(1));
-        const v4 = Provable.if(useCards[3], allCards[3], UInt64.from(1));
-        const v5 = Provable.if(useCards[4], allCards[4], UInt64.from(1));
-        const v6 = Provable.if(useCards[5], allCards[5], UInt64.from(1));
-        const v7 = Provable.if(useCards[6], allCards[6], UInt64.from(1));
 
         // CHECK 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
-        // TODO - this needs to be divMod.rest, and if it's a flush we have to verify that too...
-        const expectedMerkleMapKey = v1.mul(v2).mul(v3).mul(v4).mul(v5).mul(v6).mul(v7);
-        expectedMerkleMapKey.toFields()[0].assertEquals(merkleMapKey, 'Player did not pass in their real cards!');
+        // the lookupVal is the expected key for our merkle map
+        const lookupVal: UInt64 = this.calcLookupVal(allCards, useCards);
+        const isFlushReal = this.calcCheckFlush(allCards, useCards);
+        isFlush.assertEquals(isFlushReal, 'Player did not specify hand correctly!');
 
+        lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Player did not pass in their real cards!');
+        // TODO - we need to verify the merkleMapKey/merkleMapValue are from the proper map?
 
         // Prime values of the boardcards
         const boardcard1p = boardcard1.divMod(UInt64.from(13));
@@ -488,7 +552,6 @@ export class PoZKerApp extends SmartContract {
         this.slot0.set(slot0New);
         this.slot1.set(slot1New);
     }
-
 
 
     generateHash(card1: Field, card2: Field, privateKey: PrivateKey): Field {
