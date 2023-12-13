@@ -53,8 +53,8 @@ export const actionMapping = {
 }
 
 
-// Want an additional mappin for cards, using same prime idea 
-export const cardMapping = {
+// Want an additional mapping for cards, using same prime idea 
+export const cardMapping13 = {
     "2": 2,
     "3": 3,
     "4": 5,
@@ -68,6 +68,69 @@ export const cardMapping = {
     "Q": 31,
     "K": 37,
     "A": 41,
+}
+
+
+// Need mapping of full cards to properly track board cards - 
+// We need to store suit and rank
+// Issue with only tracking board card rank is at end of hand we
+// will need the suit to prevent players from cheating by keeping
+// same board rank but changing suit
+export const cardMapping52 = {
+    "2d": 2,
+    "3d": 3,
+    "4d": 5,
+    "5d": 7,
+    "6d": 11,
+    "7d": 13,
+    "8d": 17,
+    "9d": 19,
+    "Td": 23,
+    "Jd": 29,
+    "Qd": 31,
+    "Kd": 37,
+    "Ad": 41,
+    "2c": 43,
+    "3c": 47,
+    "4c": 53,
+    "5c": 59,
+    "6c": 61,
+    "7c": 67,
+    "8c": 71,
+    "9c": 73,
+    "Tc": 79,
+    "Jc": 83,
+    "Qc": 89,
+    "Kc": 97,
+    "Ac": 101,
+
+    "2h": 103,
+    "3h": 107,
+    "4h": 109,
+    "5h": 113,
+    "6h": 127,
+    "7h": 131,
+    "8h": 137,
+    "9h": 139,
+    "Th": 149,
+    "Jh": 151,
+    "Qh": 157,
+    "Kh": 163,
+    "Ah": 167,
+
+    "2s": 173,
+    "3s": 179,
+    "4s": 181,
+    "5s": 191,
+    "6s": 193,
+    "7s": 197,
+    "8s": 199,
+    "9s": 211,
+    "Ts": 223,
+    "Js": 227,
+    "Qs": 229,
+    "Ks": 233,
+    "As": 239,
 }
 
 
@@ -93,7 +156,9 @@ export class PoZKerApp extends SmartContract {
     MerkleMapRootRegular = Field("706658705228152685713447102194564896352128976013742567056765536952384688062");
     MerkleMapRootFlush = Field("706658705228152685713447102194564896352128976013742567056765536952384688062");
     // Hardcode 100 as game size still?
-    game_buyin = UInt64.from(100);
+    GameBuyin = UInt64.from(100);
+    SmallBlind = UInt64.from(1);
+    BigBlind = UInt64.from(1);
     //player1Hash = Field(8879912305210651084592467885807902739034137217445691720217630551894134031710);
     //player2Hash = Field(17608229569872969144485439827417022479409407220457475048103405509470577631109);
 
@@ -187,18 +252,20 @@ export class PoZKerApp extends SmartContract {
         // From https://github.com/o1-labs/o1js/blob/5ca43684e98af3e4f348f7b035a0ad7320d88f3d/src/examples/zkapps/escrow/escrow.ts
         const payerUpdate = AccountUpdate.createSigned(player);
         // Hardcoded 100 mina as game size
-        payerUpdate.send({ to: this.address, amount: this.game_buyin });
+        payerUpdate.send({ to: this.address, amount: this.GameBuyin });
 
+        // Also include blinds!
+        // 1/2, where player1 always posts small blind
         const stack1New = Provable.if(
             playerHash.equals(player1Hash),
-            this.game_buyin,
+            this.GameBuyin.sub(this.SmallBlind),
             stack1
         );
         this.stack1.set(stack1New);
 
         const stack2New = Provable.if(
             playerHash.equals(player2Hash),
-            this.game_buyin,
+            this.GameBuyin.sub(this.BigBlind),
             stack2
         );
         this.stack2.set(stack2New);
@@ -339,8 +406,8 @@ export class PoZKerApp extends SmartContract {
         this.gamestate.set(currgamestate);
 
         // If game is over from a fold - need to send funds to winner
-        const p1WinnerBal = stack1.add(this.game_buyin.sub(stack2New));
-        const p2WinnerBal = stack2.add(this.game_buyin.sub(stack1New));
+        const p1WinnerBal = stack1.add(this.GameBuyin.sub(stack2New));
+        const p2WinnerBal = stack2.add(this.GameBuyin.sub(stack1New));
 
         const stack1Final = Provable.if(
             gameOverBool.and(playerHash.equals(player2Hash)),
@@ -365,8 +432,8 @@ export class PoZKerApp extends SmartContract {
         const stack2 = this.stack2.getAndAssertEquals();
         stack1.assertEquals(stack2);
 
-        const p1WinnerBal = stack1.add(this.game_buyin.sub(stack2));
-        const p2WinnerBal = stack2.add(this.game_buyin.sub(stack1));
+        const p1WinnerBal = stack1.add(this.GameBuyin.sub(stack2));
+        const p2WinnerBal = stack2.add(this.GameBuyin.sub(stack1));
 
         // Convention is we'll have stored player1's lookup value for their hand 
         // in slot0, and player2's lookup value in slot1
@@ -388,7 +455,7 @@ export class PoZKerApp extends SmartContract {
         // If we get a tie - split the pot
         const tieAdj = Provable.if(
             Bool(slot0 === slot1),
-            this.game_buyin.sub(stack2),
+            this.GameBuyin.sub(stack2),
             UInt64.from(0),
         );
         this.stack1.set(stack1Final.add(tieAdj));
@@ -397,10 +464,11 @@ export class PoZKerApp extends SmartContract {
         this.gamestate.set(this.GameOver);
     }
 
-    @method tallyBoardCards(cardPrime: Field) {
+    @method tallyBoardCards(cardPrime52: Field) {
+        // Remember - cardPrime52 should be in the 52 format
         // We'll always store the board card product in slot2
         const slot2 = this.slot2.getAndAssertEquals();
-        const slot2New = slot2.mul(cardPrime);
+        const slot2New = slot2.mul(cardPrime52);
         this.slot2.set(slot2New)
     }
 
@@ -463,7 +531,7 @@ export class PoZKerApp extends SmartContract {
         /*
         Each player has to pass in their holecards, along with all board cards
         And specify which cards are used to make their best 5c hand
-
+    
         To make cheating impossible, we need these checks:
         1. confirm the card lookup key and value are valid entries in the merkle map
         2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
@@ -519,6 +587,8 @@ export class PoZKerApp extends SmartContract {
 
         lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Player did not pass in their real cards!');
         // TODO - we need to verify the merkleMapKey/merkleMapValue are from the proper map?
+        // MerkleMapRootRegular
+        // MerkleMapRootFlush
 
         // Prime values of the boardcards
         const boardcard1p = boardcard1.divMod(UInt64.from(13));
