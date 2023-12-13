@@ -178,7 +178,8 @@ export class PoZKerApp extends SmartContract {
     init() {
         super.init();
         // Starting gamestate is always P1's turn preflop, with no previous action
-        const currstate = this.P1.mul(this.Preflop).mul(this.Null);
+        // Starting action is a bet because of blinds!
+        const currstate = this.P1.mul(this.Preflop).mul(this.Bet);
         this.gamestate.set(currstate);
     }
 
@@ -298,6 +299,8 @@ export class PoZKerApp extends SmartContract {
             .or(playerHash.equals(player2Hash).and(p2turn))
             .assertTrue('Player is not allowed to make a move');
 
+        const stack1 = this.stack1.getAndAssertEquals();
+        const stack2 = this.stack2.getAndAssertEquals();
 
         const isPreflop = gamestate.divMod(this.Preflop).rest.equals(UInt64.from(0));
         const isFlop = gamestate.divMod(this.Flop).rest.equals(UInt64.from(0));
@@ -334,25 +337,66 @@ export class PoZKerApp extends SmartContract {
         let act5 = action.equals(this.Check).and(facingNull.or(facingCheck));
         act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
 
+        // Amount checks/logic:
+        // For calls - we are not passing in amount, so we need to figure it out
+        // For raises - raise needs to be to a valid size
+
+        const stackDiff = Provable.if(p1turn,
+            stack1.sub(stack2),
+            stack2.sub(stack1)
+        )
+        // sanity check...
+        stackDiff.assertGreaterThanOrEqual(UInt64.from(0));
+
+        // Betsize constraints:
+        // Fold/Check - betsize should be 0
+        // Bet - betsize should be gt 1 (or whatever minsize is)
+        // Call - betsize should make stacks equal
+        // Raise - betsize should be at least equal to diff*2
+
+        const foldCheckAmountBool = Provable.if(action.equals(this.Check).or(action.equals(this.Fold)),
+            betSize.equals(UInt64.from(0)),
+            Bool(true)
+        )
+        foldCheckAmountBool.assertTrue();
+
+        // Bet - betsize should be gt 1 (or whatever minsize is)
+        Provable.if(action.equals(this.Bet),
+            UInt64.from(1),
+            betSize,
+        ).assertGreaterThanOrEqual(UInt64.from(1))
+
+        // Raise - betsize should be at least equal to diff*2
+        Provable.if(action.equals(this.Raise),
+            stackDiff.mul(2).greaterThanOrEqual(betSize),
+            Bool(true),
+        ).assertTrue();
+
+        // Call - betsize should make stacks equal
+        // So we might need to override the other betsize here
+        const betSizeReal = Provable.if(action.equals(this.Call),
+            stackDiff,
+            betSize,
+        )
+
+
         //or(action.equals(Field(Actions.Bet)).and(gamestate.equals(Field(Actions.Null)).or(gamestate.equals(Field(Actions.Check)))).assertTrue('Bet is valid when facing [Null, Check]'));
 
         // Make sure the player has enough funds to take the action
-        const stack1 = this.stack1.getAndAssertEquals();
-        const stack2 = this.stack2.getAndAssertEquals();
-        const case1 = playerHash.equals(player1Hash).and(betSize.lessThanOrEqual(stack1));
-        const case2 = playerHash.equals(player2Hash).and(betSize.lessThanOrEqual(stack2));
+        const case1 = playerHash.equals(player1Hash).and(betSizeReal.lessThanOrEqual(stack1));
+        const case2 = playerHash.equals(player2Hash).and(betSizeReal.lessThanOrEqual(stack2));
         case1.or(case2).assertTrue("Not enough balance for bet!");
 
         // We'll actually write stack sizes at the end after we check for game over condition
         const stack1New = Provable.if(
             playerHash.equals(player1Hash),
-            stack1.sub(betSize),
+            stack1.sub(betSizeReal),
             stack1
         );
 
         const stack2New = Provable.if(
             playerHash.equals(player2Hash),
-            stack2.sub(betSize),
+            stack2.sub(betSizeReal),
             stack2
         );
 
