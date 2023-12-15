@@ -1,12 +1,15 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
-import { PoZKerApp } from './PoZKer.js';
+import { PoZKerApp, cardMapping52 } from './PoZKer.js';
 //import { readline } from 'readline';
 //const readline = require('readline');
 import readline from 'readline';
 import { promisify } from 'util';
 import { Cipher, ElGamalFF } from 'o1js-elgamal';
 
-const cards = ['2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh', 'Qh', 'Kh', 'Ah',
+
+type Card = '2d' | '3d' | '4d' | '5d' | '6d' | '7d' | '8d' | '9d' | 'Td' | 'Jd' | 'Qd' | 'Kd' | 'Ad' | '2c' | '3c' | '4c' | '5c' | '6c' | '7c' | '8c' | '9c' | 'Tc' | 'Jc' | 'Qc' | 'Kc' | 'Ac' | '2h' | '3h' | '4h' | '5h' | '6h' | '7h' | '8h' | '9h' | 'Th' | 'Jh' | 'Qh' | 'Kh' | 'Ah' | '2s' | '3s' | '4s' | '5s' | '6s' | '7s' | '8s' | '9s' | 'Ts' | 'Js' | 'Qs' | 'Ks' | 'As';
+
+const cards: Card[] = ['2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh', 'Qh', 'Kh', 'Ah',
     '2d', '3d', '4d', '5d', '6d', '7d', '8d', '9d', 'Td', 'Jd', 'Qd', 'Kd', 'Ad',
     '2c', '3c', '4c', '5c', '6c', '7c', '8c', '9c', 'Tc', 'Jc', 'Qc', 'Kc', 'Ac',
     '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', 'Ts', 'Js', 'Qs', 'Ks', 'As']
@@ -75,7 +78,7 @@ function getRandomInt(min: number, max: number) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function parseCardInt(cardInt: number): string {
+function parseCardInt(cardInt: number): Card {
     return cards[cardInt];
 }
 
@@ -300,6 +303,8 @@ const actionMap: { [key: number]: number } = {
 
 const actionList = ["", "Bets", "Calls", "Folds", "Raises", "Checks"]
 
+
+
 function get_street(gamestate: number) {
     if (gamestate % 5 == 0) {
         return "Preflop";
@@ -332,8 +337,18 @@ function get_player(gamestate: number) {
 // let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
 let currStreet = "Preflop";
 
-const board: string[] = []
+const board: Card[] = []
 let boardPrimes = 1;
+
+
+function getShowdownData() {
+    // allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64],
+    // useCards: [Bool, Bool, Bool, Bool, Bool, Bool, Bool],
+    // isFlush: Bool,
+    // playerSecKey: PrivateKey,
+    // merkleMapKey: Field,
+    // merkleMapVal: Field
+}
 
 // Main game loop - keep accepting actions until hand ends
 while (true) {
@@ -394,19 +409,21 @@ while (true) {
             const merkleMapKey: Field = Field((card1 & 13) * (card2 & 13) * boardPrimes);
             const merkleMapVal: Field = Field(getRandomInt(0, 6500));
             const playerSecKey = playerPrivKey2;
-            zkAppInstance.showCards(slotI, Field(card1 & 13), Field(card2 & 13), merkleMapKey, merkleMapVal, playerSecKey)
+            //zkAppInstance.showCards(slotI, Field(card1 & 13), Field(card2 & 13), merkleMapKey, merkleMapVal, playerSecKey)
         });
         await txnA.prove();
         await txnA.sign([playerPrivKey1]).send();
 
 
         const txnB = await Mina.transaction(playerPubKey2, () => {
-            const slotI = Field(1)
+            /*
+            //const slotI = Field(1)
             // Key is SUM of primes...
             const merkleMapKey: Field = Field((card3 & 13) * (card4 & 13) * boardPrimes);
             const merkleMapVal: Field = Field(getRandomInt(0, 6500));
             const playerSecKey = playerPrivKey2;
             zkAppInstance.showCards(slotI, Field(card3 & 13), Field(card4 & 13), merkleMapKey, merkleMapVal, playerSecKey)
+            */
         });
         await txnB.prove();
         await txnB.sign([playerPrivKey2]).send();
@@ -426,20 +443,17 @@ while (true) {
         if (street == "Flop") {
             console.log("DEALING FLOP...")
             let flop = await getFlopFromOracle(GAME_ID.toString());
-            let flopHand = flop.hand
+            let flopHand: [Card, Card, Card] = flop.hand
             board.push(parseCardInt(parseInt(flopHand[0])));
             board.push(parseCardInt(parseInt(flopHand[1])));
             board.push(parseCardInt(parseInt(flopHand[2])));
             console.log("BOARD IS", board);
 
             // We have to keep track of the board cards...
-            const cardPrime1 = flopHand[0] % 13;
-            const cardPrime2 = flopHand[1] % 13;
-            const cardPrime3 = flopHand[2] % 13;
+            const cardPrime1 = cardMapping52[flopHand[0]];
+            const cardPrime2 = cardMapping52[flopHand[1]];
+            const cardPrime3 = cardMapping52[flopHand[2]];
             // have to keep our own tally of primes...
-            boardPrimes *= cardPrime1;
-            boardPrimes *= cardPrime2;
-            boardPrimes *= cardPrime3;
             const txnA = await Mina.transaction(playerPubKey2, () => {
                 zkAppInstance.tallyBoardCards(Field(cardPrime1))
             });
@@ -462,12 +476,13 @@ while (true) {
         }
         else if (street == "Turn") {
             console.log("DEALING TURN...")
-            let take = await getTakeFromOracle(GAME_ID.toString());
-            let takeHand = take.hand
-            board.push(parseCardInt(parseInt(takeHand[0])));
+            let turn = await getTakeFromOracle(GAME_ID.toString());
+            let turnHand: Card = turn.hand[0]
+            board.push(parseCardInt(parseInt(turnHand)));
             console.log("BOARD IS", board);
 
-            const cardPrime1 = (takeHand[0] % 13);
+            //const cardPrime1 = (takeHand[0] % 13);
+            const cardPrime1 = cardMapping52[turnHand];
             boardPrimes *= cardPrime1;
             const txnA = await Mina.transaction(playerPubKey2, () => {
                 zkAppInstance.tallyBoardCards(Field(cardPrime1))
@@ -479,11 +494,12 @@ while (true) {
         else if (street == "River") {
             console.log("DEALING RIVER...")
             let river = await getRiverFromOracle(GAME_ID.toString());
-            let riverHand = river.hand
-            board.push(parseCardInt(parseInt(riverHand[0])));
+            let riverHand: Card = river.hand[0]
+            board.push(parseCardInt(parseInt(riverHand)));
             console.log("BOARD IS", board);
 
-            const cardPrime1 = riverHand[0] % 13;
+            //const cardPrime1 = riverHand[0] % 13;
+            const cardPrime1 = cardMapping52[riverHand];
             boardPrimes *= cardPrime1;
             const txnA = await Mina.transaction(playerPubKey2, () => {
                 zkAppInstance.tallyBoardCards(Field(cardPrime1))
@@ -494,8 +510,6 @@ while (true) {
         currStreet = street;
     }
 }
-
-
 
 
 
