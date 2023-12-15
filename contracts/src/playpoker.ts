@@ -361,7 +361,7 @@ while (true) {
         const action = await question("Player 1 - Choose your action\n") as number;
         // If it's a bet/call/raise - need to include amount
         let amount: number = 0;
-        if (action == 1 || action == 2 || action == 4) {
+        if (action == 1 || action == 4) {
             amount = await question("Player 1 - Choose amount\n") as number;
         }
         const actionField = UInt64.from(actionMap[action]);
@@ -379,7 +379,7 @@ while (true) {
         const action = await question("Player 2 - Choose your action\n") as number;
         // If it's a bet/call/raise - need to include amount
         let amount: number = 0;
-        if (action == 1 || action == 2 || action == 4) {
+        if (action == 1 || action == 4) {
             amount = await question("Player 2 - Choose amount\n") as number;
         }
         const actionField = UInt64.from(actionMap[action]);
