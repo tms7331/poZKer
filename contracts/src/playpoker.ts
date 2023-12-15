@@ -5,7 +5,21 @@ import { PoZKerApp, cardMapping52 } from './PoZKer.js';
 import readline from 'readline';
 import { promisify } from 'util';
 import { Cipher, ElGamalFF } from 'o1js-elgamal';
+import {
+    isReady,
+    shutdown,
+    Bool,
+    Field,
+    Mina,
+    PrivateKey,
+    AccountUpdate,
+    UInt64,
+    Poseidon,
+    MerkleMap,
+} from 'o1js';
+import { getHoleFromOracle, getFlopFromOracle, getRiverFromOracle, getTakeFromOracle } from "./oracleLib.js";
 
+await isReady;
 
 type Card = '2d' | '3d' | '4d' | '5d' | '6d' | '7d' | '8d' | '9d' | 'Td' | 'Jd' | 'Qd' | 'Kd' | 'Ad' | '2c' | '3c' | '4c' | '5c' | '6c' | '7c' | '8c' | '9c' | 'Tc' | 'Jc' | 'Qc' | 'Kc' | 'Ac' | '2h' | '3h' | '4h' | '5h' | '6h' | '7h' | '8h' | '9h' | 'Th' | 'Jh' | 'Qh' | 'Kh' | 'Ah' | '2s' | '3s' | '4s' | '5s' | '6s' | '7s' | '8s' | '9s' | 'Ts' | 'Js' | 'Qs' | 'Ks' | 'As';
 
@@ -21,22 +35,6 @@ const rl = readline.createInterface({
     output: process.stdout
 });
 
-
-import {
-    isReady,
-    shutdown,
-    Field,
-    Mina,
-    PrivateKey,
-    AccountUpdate,
-    UInt64,
-    Poseidon,
-    MerkleMap,
-} from 'o1js';
-import { getHoleFromOracle, getFlopFromOracle, getRiverFromOracle, getTakeFromOracle } from "./oracleLib.js";
-
-
-await isReady;
 const useProof = false;
 console.log("Welcome to PoZKer!");
 console.log("Funds will be auto-deposited and gameplay will start automatically...");
@@ -179,6 +177,10 @@ const retValHand = retVal.hand
 card1 = retValHand[0];
 card2 = retValHand[1];
 
+// For showdown we'll need the prime52 of the cards
+const card1prime52 = cardMapping52[parseCardInt(card1)];
+const card2prime52 = cardMapping52[parseCardInt(card2)];
+
 
 // Player 1 will encrypt their cards - we'll pretend that we've done 
 // shuffles and encryptions, and player 2 has decrypted their half of the
@@ -237,6 +239,9 @@ const retVal2 = await getHoleFromOracle(GAME_ID.toString());
 const retValHand2 = retVal2.hand
 card3 = retValHand2[0];
 card4 = retValHand2[1];
+
+const card3prime52 = cardMapping52[parseCardInt(card3)];
+const card4prime52 = cardMapping52[parseCardInt(card4)];
 
 console.log("player 2 hole cards:", parseCardInt(parseInt(card3.toString())), parseCardInt(parseInt(card4.toString())));
 console.log("Screen will be cleared after 3 seconds...")
@@ -337,8 +342,8 @@ function get_player(gamestate: number) {
 // let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
 let currStreet = "Preflop";
 
-const board: Card[] = []
-let boardPrimes = 1;
+const boardStrs: Card[] = []
+const boardPrimes: UInt64[] = []
 
 
 function getShowdownData() {
@@ -404,26 +409,27 @@ while (true) {
         // BOTH players must show cards before we can do showdown...
 
         const txnA = await Mina.transaction(playerPubKey1, () => {
-            const slotI = Field(0)
+            const allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card1prime52), UInt64.from(card2prime52), boardPrimes[0], boardPrimes[1], boardPrimes[2], boardPrimes[3], boardPrimes[4]]
+            const useCards: [Bool, Bool, Bool, Bool, Bool, Bool, Bool] = [Bool(true), Bool(true), Bool(true), Bool(true), Bool(true), Bool(false), Bool(false)]
+            const isFlush: Bool = Bool(false);
+            const playerSecKey = playerPrivKey1;
             // Key is SUM of primes...
-            const merkleMapKey: Field = Field((card1 & 13) * (card2 & 13) * boardPrimes);
-            const merkleMapVal: Field = Field(getRandomInt(0, 6500));
-            const playerSecKey = playerPrivKey2;
-            //zkAppInstance.showCards(slotI, Field(card1 & 13), Field(card2 & 13), merkleMapKey, merkleMapVal, playerSecKey)
+            const merkleMapKey: Field = Field(0);
+            const merkleMapVal: Field = Field(0);
+            zkAppInstance.showCards(allCards, useCards, isFlush, playerSecKey, merkleMapKey, merkleMapVal)
         });
         await txnA.prove();
         await txnA.sign([playerPrivKey1]).send();
 
-
         const txnB = await Mina.transaction(playerPubKey2, () => {
-            /*
-            //const slotI = Field(1)
-            // Key is SUM of primes...
-            const merkleMapKey: Field = Field((card3 & 13) * (card4 & 13) * boardPrimes);
-            const merkleMapVal: Field = Field(getRandomInt(0, 6500));
+            const allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card3prime52), UInt64.from(card4prime52), boardPrimes[0], boardPrimes[1], boardPrimes[2], boardPrimes[3], boardPrimes[4]]
+            const useCards: [Bool, Bool, Bool, Bool, Bool, Bool, Bool] = [Bool(true), Bool(true), Bool(true), Bool(true), Bool(true), Bool(false), Bool(false)]
+            const isFlush: Bool = Bool(false);
             const playerSecKey = playerPrivKey2;
-            zkAppInstance.showCards(slotI, Field(card3 & 13), Field(card4 & 13), merkleMapKey, merkleMapVal, playerSecKey)
-            */
+            // Key is SUM of primes...
+            const merkleMapKey: Field = Field(0);
+            const merkleMapVal: Field = Field(0);
+            zkAppInstance.showCards(allCards, useCards, isFlush, playerSecKey, merkleMapKey, merkleMapVal)
         });
         await txnB.prove();
         await txnB.sign([playerPrivKey2]).send();
@@ -444,15 +450,19 @@ while (true) {
             console.log("DEALING FLOP...")
             let flop = await getFlopFromOracle(GAME_ID.toString());
             let flopHand: [Card, Card, Card] = flop.hand
-            board.push(parseCardInt(parseInt(flopHand[0])));
-            board.push(parseCardInt(parseInt(flopHand[1])));
-            board.push(parseCardInt(parseInt(flopHand[2])));
-            console.log("BOARD IS", board);
+            boardStrs.push(parseCardInt(parseInt(flopHand[0])));
+            boardStrs.push(parseCardInt(parseInt(flopHand[1])));
+            boardStrs.push(parseCardInt(parseInt(flopHand[2])));
+            console.log("BOARD IS", boardStrs);
 
             // We have to keep track of the board cards...
             const cardPrime1 = cardMapping52[flopHand[0]];
             const cardPrime2 = cardMapping52[flopHand[1]];
             const cardPrime3 = cardMapping52[flopHand[2]];
+            boardPrimes.push(UInt64.from(cardPrime1));
+            boardPrimes.push(UInt64.from(cardPrime2));
+            boardPrimes.push(UInt64.from(cardPrime3));
+
             // have to keep our own tally of primes...
             const txnA = await Mina.transaction(playerPubKey2, () => {
                 zkAppInstance.tallyBoardCards(Field(cardPrime1))
@@ -478,12 +488,12 @@ while (true) {
             console.log("DEALING TURN...")
             let turn = await getTakeFromOracle(GAME_ID.toString());
             let turnHand: Card = turn.hand[0]
-            board.push(parseCardInt(parseInt(turnHand)));
-            console.log("BOARD IS", board);
+            boardStrs.push(parseCardInt(parseInt(turnHand)));
+            console.log("BOARD IS", boardStrs);
 
             //const cardPrime1 = (takeHand[0] % 13);
             const cardPrime1 = cardMapping52[turnHand];
-            boardPrimes *= cardPrime1;
+            boardPrimes.push(UInt64.from(cardPrime1));
             const txnA = await Mina.transaction(playerPubKey2, () => {
                 zkAppInstance.tallyBoardCards(Field(cardPrime1))
             });
@@ -495,12 +505,12 @@ while (true) {
             console.log("DEALING RIVER...")
             let river = await getRiverFromOracle(GAME_ID.toString());
             let riverHand: Card = river.hand[0]
-            board.push(parseCardInt(parseInt(riverHand)));
-            console.log("BOARD IS", board);
+            boardStrs.push(parseCardInt(parseInt(riverHand)));
+            console.log("BOARD IS", boardStrs);
 
             //const cardPrime1 = riverHand[0] % 13;
             const cardPrime1 = cardMapping52[riverHand];
-            boardPrimes *= cardPrime1;
+            boardPrimes.push(UInt64.from(cardPrime1));
             const txnA = await Mina.transaction(playerPubKey2, () => {
                 zkAppInstance.tallyBoardCards(Field(cardPrime1))
             });
@@ -510,7 +520,6 @@ while (true) {
         currStreet = street;
     }
 }
-
 
 
 const bal3 = zkAppInstance.stack1.get().toString();
