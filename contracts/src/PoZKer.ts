@@ -352,7 +352,7 @@ export class PoZKerApp extends SmartContract {
         // Fold/Check - betsize should be 0
         // Bet - betsize should be gt 1 (or whatever minsize is)
         // Call - betsize should make stacks equal
-        // Raise - betsize should be at least equal to diff*2
+        // Raise - betsize should be at least equal to diff*2, or all-in
 
         const foldCheckAmountBool = Provable.if(action.equals(this.Check).or(action.equals(this.Fold)),
             betSize.equals(UInt64.from(0)),
@@ -366,9 +366,15 @@ export class PoZKerApp extends SmartContract {
             betSize,
         ).assertGreaterThanOrEqual(UInt64.from(1))
 
-        // Raise - betsize should be at least equal to diff*2
+        // Raise - betsize should be at least equal to diff*2, or all-in
+        const stackPlusAmount = Provable.if(p1turn,
+            stack1.add(betSize),
+            stack2.add(betSize)
+        )
+        const allin: Bool = stackPlusAmount.equals(this.GameBuyin);
+
         Provable.if(action.equals(this.Raise),
-            stackDiff.mul(2).greaterThanOrEqual(betSize),
+            stackDiff.mul(2).greaterThanOrEqual(betSize).or(allin),
             Bool(true),
         ).assertTrue();
 
