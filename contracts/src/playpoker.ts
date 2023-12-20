@@ -17,8 +17,10 @@ import {
     UInt64,
     Poseidon,
     MerkleMap,
+    MerkleMapWitness,
 } from 'o1js';
 import { getHoleFromOracle, getFlopFromOracle, getRiverFromOracle, getTakeFromOracle } from "./oracleLib.js";
+import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
 
 await isReady;
 
@@ -50,6 +52,23 @@ const playerPubKey1 = playerPrivKey1.toPublicKey();
 const playerPrivKey2: PrivateKey = PrivateKey.fromBase58("EKErvBujci5uiqL5nBv5kBP5d2MMz2zE8E5EtdZZPSF6p7AhzSK5");;
 const playerPubKey2 = playerPrivKey2.toPublicKey();
 
+
+// Load merkle maps for our hand lookups
+const merkleMapBasicFn = "merkleMapBasic.json"
+const merkleMapFlushFn = "merkleMapFlush.json"
+
+const jsonDataBasic = fs.readFileSync(merkleMapBasicFn, 'utf8');
+const merkleMapBasic: MerkleMapSerializable = deserialize(jsonDataBasic);
+
+const jsonDataFlush = fs.readFileSync(merkleMapFlushFn, 'utf8');
+const merkleMapFlush: MerkleMapSerializable = deserialize(jsonDataFlush);
+
+// These have to be stored in PoZKer class!
+console.log(merkleMapBasic.getRoot())
+console.log(merkleMapFlush.getRoot())
+
+
+
 //txnFund = await Mina.transaction(fundedPubKey1, () => {
 //  AccountUpdate.fundNewAccount(playerPubKey1);
 //
@@ -57,8 +76,6 @@ const playerPubKey2 = playerPrivKey2.toPublicKey();
 //  //zkAppInstance.deploy();
 //});
 //await txnFund.sign([feePayer1.privateKey, zkAppPrivateKey]).send();
-
-
 
 //const p1Hash = Poseidon.hash(playerPrivKey1.toFields());
 //const p2Hash = Poseidon.hash(playerPrivKey2.toFields());
@@ -421,6 +438,23 @@ function evaluateHand(card1: number, card2: number, card3: number, card4: number
 }
 
 
+function getMerkleMapWitness(isFlush: boolean, merkleMapKey: Field): MerkleMapWitness {
+    //console.log(merkleMapBasic.getRoot())
+    console.log(merkleMapFlush.getRoot())
+
+    let witness: MerkleMapWitness;
+    if (isFlush) {
+        let w = merkleMapBasic.getWitness(merkleMapKey);
+        witness = new MerkleMapWitness(w.isLefts, w.siblings);
+    }
+    else {
+        let w = merkleMapFlush.getWitness(merkleMapKey);
+        witness = new MerkleMapWitness(w.isLefts, w.siblings);
+
+    }
+    return witness;
+}
+
 function getShowdownData(allCardsUint: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64]):
     [[Bool, Bool, Bool, Bool, Bool, Bool, Bool],
         Bool,
@@ -538,8 +572,10 @@ while (true) {
         const txnA = await Mina.transaction(playerPubKey1, () => {
             const allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card1prime52), UInt64.from(card2prime52), boardPrimes[0], boardPrimes[1], boardPrimes[2], boardPrimes[3], boardPrimes[4]]
             const [useCards, isFlush, merkleMapKey, merkleMapVal] = getShowdownData(allCards);
+
+            const path: MerkleMapWitness = getMerkleMapWitness(isFlush.toBoolean(), merkleMapKey)
             const playerSecKey = playerPrivKey1;
-            zkAppInstance.showCards(allCards, useCards, isFlush, playerSecKey, merkleMapKey, merkleMapVal)
+            zkAppInstance.showCards(allCards, useCards, isFlush, playerSecKey, merkleMapKey, merkleMapVal, path)
         });
         await txnA.prove();
         await txnA.sign([playerPrivKey1]).send();
@@ -552,8 +588,9 @@ while (true) {
             //const merkleMapKey: Field = Field(0);
             //const merkleMapVal: Field = Field(0);
             const [useCards, isFlush, merkleMapKey, merkleMapVal] = getShowdownData(allCards);
+            const path: MerkleMapWitness = getMerkleMapWitness(isFlush.toBoolean(), merkleMapKey)
             const playerSecKey = playerPrivKey2;
-            zkAppInstance.showCards(allCards, useCards, isFlush, playerSecKey, merkleMapKey, merkleMapVal)
+            zkAppInstance.showCards(allCards, useCards, isFlush, playerSecKey, merkleMapKey, merkleMapVal, path)
         });
         await txnB.prove();
         await txnB.sign([playerPrivKey2]).send();

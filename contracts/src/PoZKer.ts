@@ -152,8 +152,9 @@ export class PoZKerApp extends SmartContract {
     Raise = UInt64.from(actionMapping["Raise"]);
     Check = UInt64.from(actionMapping["Check"]);
 
-    MerkleMapRootRegular = Field("706658705228152685713447102194564896352128976013742567056765536952384688062");
-    MerkleMapRootFlush = Field("706658705228152685713447102194564896352128976013742567056765536952384688062");
+    // This are generated via the genmap script
+    MerkleMapRootBasic = Field("27699641125309939543225716816460043210743676221173039607853127025430840122106");
+    MerkleMapRootFlush = Field("12839577190240250171319696533609974348200540625786415982151412596597428662991");
     // Hardcode 100 as game size still?
     GameBuyin = UInt64.from(100);
     SmallBlind = UInt64.from(1);
@@ -575,12 +576,14 @@ export class PoZKerApp extends SmartContract {
         isFlush: Bool,
         playerSecKey: PrivateKey,
         merkleMapKey: Field,
-        merkleMapVal: Field
+        merkleMapVal: Field,
+        path: MerkleMapWitness
     ) {
+
         /*
         Each player has to pass in their holecards, along with all board cards
         And specify which cards are used to make their best 5c hand
-    
+
         To make cheating impossible, we need these checks:
         1. confirm the card lookup key and value are valid entries in the merkle map
         2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
@@ -601,13 +604,11 @@ export class PoZKerApp extends SmartContract {
         const playerHash = Poseidon.hash(player.toFields());
         playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)).assertTrue('Player is not part of this game!');
 
-
         const holecardsHash = Provable.if(
             playerHash.equals(player1Hash),
             slot0,
             slot1
         );
-
 
         const holecard1 = allCards[0];
         const holecard2 = allCards[1];
@@ -619,7 +620,9 @@ export class PoZKerApp extends SmartContract {
 
         // 1. confirm the card lookup key and value are valid entries in the merkle map
         // TODO - figure out how we can verify values are valid within merkle map, using our stored root
-        // MerkleMapRootRegular, MerkleMapRootFlush
+
+
+        // MerkleMapRootBasic, MerkleMapRootFlush
 
         const holecard1Field = holecard1.toFields()[0];
         const holecard2Field = holecard2.toFields()[0];
@@ -635,9 +638,19 @@ export class PoZKerApp extends SmartContract {
         isFlush.assertEquals(isFlushReal, 'Player did not specify hand correctly!');
 
         lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Player did not pass in their real cards!');
-        // TODO - we need to verify the merkleMapKey/merkleMapValue are from the proper map?
-        // MerkleMapRootRegular
+
+        // MerkleMapRootBasic
         // MerkleMapRootFlush
+        const root = Provable.if(
+            isFlush,
+            this.MerkleMapRootFlush,
+            this.MerkleMapRootBasic,
+        );
+
+        const pathValid = path.computeRootAndKey(merkleMapVal);
+        pathValid[0].assertEquals(root);
+        pathValid[1].assertEquals(merkleMapKey);
+
 
         // Prime values of the boardcards
         const boardcard1p = boardcard1.divMod(UInt64.from(13));
