@@ -158,7 +158,7 @@ export class PoZKerApp extends SmartContract {
     // Hardcode 100 as game size still?
     GameBuyin = UInt64.from(100);
     SmallBlind = UInt64.from(1);
-    BigBlind = UInt64.from(1);
+    BigBlind = UInt64.from(2);
     //player1Hash = Field(8879912305210651084592467885807902739034137217445691720217630551894134031710);
     //player2Hash = Field(17608229569872969144485439827417022479409407220457475048103405509470577631109);
 
