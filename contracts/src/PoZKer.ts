@@ -522,33 +522,57 @@ export class PoZKerApp extends SmartContract {
         this.slot2.set(slot2New)
     }
 
-    calcLookupVal(allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64],
-        useCards: [Bool, Bool, Bool, Bool, Bool, Bool, Bool],
+    calcLookupVal(holecard0: UInt64,
+        holecard1: UInt64,
+        boardcard0: UInt64,
+        boardcard1: UInt64,
+        boardcard2: UInt64,
+        boardcard3: UInt64,
+        boardcard4: UInt64,
+        useHolecard0: Bool,
+        useHolecard1: Bool,
+        useBoardcards0: Bool,
+        useBoardcards1: Bool,
+        useBoardcards2: Bool,
+        useBoardcards3: Bool,
+        useBoardcards4: Bool,
     ): UInt64 {
-        const v1 = Provable.if(useCards[0], allCards[0], UInt64.from(1)).divMod(13).rest;
-        const v2 = Provable.if(useCards[1], allCards[1], UInt64.from(1)).divMod(13).rest;
-        const v3 = Provable.if(useCards[2], allCards[2], UInt64.from(1)).divMod(13).rest;
-        const v4 = Provable.if(useCards[3], allCards[3], UInt64.from(1)).divMod(13).rest;
-        const v5 = Provable.if(useCards[4], allCards[4], UInt64.from(1)).divMod(13).rest;
-        const v6 = Provable.if(useCards[5], allCards[5], UInt64.from(1)).divMod(13).rest;
-        const v7 = Provable.if(useCards[6], allCards[6], UInt64.from(1)).divMod(13).rest;
+        const v1 = Provable.if(useHolecard0, holecard0, UInt64.from(1)).divMod(13).rest;
+        const v2 = Provable.if(useHolecard1, holecard1, UInt64.from(1)).divMod(13).rest;
+        const v3 = Provable.if(useBoardcards0, boardcard0, UInt64.from(1)).divMod(13).rest;
+        const v4 = Provable.if(useBoardcards1, boardcard1, UInt64.from(1)).divMod(13).rest;
+        const v5 = Provable.if(useBoardcards2, boardcard2, UInt64.from(1)).divMod(13).rest;
+        const v6 = Provable.if(useBoardcards3, boardcard3, UInt64.from(1)).divMod(13).rest;
+        const v7 = Provable.if(useBoardcards4, boardcard4, UInt64.from(1)).divMod(13).rest;
 
         const lookupVal = v1.mul(v2).mul(v3).mul(v4).mul(v5).mul(v6).mul(v7);
         return lookupVal;
     }
 
-    calcCheckFlush(allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64],
-        useCards: [Bool, Bool, Bool, Bool, Bool, Bool, Bool],
+    calcCheckFlush(holecard0: UInt64,
+        holecard1: UInt64,
+        boardcard0: UInt64,
+        boardcard1: UInt64,
+        boardcard2: UInt64,
+        boardcard3: UInt64,
+        boardcard4: UInt64,
+        useHolecard0: Bool,
+        useHolecard1: Bool,
+        useBoardcards0: Bool,
+        useBoardcards1: Bool,
+        useBoardcards2: Bool,
+        useBoardcards3: Bool,
+        useBoardcards4: Bool,
     ): Bool {
         // A valid flush lookup will be one in wich all 5 cards have the same quotient when
         // divided by 13
-        const v1 = Provable.if(useCards[0], allCards[0], UInt64.from(4)).divMod(13).quotient;
-        const v2 = Provable.if(useCards[1], allCards[1], UInt64.from(4)).divMod(13).quotient;
-        const v3 = Provable.if(useCards[2], allCards[2], UInt64.from(4)).divMod(13).quotient;
-        const v4 = Provable.if(useCards[3], allCards[3], UInt64.from(4)).divMod(13).quotient;
-        const v5 = Provable.if(useCards[4], allCards[4], UInt64.from(4)).divMod(13).quotient;
-        const v6 = Provable.if(useCards[5], allCards[5], UInt64.from(4)).divMod(13).quotient;
-        const v7 = Provable.if(useCards[6], allCards[6], UInt64.from(4)).divMod(13).quotient;
+        const v1 = Provable.if(useHolecard0, holecard0, UInt64.from(4)).divMod(13).quotient;
+        const v2 = Provable.if(useHolecard1, holecard1, UInt64.from(4)).divMod(13).quotient;
+        const v3 = Provable.if(useBoardcards0, boardcard0, UInt64.from(4)).divMod(13).quotient;
+        const v4 = Provable.if(useBoardcards1, boardcard1, UInt64.from(4)).divMod(13).quotient;
+        const v5 = Provable.if(useBoardcards2, boardcard2, UInt64.from(4)).divMod(13).quotient;
+        const v6 = Provable.if(useBoardcards3, boardcard3, UInt64.from(4)).divMod(13).quotient;
+        const v7 = Provable.if(useBoardcards4, boardcard4, UInt64.from(4)).divMod(13).quotient;
 
         let isFlush: Bool = Bool(true);
         for (let x of [v1, v2, v3, v4, v5, v6, v7]) {
@@ -571,8 +595,22 @@ export class PoZKerApp extends SmartContract {
         return isFlush;
     }
 
-    @method showCards(allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64],
-        useCards: [Bool, Bool, Bool, Bool, Bool, Bool, Bool],
+
+
+    @method showCards(holecard0: UInt64,
+        holecard1: UInt64,
+        boardcard0: UInt64,
+        boardcard1: UInt64,
+        boardcard2: UInt64,
+        boardcard3: UInt64,
+        boardcard4: UInt64,
+        useHolecard0: Bool,
+        useHolecard1: Bool,
+        useBoardcards0: Bool,
+        useBoardcards1: Bool,
+        useBoardcards2: Bool,
+        useBoardcards3: Bool,
+        useBoardcards4: Bool,
         isFlush: Bool,
         playerSecKey: PrivateKey,
         merkleMapKey: Field,
@@ -582,8 +620,8 @@ export class PoZKerApp extends SmartContract {
 
         /*
         Each player has to pass in their holecards, along with all board cards
-        And specify which cards are used to make their best 5c hand
-
+        And specify which cards are used to make their best 6c hand
+    
         To make cheating impossible, we need these checks:
         1. confirm the card lookup key and value are valid entries in the merkle map
         2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
@@ -591,7 +629,7 @@ export class PoZKerApp extends SmartContract {
         4. check that board cards are the real board cards
         */
 
-        // Player card hash will be stored in slot0 or slot1
+        // Player card hash will be stored in slot1 or slot1
         const slot0 = this.slot0.getAndAssertEquals();
         const slot1 = this.slot1.getAndAssertEquals();
         // We are going to be storing the product of all the board card primes here!
@@ -610,31 +648,50 @@ export class PoZKerApp extends SmartContract {
             slot1
         );
 
-        const holecard1 = allCards[0];
-        const holecard2 = allCards[1];
-        const boardcard1 = allCards[2];
-        const boardcard2 = allCards[3];
-        const boardcard3 = allCards[4];
-        const boardcard4 = allCards[5];
-        const boardcard5 = allCards[6];
-
         // 1. confirm the card lookup key and value are valid entries in the merkle map
-        // TODO - figure out how we can verify values are valid within merkle map, using our stored root
-
 
         // MerkleMapRootBasic, MerkleMapRootFlush
 
+        const holecard0Field = holecard0.toFields()[0];
         const holecard1Field = holecard1.toFields()[0];
-        const holecard2Field = holecard2.toFields()[0];
-        const cardHash = this.generateHash(holecard1Field, holecard2Field, playerSecKey);
+        const cardHash = this.generateHash(holecard0Field, holecard1Field, playerSecKey);
         // CHECK 3. re-hash the cards and confirm it matches their stored hash
         cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
 
 
         // CHECK 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
         // the lookupVal is the expected key for our merkle map
-        const lookupVal: UInt64 = this.calcLookupVal(allCards, useCards);
-        const isFlushReal = this.calcCheckFlush(allCards, useCards);
+        const lookupVal: UInt64 = this.calcLookupVal(holecard0,
+            holecard1,
+            boardcard0,
+            boardcard1,
+            boardcard2,
+            boardcard3,
+            boardcard4,
+            useHolecard0,
+            useHolecard1,
+            useBoardcards0,
+            useBoardcards1,
+            useBoardcards2,
+            useBoardcards3,
+            useBoardcards4)
+
+        const isFlushReal: Bool = this.calcCheckFlush(holecard0,
+            holecard1,
+            boardcard0,
+            boardcard1,
+            boardcard2,
+            boardcard3,
+            boardcard4,
+            useHolecard0,
+            useHolecard1,
+            useBoardcards0,
+            useBoardcards1,
+            useBoardcards2,
+            useBoardcards3,
+            useBoardcards4)
+
+
         isFlush.assertEquals(isFlushReal, 'Player did not specify hand correctly!');
 
         lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Player did not pass in their real cards!');
@@ -651,14 +708,13 @@ export class PoZKerApp extends SmartContract {
         pathValid[0].assertEquals(root);
         pathValid[1].assertEquals(merkleMapKey);
 
-
         // Prime values of the boardcards
+        const boardcard0p = boardcard0.divMod(UInt64.from(13));
         const boardcard1p = boardcard1.divMod(UInt64.from(13));
         const boardcard2p = boardcard2.divMod(UInt64.from(13));
         const boardcard3p = boardcard3.divMod(UInt64.from(13));
         const boardcard4p = boardcard4.divMod(UInt64.from(13));
-        const boardcard5p = boardcard5.divMod(UInt64.from(13));
-        const boardcardMul = boardcard1p.rest.mul(boardcard2p.rest).mul(boardcard3p.rest).mul(boardcard4p.rest).mul(boardcard5p.rest);
+        const boardcardMul = boardcard0p.rest.mul(boardcard1p.rest).mul(boardcard2p.rest).mul(boardcard3p.rest).mul(boardcard4p.rest)
 
 
         const boardcardMulReal = UInt64.from(slot2);

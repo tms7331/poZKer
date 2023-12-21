@@ -569,28 +569,58 @@ while (true) {
     if (street == "Showdown") {
         // BOTH players must show cards before we can do showdown...
 
-        const txnA = await Mina.transaction(playerPubKey1, () => {
-            const allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card1prime52), UInt64.from(card2prime52), boardPrimes[0], boardPrimes[1], boardPrimes[2], boardPrimes[3], boardPrimes[4]]
-            const [useCards, isFlush, merkleMapKey, merkleMapVal] = getShowdownData(allCards);
+        const allCardsP1: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card1prime52), UInt64.from(card2prime52), boardPrimes[0], boardPrimes[1], boardPrimes[2], boardPrimes[3], boardPrimes[4]]
+        const [useCardsP1, isFlushP1, merkleMapKeyP1, merkleMapValP1] = getShowdownData(allCardsP1);
+        const pathP1: MerkleMapWitness = getMerkleMapWitness(isFlushP1.toBoolean(), merkleMapKeyP1)
 
-            const path: MerkleMapWitness = getMerkleMapWitness(isFlush.toBoolean(), merkleMapKey)
-            const playerSecKey = playerPrivKey1;
-            zkAppInstance.showCards(allCards, useCards, isFlush, playerSecKey, merkleMapKey, merkleMapVal, path)
+        const allCardsP2: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card3prime52), UInt64.from(card4prime52), boardPrimes[0], boardPrimes[1], boardPrimes[2], boardPrimes[3], boardPrimes[4]]
+        const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
+        const pathP2: MerkleMapWitness = getMerkleMapWitness(isFlushP2.toBoolean(), merkleMapKeyP2)
+
+        const txnA = await Mina.transaction(playerPubKey1, () => {
+            zkAppInstance.showCards(allCardsP1[0],
+                allCardsP1[1],
+                allCardsP1[2],
+                allCardsP1[3],
+                allCardsP1[4],
+                allCardsP1[5],
+                allCardsP1[6],
+                useCardsP1[0],
+                useCardsP1[1],
+                useCardsP1[2],
+                useCardsP1[3],
+                useCardsP1[4],
+                useCardsP1[5],
+                useCardsP1[6],
+                isFlushP1,
+                playerPrivKey1,
+                merkleMapKeyP1,
+                merkleMapValP1,
+                pathP1)
         });
         await txnA.prove();
         await txnA.sign([playerPrivKey1]).send();
 
         const txnB = await Mina.transaction(playerPubKey2, () => {
-            const allCards: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card3prime52), UInt64.from(card4prime52), boardPrimes[0], boardPrimes[1], boardPrimes[2], boardPrimes[3], boardPrimes[4]]
-            //const useCards: [Bool, Bool, Bool, Bool, Bool, Bool, Bool] = [Bool(true), Bool(true), Bool(true), Bool(true), Bool(true), Bool(false), Bool(false)]
-            //const isFlush: Bool = Bool(false);
-            //// Key is SUM of primes...
-            //const merkleMapKey: Field = Field(0);
-            //const merkleMapVal: Field = Field(0);
-            const [useCards, isFlush, merkleMapKey, merkleMapVal] = getShowdownData(allCards);
-            const path: MerkleMapWitness = getMerkleMapWitness(isFlush.toBoolean(), merkleMapKey)
-            const playerSecKey = playerPrivKey2;
-            zkAppInstance.showCards(allCards, useCards, isFlush, playerSecKey, merkleMapKey, merkleMapVal, path)
+            zkAppInstance.showCards(allCardsP2[0],
+                allCardsP2[1],
+                allCardsP2[2],
+                allCardsP2[3],
+                allCardsP2[4],
+                allCardsP2[5],
+                allCardsP2[6],
+                useCardsP2[0],
+                useCardsP2[1],
+                useCardsP2[2],
+                useCardsP2[3],
+                useCardsP2[4],
+                useCardsP2[5],
+                useCardsP2[6],
+                isFlushP2,
+                playerPrivKey2,
+                merkleMapKeyP2,
+                merkleMapValP2,
+                pathP2)
         });
         await txnB.prove();
         await txnB.sign([playerPrivKey2]).send();
