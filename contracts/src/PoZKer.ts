@@ -286,6 +286,7 @@ export class PoZKerApp extends SmartContract {
         //const p2turn = p1turn.not();
         p1turn.or(p2turn).assertTrue('Invalid game state player');
 
+
         //const player = this.sender;
         const player = PublicKey.fromPrivateKey(playerSecKey);
         // Logic modified from https://github.com/betterclever/zk-chess/blob/main/src/Chess.ts
@@ -312,7 +313,6 @@ export class PoZKerApp extends SmartContract {
         isShowdown.assertFalse('Showdown has been reached');
         isPreflop.or(isFlop).or(isTurn).or(isRiver).assertTrue('Invalid game state street');
 
-
         const facingNull = gamestate.divMod(this.Null).rest.equals(UInt64.from(0));
         const facingBet = gamestate.divMod(this.Bet).rest.equals(UInt64.from(0));
         const facingCall = gamestate.divMod(this.Call).rest.equals(UInt64.from(0));
@@ -335,18 +335,30 @@ export class PoZKerApp extends SmartContract {
         let act3 = action.equals(this.Fold).and(facingBet.or(facingRaise));
         let act4 = action.equals(this.Raise).and(facingBet);
         let act5 = action.equals(this.Check).and(facingNull.or(facingCheck));
+
         act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
 
         // Amount checks/logic:
         // For calls - we are not passing in amount, so we need to figure it out
         // For raises - raise needs to be to a valid size
 
-        const stackDiff = Provable.if(p1turn,
-            stack1.sub(stack2),
-            stack2.sub(stack1)
-        )
+        // Because both branches always execute in the Provable.if, if we leave 
+        // stack1 and stack2 as UInts we get an error on one of the branches because
+        // of underflow.  Is there a better solution besides casting them to fields
+        // and then casting back?
+        const stack1F = stack1.toFields()[0];
+        const stack2F = stack2.toFields()[0];
+        const stackDiffF = Provable.if(p1turn,
+            // If it's player 1's turn, their stack MUST be gte player 2's stack
+            stack1F.sub(stack2F),
+            stack2F.sub(stack1F)
+        );
+        // Should never fail but doesn't hurt
+        stackDiffF.assertGreaterThanOrEqual(Field(0), "Bad subtraction!");
+        const stackDiff = UInt64.from(stackDiffF);
+
         // sanity check...
-        stackDiff.assertGreaterThanOrEqual(UInt64.from(0));
+        stackDiff.assertGreaterThanOrEqual(UInt64.from(0), "");
 
         // Betsize constraints:
         // Fold/Check - betsize should be 0
@@ -362,8 +374,8 @@ export class PoZKerApp extends SmartContract {
 
         // Bet - betsize should be gt 1 (or whatever minsize is)
         Provable.if(action.equals(this.Bet),
-            UInt64.from(1),
             betSize,
+            UInt64.from(1),
         ).assertGreaterThanOrEqual(UInt64.from(1))
 
         // Raise - betsize should be at least equal to diff*2, or all-in
@@ -422,20 +434,20 @@ export class PoZKerApp extends SmartContract {
         const nextRiver = Provable.if(isRiver.and(newStreetBool.not()).or(isTurn.and(newStreetBool)), Bool(true), Bool(false));
         const nextShowdown = Provable.if(isRiver.and(newStreetBool), Bool(true), Bool(false));
 
-        const currstreet = Provable.switch(
+        const currStreet = Provable.switch(
             [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
             UInt64,
             [this.Preflop, this.Flop, this.Turn, this.River, this.Showdown]
         );
 
         // If we did go to the next street, previous action should be 'Null'
-        const lastaction = Provable.if(
+        const facingAction = Provable.if(
             newStreetBool,
             this.Null,
             action
         );
 
-        const currplayer = Provable.if(
+        const playerTurnNow = Provable.if(
             newStreetBool.or(p2turn),
             this.P1,
             this.P2
@@ -447,13 +459,15 @@ export class PoZKerApp extends SmartContract {
             Bool(false)
         );
 
-        const currgamestate = Provable.if(
+        // gamestate should be:
+        // player-whose-turn-it-is * street * lastaction
+        const currGamestate = Provable.if(
             gameOverBool,
             this.GameOver,
-            currstreet.mul(lastaction).mul(currplayer)
+            playerTurnNow.mul(currStreet).mul(facingAction)
         );
 
-        this.gamestate.set(currgamestate);
+        this.gamestate.set(currGamestate);
 
         // If game is over from a fold - need to send funds to winner
         const p1WinnerBal = stack1.add(this.GameBuyin.sub(stack2New));
