@@ -1,10 +1,20 @@
-import { PoZKerApp } from './PoZKer';
+import { PoZKerApp, actionMapping } from './PoZKer';
 import {
   Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt64,
 } from 'o1js';
 import { Cipher, ElGamalFF } from 'o1js-elgamal';
 
 let proofsEnabled = false;
+
+
+
+// taken from actionMapping
+const NULL = actionMapping["Null"];
+const BET = actionMapping["Bet"];
+const CALL = actionMapping["Call"];
+const FOLD = actionMapping["Fold"];
+const RAISE = actionMapping["Raise"];
+const CHECK = actionMapping["Check"];
 
 // describe('PoZKer.js', () => {
 //   describe('PoZKer()', () => {
@@ -181,7 +191,7 @@ describe('PoZKer', () => {
     await txnC6.sign([playerPrivKey2]).send();
   }
 
-  it('posts both player blinds', async () => {
+  it('posts both player blinds and initializes gamestate', async () => {
     await localDeploy();
     await setPlayers();
     await localDeposit();
@@ -192,27 +202,25 @@ describe('PoZKer', () => {
     const bal2 = zkAppInstance.stack2.get();
     expect(bal1.toString()).toMatch('99');
     expect(bal2.toString()).toMatch('98');
+
+    const gamestate: UInt64 = zkAppInstance.gamestate.get();
+    const gamestatejs = gamestate.toBigInt();
+    const remainder = Number(gamestatejs) % BET;
+    expect(remainder).toEqual(0);
   });
 
 
-
   it('prevents wrong player from acting', async () => {
-    /*
     await localDeploy();
     await setPlayers();
     await localDeposit();
-    await localCommitCards(1, 3, 5, 7);
-
-    const actionUint = UInt64.from(23);
-    const betSize = UInt64.from(10);
 
     // Player 2 should not be able to act
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(playerPrivKey2, actionUint, betSize)
+        zkAppInstance.takeAction(playerPrivKey2, UInt64.from(BET), UInt64.from(10))
       });
       await txnFail.prove();
-      await txnFail.sign([playerPrivKey2]).send();
     } catch (e: any) {
       const err_str = e.toString();
       console.log("ERROR IS:");
@@ -220,19 +228,85 @@ describe('PoZKer', () => {
       console.log("PRINTED ERROR...:");
       expect(err_str).toMatch('Error: Player is not allowed to make a move');
     }
-
-    const txn = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, actionUint, betSize)
-    });
-    await txn.prove();
-    await txn.sign([playerPrivKey1]).send();
-
-    // TODO - why does this fail!?
-    // Player 1's turn should have been successful - bet 10, make sure stack is 90?
-    const bal = zkAppInstance.stack1.get();
-    expect(bal.toString()).toMatch('90');
-    */
   });
+
+
+  it('fails on invalid p1 actions', async () => {
+    await localDeploy();
+    await setPlayers();
+    await localDeposit();
+
+    // Preflop - remember we are actually facing a bet!
+    // So valid actions are call, fold, raise
+    // Invalid actions are check, bet
+
+    // Player 1 should not be able to check or bet
+    try {
+      const txnFail = await Mina.transaction(playerPubKey1, () => {
+        zkAppInstance.takeAction(playerPrivKey1, UInt64.from(BET), UInt64.from(10))
+      });
+      await txnFail.prove();
+    } catch (e: any) {
+      const err_str = e.toString();
+      console.log("ERROR IS:");
+      console.log(err_str);
+      console.log("PRINTED ERROR...:");
+      expect(err_str).toMatch('Invalid bet!');
+    }
+
+
+    try {
+      const txnFail = await Mina.transaction(playerPubKey1, () => {
+        zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CHECK), UInt64.from(0))
+      });
+      await txnFail.prove();
+    } catch (e: any) {
+      const err_str = e.toString();
+      console.log("ERROR IS:");
+      console.log(err_str);
+      console.log("PRINTED ERROR...:");
+      expect(err_str).toMatch('Invalid bet!');
+    }
+
+  });
+
+  it('succeeds on valid p1 actions', async () => {
+    await localDeploy();
+    await setPlayers();
+    await localDeposit();
+
+    // Preflop - remember we are actually facing a bet!
+    // So valid actions are call, fold, raise
+    // Invalid actions are check, bet
+
+    const txnSucc1 = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CALL), UInt64.from(0))
+    });
+    // await txnSucc1.prove();
+    // await txnSucc1.sign([playerPrivKey1]).send();
+
+    const txnSucc2 = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(FOLD), UInt64.from(0))
+    });
+    // await txnSucc2.prove();
+    // await txnSucc2.sign([playerPrivKey1]).send();
+
+    const txnSucc3 = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt64.from(2))
+    });
+    await txnSucc3.prove();
+    await txnSucc3.sign([playerPrivKey1]).send();
+
+    // state is turn * street * lastAction
+    const p2Turn = 3
+    const currStreetPreflop = 5
+    const lastActionRaise = 37
+    const expectedState = p2Turn * currStreetPreflop * lastActionRaise
+
+    const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
+    expect(gamestate).toEqual(expectedState);
+  });
+
 
   it.todo('prevents players from betting more than their stack');
 
