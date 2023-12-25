@@ -50,6 +50,11 @@ export const actionMapping = {
     "Fold": 31,
     "Raise": 37,
     "Check": 41,
+    // Specifically for player 1 calling player2's blind
+    // The action proceeds differently in this case, easier to have it separate
+    // Note - action does not need to be specified externally, it's easier to have 
+    // action transformed into this inside of our takeAction logic
+    "PreflopCall": 43,
 }
 
 
@@ -151,11 +156,12 @@ export class PoZKerApp extends SmartContract {
     Fold = UInt64.from(actionMapping["Fold"]);
     Raise = UInt64.from(actionMapping["Raise"]);
     Check = UInt64.from(actionMapping["Check"]);
+    PreflopCall = UInt64.from(actionMapping["PreflopCall"]);
 
     // This are generated via the genmap script
     MerkleMapRootBasic = Field("27699641125309939543225716816460043210743676221173039607853127025430840122106");
     MerkleMapRootFlush = Field("12839577190240250171319696533609974348200540625786415982151412596597428662991");
-    // Hardcode 100 as game size still?
+    // Hardcode 100 as game size
     GameBuyin = UInt64.from(100);
     SmallBlind = UInt64.from(1);
     BigBlind = UInt64.from(2);
@@ -319,23 +325,31 @@ export class PoZKerApp extends SmartContract {
         // const facingFold = gamestate.divMod(this.Fold).rest.equals(UInt64.from(0));
         const facingRaise = gamestate.divMod(this.Raise).rest.equals(UInt64.from(0));
         const facingCheck = gamestate.divMod(this.Check).rest.equals(UInt64.from(0));
+        const facingPreflopCall = gamestate.divMod(this.PreflopCall).rest.equals(UInt64.from(0));
 
-        facingNull.or(facingBet).or(facingCall).or(facingRaise).or(facingCheck).assertTrue('Invalid game state action');
+        facingNull.or(facingBet).or(facingCall).or(facingRaise).or(facingCheck).or(facingPreflopCall).assertTrue('Invalid game state action');
 
         // Confirm actions is valid, must be some combination below:
         // actions:
         // Bet - valid when facing [Null, Check]
         // Call - valid when facing [Bet]
         // Fold - valid when facing [Bet, Raise]
-        // Raise - valid when facing [Bet]
-        // Check - valid when facing [Null, Check]
+        // Raise - valid when facing [Bet, PreflopCall]
+        // Check - valid when facing [Null, Check, PreflopCall]
         let act1 = action.equals(this.Bet).and(facingNull.or(facingCheck));
         let act2 = action.equals(this.Call).and(facingBet);
         let act3 = action.equals(this.Fold).and(facingBet.or(facingRaise));
-        let act4 = action.equals(this.Raise).and(facingBet);
-        let act5 = action.equals(this.Check).and(facingNull.or(facingCheck));
+        let act4 = action.equals(this.Raise).and(facingBet.or(facingPreflopCall));
+        let act5 = action.equals(this.Check).and(facingNull.or(facingCheck).or(facingPreflopCall));
 
         act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
+
+        // If action is call, we need to determine if it's actually PreflopCall...
+        // Player 1's stack can only ever be 99 if game has just started and it's their turn
+        const actionReal: UInt64 = Provable.if(
+            action.equals(this.Call).and(stack1.equals(this.GameBuyin.sub(this.SmallBlind))),
+            this.PreflopCall,
+            action);
 
         // Amount checks/logic:
         // For calls - we are not passing in amount, so we need to figure it out
@@ -353,11 +367,12 @@ export class PoZKerApp extends SmartContract {
             stack2F.sub(stack1F)
         );
         // Should never fail but doesn't hurt
+        // Get this, think it's because of overlap?
         stackDiffF.assertGreaterThanOrEqual(Field(0), "Bad subtraction!");
-        const stackDiff = UInt64.from(stackDiffF);
 
-        // sanity check...
-        stackDiff.assertGreaterThanOrEqual(UInt64.from(0), "");
+        const stackDiff = UInt64.from(stackDiffF);
+        // We get an error on underflows so this is always true
+        // stackDiff.assertGreaterThanOrEqual(UInt64.from(0), "");
 
         // Betsize constraints:
         // Fold/Check - betsize should be 0
@@ -365,14 +380,14 @@ export class PoZKerApp extends SmartContract {
         // Call - betsize should make stacks equal
         // Raise - betsize should be at least equal to diff*2, or all-in
 
-        const foldCheckAmountBool = Provable.if(action.equals(this.Check).or(action.equals(this.Fold)),
+        const foldCheckAmountBool = Provable.if(actionReal.equals(this.Check).or(actionReal.equals(this.Fold)),
             betSize.equals(UInt64.from(0)),
             Bool(true)
         )
         foldCheckAmountBool.assertTrue();
 
         // Bet - betsize should be gt 1 (or whatever minsize is)
-        Provable.if(action.equals(this.Bet),
+        Provable.if(actionReal.equals(this.Bet),
             betSize,
             UInt64.from(1),
         ).assertGreaterThanOrEqual(UInt64.from(1))
@@ -384,19 +399,19 @@ export class PoZKerApp extends SmartContract {
         )
         const allin: Bool = stackPlusAmount.equals(this.GameBuyin);
 
-        Provable.if(action.equals(this.Raise),
+        Provable.if(actionReal.equals(this.Raise),
             stackDiff.mul(2).greaterThanOrEqual(betSize).or(allin),
             Bool(true),
         ).assertTrue();
 
         // Call - betsize should make stacks equal
         // So we might need to override the other betsize here
-        const betSizeReal = Provable.if(action.equals(this.Call),
+        const betSizeReal = Provable.if(actionReal.equals(this.Call).or(actionReal.equals(this.PreflopCall)),
             stackDiff,
             betSize,
         )
 
-        //or(action.equals(Field(Actions.Bet)).and(gamestate.equals(Field(Actions.Null)).or(gamestate.equals(Field(Actions.Check)))).assertTrue('Bet is valid when facing [Null, Check]'));
+        //or(actionReal.equals(Field(actionReal.Bet)).and(gamestate.equals(Field(actionReal.Null)).or(gamestate.equals(Field(actionReal.Check)))).assertTrue('Bet is valid when facing [Null, Check]'));
 
         // Make sure the player has enough funds to take the action
         const case1 = playerHash.equals(player1Hash).and(betSizeReal.lessThanOrEqual(stack1));
@@ -418,11 +433,9 @@ export class PoZKerApp extends SmartContract {
 
         // Need to check if we've hit the end of the street - transition to next street
         // Scenarios for this would be:
-        // 1. Either player has called - UNLESS it's p1 calling preflop as an initial action
+        // 1. Either player has called - (but not the PreflopCall)
         // 2. Player 2 has checked
-        const openingCall = action.equals(this.Call).and(stack1.equals(this.GameBuyin.sub(this.SmallBlind)));
-        const closingCall = action.equals(this.Call).and(openingCall.not());
-        const newStreetBool = closingCall.or(playerHash.equals(player2Hash).and(action.equals(this.Check)));
+        const newStreetBool = actionReal.equals(this.Call).or(playerHash.equals(player2Hash).and(actionReal.equals(this.Check)));
 
         // Is there any way we could simplify this with something like:
         // If newStreetBool and (isPreflop or isTurn) -> Add 2
@@ -444,7 +457,7 @@ export class PoZKerApp extends SmartContract {
         const facingAction = Provable.if(
             newStreetBool,
             this.Null,
-            action
+            actionReal
         );
 
         const playerTurnNow = Provable.if(
@@ -454,7 +467,7 @@ export class PoZKerApp extends SmartContract {
         );
 
         const gameOverBool = Provable.if(
-            action.equals(this.Fold),
+            actionReal.equals(this.Fold),
             Bool(true),
             Bool(false)
         );

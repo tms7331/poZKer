@@ -323,8 +323,8 @@ describe('PoZKer', () => {
     // Make sure that the state is correct
     const p2Turn = 3
     const currStreetPreflop = 5
-    const lastActionCall = 29
-    const expectedState = p2Turn * currStreetPreflop * lastActionCall
+    const lastActionPreflopCall = 43
+    const expectedState = p2Turn * currStreetPreflop * lastActionPreflopCall
 
     const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
 
@@ -364,9 +364,50 @@ describe('PoZKer', () => {
     }
   });
 
+  it('succeeds on valid p2 actions', async () => {
+    await localDeploy();
+    await setPlayers();
+    await localDeposit();
+
+    // Again start facing a call
+    const txn = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CALL), UInt64.from(0))
+    });
+    await txn.prove();
+    await txn.sign([playerPrivKey1]).send();
+
+    // Valid actions are check, raise
+
+    const txnSucc1 = await Mina.transaction(playerPubKey2, () => {
+      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(RAISE), UInt64.from(2))
+    });
+    // await txnSucc1.prove();
+    // await txnSucc1.sign([playerPrivKey2]).send();
+
+    const txnSucc2 = await Mina.transaction(playerPubKey2, () => {
+      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CHECK), UInt64.from(0))
+    });
+    await txnSucc2.prove();
+    await txnSucc2.sign([playerPrivKey2]).send();
+
+    // state is turn * street * lastAction
+    const p1Turn = 2
+    const currStreetFlop = 7
+    const lastActionNull = 19
+    const expectedState = p1Turn * currStreetFlop * lastActionNull
+
+    const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
+    expect(gamestate).toEqual(expectedState);
+  });
 
   it.todo('prevents players from betting more than their stack');
 
-  it.todo('prevents players from taking invalid actions');
+  it.todo('allows players to raise all-in if they have less than a normal raise amount');
+
+  it.todo('allows game to proceed to showdown if players are all-in');
+
+  it.todo('allows players to show their cards');
+
+  it.todo('allows players to claim their profits after showdown');
 
 });
