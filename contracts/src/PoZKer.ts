@@ -286,7 +286,6 @@ export class PoZKerApp extends SmartContract {
         //const p2turn = p1turn.not();
         p1turn.or(p2turn).assertTrue('Invalid game state player');
 
-
         //const player = this.sender;
         const player = PublicKey.fromPrivateKey(playerSecKey);
         // Logic modified from https://github.com/betterclever/zk-chess/blob/main/src/Chess.ts
@@ -397,7 +396,6 @@ export class PoZKerApp extends SmartContract {
             betSize,
         )
 
-
         //or(action.equals(Field(Actions.Bet)).and(gamestate.equals(Field(Actions.Null)).or(gamestate.equals(Field(Actions.Check)))).assertTrue('Bet is valid when facing [Null, Check]'));
 
         // Make sure the player has enough funds to take the action
@@ -420,9 +418,11 @@ export class PoZKerApp extends SmartContract {
 
         // Need to check if we've hit the end of the street - transition to next street
         // Scenarios for this would be:
-        // 1. Either player has called
+        // 1. Either player has called - UNLESS it's p1 calling preflop as an initial action
         // 2. Player 2 has checked
-        const newStreetBool = action.equals(this.Call).or(playerHash.equals(player2Hash).and(action.equals(this.Check)));
+        const openingCall = action.equals(this.Call).and(stack1.equals(this.GameBuyin.sub(this.SmallBlind)));
+        const closingCall = action.equals(this.Call).and(openingCall.not());
+        const newStreetBool = closingCall.or(playerHash.equals(player2Hash).and(action.equals(this.Check)));
 
         // Is there any way we could simplify this with something like:
         // If newStreetBool and (isPreflop or isTurn) -> Add 2
@@ -730,11 +730,9 @@ export class PoZKerApp extends SmartContract {
         const boardcard4p = boardcard4.divMod(UInt64.from(13));
         const boardcardMul = boardcard0p.rest.mul(boardcard1p.rest).mul(boardcard2p.rest).mul(boardcard3p.rest).mul(boardcard4p.rest)
 
-
         const boardcardMulReal = UInt64.from(slot2);
         // CHECK 4. check that board cards are the real board cards
         boardcardMul.assertEquals(boardcardMulReal);
-
 
         // And now we can store the lookup value in the appropriate slot
 

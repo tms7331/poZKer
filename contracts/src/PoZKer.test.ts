@@ -308,6 +308,63 @@ describe('PoZKer', () => {
   });
 
 
+  it('fails on invalid p2 actions', async () => {
+    await localDeploy();
+    await setPlayers();
+    await localDeposit();
+
+    // Start facing a call
+    const txn = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CALL), UInt64.from(0))
+    });
+    await txn.prove();
+    await txn.sign([playerPrivKey1]).send();
+
+    // Make sure that the state is correct
+    const p2Turn = 3
+    const currStreetPreflop = 5
+    const lastActionCall = 29
+    const expectedState = p2Turn * currStreetPreflop * lastActionCall
+
+    const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
+
+    expect(gamestate).toEqual(expectedState);
+
+
+    // Valid actions are check, raise
+    // Invalid actions are call, fold, bet
+    try {
+      const txnFail = await Mina.transaction(playerPubKey2, () => {
+        zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CALL), UInt64.from(10))
+      });
+      await txnFail.prove();
+    } catch (e: any) {
+      const err_str = e.toString();
+      expect(err_str).toMatch('Invalid bet!');
+    }
+
+    try {
+      const txnFail = await Mina.transaction(playerPubKey2, () => {
+        zkAppInstance.takeAction(playerPrivKey2, UInt64.from(FOLD), UInt64.from(10))
+      });
+      await txnFail.prove();
+    } catch (e: any) {
+      const err_str = e.toString();
+      expect(err_str).toMatch('Invalid bet!');
+    }
+
+    try {
+      const txnFail = await Mina.transaction(playerPubKey2, () => {
+        zkAppInstance.takeAction(playerPrivKey2, UInt64.from(BET), UInt64.from(10))
+      });
+      await txnFail.prove();
+    } catch (e: any) {
+      const err_str = e.toString();
+      expect(err_str).toMatch('Invalid bet!');
+    }
+  });
+
+
   it.todo('prevents players from betting more than their stack');
 
   it.todo('prevents players from taking invalid actions');
