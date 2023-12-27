@@ -400,7 +400,29 @@ describe('PoZKer', () => {
     expect(gamestate).toEqual(expectedState);
   });
 
-  it.todo('prevents players from betting more than their stack');
+  it('prevents players from betting more than their stack', async () => {
+    await localDeploy();
+    await setPlayers();
+    await localDeposit();
+
+    // Raising to 100 should fail
+    try {
+      const txnFail = await Mina.transaction(playerPubKey1, () => {
+        zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt64.from(100))
+      });
+      // await txnFail.prove();
+    } catch (e: any) {
+      const err_str = e.toString();
+      expect(err_str).toMatch('Cannot bet more than stack!');
+    }
+
+    // But raising to 99 should work!
+    const txnSucc = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt64.from(99))
+    });
+  })
+
+  it.todo('fails on betsizes of 0');
 
   it.todo('allows players to raise all-in if they have less than a normal raise amount');
 

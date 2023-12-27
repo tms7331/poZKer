@@ -278,6 +278,27 @@ export class PoZKerApp extends SmartContract {
         this.stack2.set(stack2New);
     }
 
+    uint_subtraction(cond: Bool, val1: UInt64, val1sub: UInt64, val2: UInt64, val2sub: UInt64): UInt64 {
+        // We have multiple situations where we're subtracting UInts representing stack sizes
+        // In really they cannot underflow due to game logic
+        // However because both branches always execute in the Provable.if, we get underflow
+        // errors in the branch that will not be selected
+        // Is there a better solution besides casting them to fields and back?
+        const val1F = val1.toFields()[0];
+        const val2F = val2.toFields()[0];
+        const val1subF = val1sub.toFields()[0];
+        const val2subF = val2sub.toFields()[0];
+
+        const valDiffF: Field = Provable.if(cond,
+            val1F.sub(val1subF),
+            val2F.sub(val2subF)
+        );
+        // Run into weird errors with this assertion
+        // valDiffF.assertGreaterThanOrEqual(Field(0), "Bad subtraction!");
+        const valDiff = UInt64.from(valDiffF);
+        return valDiff;
+    }
+
     @method takeAction(playerSecKey: PrivateKey, action: UInt64, betSize: UInt64) {
 
         // Need to check that it's the current player's turn, 
@@ -355,22 +376,9 @@ export class PoZKerApp extends SmartContract {
         // For calls - we are not passing in amount, so we need to figure it out
         // For raises - raise needs to be to a valid size
 
-        // Because both branches always execute in the Provable.if, if we leave 
-        // stack1 and stack2 as UInts we get an error on one of the branches because
-        // of underflow.  Is there a better solution besides casting them to fields
-        // and then casting back?
-        const stack1F = stack1.toFields()[0];
-        const stack2F = stack2.toFields()[0];
-        const stackDiffF = Provable.if(p1turn,
-            // If it's player 1's turn, their stack MUST be gte player 2's stack
-            stack1F.sub(stack2F),
-            stack2F.sub(stack1F)
-        );
-        // Should never fail but doesn't hurt
-        // Get this, think it's because of overlap?
-        stackDiffF.assertGreaterThanOrEqual(Field(0), "Bad subtraction!");
+        // If stack1 99 and stack2 90, returns 9
+        const stackDiff = this.uint_subtraction(p1turn, stack1, stack2, stack2, stack1);
 
-        const stackDiff = UInt64.from(stackDiffF);
         // We get an error on underflows so this is always true
         // stackDiff.assertGreaterThanOrEqual(UInt64.from(0), "");
 
@@ -393,14 +401,16 @@ export class PoZKerApp extends SmartContract {
         ).assertGreaterThanOrEqual(UInt64.from(1))
 
         // Raise - betsize should be at least equal to diff*2, or all-in
-        const stackPlusAmount = Provable.if(p1turn,
-            stack1.add(betSize),
-            stack2.add(betSize)
+        const stackPlusAmount: UInt64 = Provable.if(p1turn,
+            this.GameBuyin.sub(stack1).add(betSize),
+            this.GameBuyin.sub(stack2).add(betSize)
         )
+        stackPlusAmount.assertLessThanOrEqual(this.GameBuyin, "Cannot bet more than stack!");
+
         const allin: Bool = stackPlusAmount.equals(this.GameBuyin);
 
         Provable.if(actionReal.equals(this.Raise),
-            stackDiff.mul(2).greaterThanOrEqual(betSize).or(allin),
+            betSize.greaterThanOrEqual(stackDiff.mul(2)).or(allin),
             Bool(true),
         ).assertTrue();
 
@@ -418,18 +428,12 @@ export class PoZKerApp extends SmartContract {
         const case2 = playerHash.equals(player2Hash).and(betSizeReal.lessThanOrEqual(stack2));
         case1.or(case2).assertTrue("Not enough balance for bet!");
 
-        // We'll actually write stack sizes at the end after we check for game over condition
-        const stack1New = Provable.if(
-            playerHash.equals(player1Hash),
-            stack1.sub(betSizeReal),
-            stack1
-        );
-
-        const stack2New = Provable.if(
-            playerHash.equals(player2Hash),
-            stack2.sub(betSizeReal),
-            stack2
-        );
+        const stack1New = this.uint_subtraction(playerHash.equals(player1Hash),
+            stack1, betSizeReal,
+            stack1, UInt64.from(0));
+        const stack2New = this.uint_subtraction(playerHash.equals(player2Hash),
+            stack2, betSizeReal,
+            stack2, UInt64.from(0));
 
         // Need to check if we've hit the end of the street - transition to next street
         // Scenarios for this would be:
@@ -622,8 +626,6 @@ export class PoZKerApp extends SmartContract {
         return isFlush;
     }
 
-
-
     @method showCards(holecard0: UInt64,
         holecard1: UInt64,
         boardcard0: UInt64,
@@ -765,7 +767,6 @@ export class PoZKerApp extends SmartContract {
         this.slot0.set(slot0New);
         this.slot1.set(slot1New);
     }
-
 
     generateHash(card1: Field, card2: Field, privateKey: PrivateKey): Field {
         // Apply a double hash to get a single value for both cards
