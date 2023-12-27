@@ -398,7 +398,7 @@ export class PoZKerApp extends SmartContract {
         Provable.if(actionReal.equals(this.Bet),
             betSize,
             UInt64.from(1),
-        ).assertGreaterThanOrEqual(UInt64.from(1))
+        ).assertGreaterThanOrEqual(UInt64.from(1), "Invalid bet size!")
 
         // Raise - betsize should be at least equal to diff*2, or all-in
         const stackPlusAmount: UInt64 = Provable.if(p1turn,

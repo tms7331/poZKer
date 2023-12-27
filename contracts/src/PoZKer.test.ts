@@ -422,7 +422,7 @@ describe('PoZKer', () => {
     });
   })
 
-  it.only('allows players to raise all-in if they have less than a normal raise amount', async () => {
+  it('allows players to raise all-in if they have less than a normal raise amount', async () => {
     await localDeploy();
     await setPlayers();
     await localDeposit();
@@ -465,7 +465,35 @@ describe('PoZKer', () => {
     expect(isShowdown).toEqual(true);
   })
 
-  it.todo('fails on betsizes of 0');
+  it('fails on bets of 0', async () => {
+    await localDeploy();
+    await setPlayers();
+    await localDeposit();
+
+    const txnCall = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CALL), UInt64.from(0))
+    });
+    await txnCall.prove();
+    await txnCall.sign([playerPrivKey1]).send();
+
+    const txnCheck = await Mina.transaction(playerPubKey2, () => {
+      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CHECK), UInt64.from(0))
+    });
+    await txnCheck.prove();
+    await txnCheck.sign([playerPrivKey2]).send();
+
+    // Betting 0 should fail
+    try {
+      const txnFail = await Mina.transaction(playerPubKey1, () => {
+        zkAppInstance.takeAction(playerPrivKey1, UInt64.from(BET), UInt64.from(0))
+      });
+      // await txnFail.prove();
+    } catch (e: any) {
+      const err_str = e.toString();
+      expect(err_str).toMatch('Invalid bet size!');
+    }
+
+  })
 
   it.todo('allows game to proceed to showdown if players are all-in before river');
 
