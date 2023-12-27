@@ -422,11 +422,52 @@ describe('PoZKer', () => {
     });
   })
 
+  it.only('allows players to raise all-in if they have less than a normal raise amount', async () => {
+    await localDeploy();
+    await setPlayers();
+    await localDeposit();
+
+    // Raise to 90 and then p2's raise will be less than 2x
+    const txn = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt64.from(90))
+    });
+    await txn.prove();
+    await txn.sign([playerPrivKey1]).send();
+
+    // P2 raising to 99, all-in except 1, should not work
+    try {
+      const txnFail = await Mina.transaction(playerPubKey2, () => {
+        zkAppInstance.takeAction(playerPrivKey2, UInt64.from(RAISE), UInt64.from(97))
+      });
+      // await txnFail.prove();
+    } catch (e: any) {
+      const err_str = e.toString();
+      expect(err_str).toMatch('Invalid raise amount!');
+    }
+
+    // But raising all-in should work
+    const txnSucc = await Mina.transaction(playerPubKey2, () => {
+      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(RAISE), UInt64.from(98))
+    });
+    await txnSucc.prove();
+    await txnSucc.sign([playerPrivKey2]).send();
+
+    // And if player 1 calls, we should have 'showdown' state
+    const txnCall = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CALL), UInt64.from(0))
+    });
+    await txnCall.prove();
+    await txnCall.sign([playerPrivKey1]).send();
+
+    const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    // just important that we've reached 'showdown'
+    const isShowdown = gamestate % 17 === 0;
+    expect(isShowdown).toEqual(true);
+  })
+
   it.todo('fails on betsizes of 0');
 
-  it.todo('allows players to raise all-in if they have less than a normal raise amount');
-
-  it.todo('allows game to proceed to showdown if players are all-in');
+  it.todo('allows game to proceed to showdown if players are all-in before river');
 
   it.todo('allows players to show their cards');
 

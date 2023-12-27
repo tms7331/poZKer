@@ -353,14 +353,14 @@ export class PoZKerApp extends SmartContract {
         // Confirm actions is valid, must be some combination below:
         // actions:
         // Bet - valid when facing [Null, Check]
-        // Call - valid when facing [Bet]
+        // Call - valid when facing [Bet, Raise]
         // Fold - valid when facing [Bet, Raise]
-        // Raise - valid when facing [Bet, PreflopCall]
+        // Raise - valid when facing [Bet, Raise, PreflopCall]
         // Check - valid when facing [Null, Check, PreflopCall]
         let act1 = action.equals(this.Bet).and(facingNull.or(facingCheck));
-        let act2 = action.equals(this.Call).and(facingBet);
+        let act2 = action.equals(this.Call).and(facingBet.or(facingRaise));
         let act3 = action.equals(this.Fold).and(facingBet.or(facingRaise));
-        let act4 = action.equals(this.Raise).and(facingBet.or(facingPreflopCall));
+        let act4 = action.equals(this.Raise).and(facingBet.or(facingRaise).or(facingPreflopCall));
         let act5 = action.equals(this.Check).and(facingNull.or(facingCheck).or(facingPreflopCall));
 
         act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
@@ -392,7 +392,7 @@ export class PoZKerApp extends SmartContract {
             betSize.equals(UInt64.from(0)),
             Bool(true)
         )
-        foldCheckAmountBool.assertTrue();
+        foldCheckAmountBool.assertTrue("Bad betsize for check or fold!");
 
         // Bet - betsize should be gt 1 (or whatever minsize is)
         Provable.if(actionReal.equals(this.Bet),
@@ -412,7 +412,7 @@ export class PoZKerApp extends SmartContract {
         Provable.if(actionReal.equals(this.Raise),
             betSize.greaterThanOrEqual(stackDiff.mul(2)).or(allin),
             Bool(true),
-        ).assertTrue();
+        ).assertTrue("Invalid raise amount!");
 
         // Call - betsize should make stacks equal
         // So we might need to override the other betsize here
@@ -445,11 +445,15 @@ export class PoZKerApp extends SmartContract {
         // If newStreetBool and (isPreflop or isTurn) -> Add 2
         // If newStreetBool and (isFlop or isRiver) -> Add 4
         // Else keep same street
-        const nextPreflop = Provable.if(isPreflop.and(newStreetBool.not()), Bool(true), Bool(false));
-        const nextFlop = Provable.if(isFlop.and(newStreetBool.not()).or(isPreflop.and(newStreetBool)), Bool(true), Bool(false));
-        const nextTurn = Provable.if(isTurn.and(newStreetBool.not()).or(isFlop.and(newStreetBool)), Bool(true), Bool(false));
-        const nextRiver = Provable.if(isRiver.and(newStreetBool.not()).or(isTurn.and(newStreetBool)), Bool(true), Bool(false));
-        const nextShowdown = Provable.if(isRiver.and(newStreetBool), Bool(true), Bool(false));
+        // Showdown takes priority over other logic
+        const nextShowdownEnd = Provable.if(isRiver.and(newStreetBool), Bool(true), Bool(false));
+        // Additional scenario where we can have a showdown - both allin
+        const nextShowdownAllin = stack1New.equals(UInt64.from(0)).and(stack2New.equals(UInt64.from(0)));
+        const nextShowdown = nextShowdownEnd.or(nextShowdownAllin);
+        const nextPreflop = Provable.if(nextShowdown.not().and(isPreflop.and(newStreetBool.not())), Bool(true), Bool(false));
+        const nextFlop = Provable.if(nextShowdown.not().and(isFlop.and(newStreetBool.not()).or(isPreflop.and(newStreetBool))), Bool(true), Bool(false));
+        const nextTurn = Provable.if(nextShowdown.not().and(isTurn.and(newStreetBool.not()).or(isFlop.and(newStreetBool))), Bool(true), Bool(false));
+        const nextRiver = Provable.if(nextShowdown.not().and(isRiver.and(newStreetBool.not()).or(isTurn.and(newStreetBool))), Bool(true), Bool(false));
 
         const currStreet = Provable.switch(
             [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
