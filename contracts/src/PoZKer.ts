@@ -32,17 +32,25 @@ Raise 37
 Check 41
 */
 
+
 export const actionMapping = {
-    "GameOver": 1,
+    // Showdown logic: when players need to show their cards we'll set this to
+    // be gamestate.  Then as each player shows their cards, we'll multiply by
+    // 2, and then by 3.  This will result in gamestate of 6, 'ShowdownComplete'
+    // and this is the unique way we can achieve a gamestate of 6
+    // From there either player can call the 'showdown' method, which will transition
+    // to GameOver and allow the players to collect their winnings
+    "ShowdownPending": 1,
     // Players 
     "P1": 2,
     "P2": 3,
+    "ShowdownComplete": 6,
     // Streets
     "Preflop": 5,
     "Flop": 7,
     "Turn": 11,
     "River": 13,
-    "Showdown": 17,
+    // "Showdown": 17,  // doesn't exist anymore, we have PendingShowdown and ShowdownComplete
     // Actions
     "Null": 19,
     "Bet": 23,
@@ -55,6 +63,8 @@ export const actionMapping = {
     // Note - action does not need to be specified externally, it's easier to have 
     // action transformed into this inside of our takeAction logic
     "PreflopCall": 43,
+    // This will override others - we'll set this to be gamestate, no multiplying
+    "GameOver": 47
 }
 
 
@@ -135,6 +145,7 @@ export const cardMapping52 = {
     "Qs": 229,
     "Ks": 233,
     "As": 239,
+    "": 241,
 }
 
 
@@ -148,7 +159,8 @@ export class PoZKerApp extends SmartContract {
     Flop = UInt64.from(actionMapping["Flop"]);
     Turn = UInt64.from(actionMapping["Turn"]);
     River = UInt64.from(actionMapping["River"]);
-    Showdown = UInt64.from(actionMapping["Showdown"]);
+    ShowdownPending = UInt64.from(actionMapping["ShowdownPending"]);
+    ShowdownComplete = UInt64.from(actionMapping["ShowdownComplete"]);
 
     Null = UInt64.from(actionMapping["Null"]);
     Bet = UInt64.from(actionMapping["Bet"]);
@@ -333,10 +345,6 @@ export class PoZKerApp extends SmartContract {
         const isFlop = gamestate.divMod(this.Flop).rest.equals(UInt64.from(0));
         const isTurn = gamestate.divMod(this.Turn).rest.equals(UInt64.from(0));
         const isRiver = gamestate.divMod(this.River).rest.equals(UInt64.from(0));
-        const isShowdown = gamestate.divMod(this.Showdown).rest.equals(UInt64.from(0));
-
-        // Can't take any more actions at showdown, all others are ok
-        isShowdown.assertFalse('Showdown has been reached');
         isPreflop.or(isFlop).or(isTurn).or(isRiver).assertTrue('Invalid game state street');
 
         const facingNull = gamestate.divMod(this.Null).rest.equals(UInt64.from(0));
@@ -458,8 +466,10 @@ export class PoZKerApp extends SmartContract {
         const currStreet = Provable.switch(
             [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
             UInt64,
-            [this.Preflop, this.Flop, this.Turn, this.River, this.Showdown]
+            [this.Preflop, this.Flop, this.Turn, this.River, this.ShowdownPending]
         );
+
+        // ISSUE - if i's showdown pending, wee want to override value...
 
         // If we did go to the next street, previous action should be 'Null'
         const facingAction = Provable.if(
@@ -480,14 +490,22 @@ export class PoZKerApp extends SmartContract {
             Bool(false)
         );
 
+        // If the hand is continuing this is how we're encoding the game state
+        const currGamestateMul = playerTurnNow.mul(currStreet).mul(facingAction)
+        // But for showdowns - we want to overwrite and have it just be '1'
+        const currGamestateNoGameover: UInt64 = Provable.if(
+            currStreet.equals(this.ShowdownPending),
+            (this.ShowdownPending),
+            currGamestateMul
+        );
+
         // gamestate should be:
         // player-whose-turn-it-is * street * lastaction
         const currGamestate = Provable.if(
             gameOverBool,
             this.GameOver,
-            playerTurnNow.mul(currStreet).mul(facingAction)
+            currGamestateNoGameover
         );
-
         this.gamestate.set(currGamestate);
 
         // If game is over from a fold - need to send funds to winner
@@ -510,15 +528,20 @@ export class PoZKerApp extends SmartContract {
 
     @method showdown() {
         // We should only call this if we actually made it to showdown
+        // So valid states for showdown are actually
+        // {1, 2, 3}
+        // 1 = ShowdownPending
+        // 2 = P1 (meaning P1 has shown their cards)
+        // 3 = P3 (meaning P1 has shown their cards)
         const gamestate = this.gamestate.getAndAssertEquals();
-        gamestate.divMod(this.Showdown).rest.assertEquals(UInt64.from(0));
+        gamestate.equals(this.ShowdownComplete).assertTrue("Invalid showdown gamestate!");
 
         const stack1 = this.stack1.getAndAssertEquals();
         const stack2 = this.stack2.getAndAssertEquals();
-        stack1.assertEquals(stack2);
 
         const p1WinnerBal = stack1.add(this.GameBuyin.sub(stack2));
         const p2WinnerBal = stack2.add(this.GameBuyin.sub(stack1));
+        p1WinnerBal.add(p2WinnerBal).assertEquals(this.GameBuyin.mul(UInt64.from(2)));
 
         // Convention is we'll have stored player1's lookup value for their hand 
         // in slot0, and player2's lookup value in slot1
@@ -661,6 +684,8 @@ export class PoZKerApp extends SmartContract {
         3. re-hash the cards and confirm it matches their stored hash
         4. check that board cards are the real board cards
         */
+        const gamestate = this.gamestate.getAndAssertEquals();
+        gamestate.assertLessThanOrEqual(UInt64.from(3));
 
         // Player card hash will be stored in slot1 or slot1
         const slot0 = this.slot0.getAndAssertEquals();
@@ -770,6 +795,17 @@ export class PoZKerApp extends SmartContract {
         );
         this.slot0.set(slot0New);
         this.slot1.set(slot1New);
+
+        // Description of logic within actionMapping - 
+        // transition from 1 to 6 via multiplying by 2 and 3 after each player
+        // shows their cards
+        const gamestateNew = Provable.if(
+            playerHash.equals(player1Hash),
+            gamestate.mul(this.P1),
+            gamestate.mul(this.P2),
+        );
+
+        this.gamestate.set(gamestateNew);
     }
 
     generateHash(card1: Field, card2: Field, privateKey: PrivateKey): Field {

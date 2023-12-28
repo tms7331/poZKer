@@ -16,6 +16,8 @@ const FOLD = actionMapping["Fold"];
 const RAISE = actionMapping["Raise"];
 const CHECK = actionMapping["Check"];
 
+const SHOWDOWNPENDING = actionMapping["ShowdownPending"];
+
 // describe('PoZKer.js', () => {
 //   describe('PoZKer()', () => {
 //     it.todo('should be correct');
@@ -221,6 +223,7 @@ describe('PoZKer', () => {
         zkAppInstance.takeAction(playerPrivKey2, UInt64.from(BET), UInt64.from(10))
       });
       await txnFail.prove();
+      expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
     } catch (e: any) {
       const err_str = e.toString();
       console.log("ERROR IS:");
@@ -246,6 +249,7 @@ describe('PoZKer', () => {
         zkAppInstance.takeAction(playerPrivKey1, UInt64.from(BET), UInt64.from(10))
       });
       await txnFail.prove();
+      expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
     } catch (e: any) {
       const err_str = e.toString();
       console.log("ERROR IS:");
@@ -260,6 +264,7 @@ describe('PoZKer', () => {
         zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CHECK), UInt64.from(0))
       });
       await txnFail.prove();
+      expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
     } catch (e: any) {
       const err_str = e.toString();
       console.log("ERROR IS:");
@@ -338,6 +343,7 @@ describe('PoZKer', () => {
         zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CALL), UInt64.from(10))
       });
       await txnFail.prove();
+      expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
     } catch (e: any) {
       const err_str = e.toString();
       expect(err_str).toMatch('Invalid bet!');
@@ -347,6 +353,7 @@ describe('PoZKer', () => {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
         zkAppInstance.takeAction(playerPrivKey2, UInt64.from(FOLD), UInt64.from(10))
       });
+      expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
       await txnFail.prove();
     } catch (e: any) {
       const err_str = e.toString();
@@ -358,6 +365,7 @@ describe('PoZKer', () => {
         zkAppInstance.takeAction(playerPrivKey2, UInt64.from(BET), UInt64.from(10))
       });
       await txnFail.prove();
+      expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
     } catch (e: any) {
       const err_str = e.toString();
       expect(err_str).toMatch('Invalid bet!');
@@ -411,6 +419,7 @@ describe('PoZKer', () => {
         zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt64.from(100))
       });
       // await txnFail.prove();
+      expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
     } catch (e: any) {
       const err_str = e.toString();
       expect(err_str).toMatch('Cannot bet more than stack!');
@@ -439,6 +448,7 @@ describe('PoZKer', () => {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
         zkAppInstance.takeAction(playerPrivKey2, UInt64.from(RAISE), UInt64.from(97))
       });
+      expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
       // await txnFail.prove();
     } catch (e: any) {
       const err_str = e.toString();
@@ -461,8 +471,7 @@ describe('PoZKer', () => {
 
     const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
     // just important that we've reached 'showdown'
-    const isShowdown = gamestate % 17 === 0;
-    expect(isShowdown).toEqual(true);
+    expect(gamestate).toEqual(SHOWDOWNPENDING);
   })
 
   it('fails on bets of 0', async () => {
@@ -487,6 +496,7 @@ describe('PoZKer', () => {
       const txnFail = await Mina.transaction(playerPubKey1, () => {
         zkAppInstance.takeAction(playerPrivKey1, UInt64.from(BET), UInt64.from(0))
       });
+      expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
       // await txnFail.prove();
     } catch (e: any) {
       const err_str = e.toString();
@@ -495,10 +505,61 @@ describe('PoZKer', () => {
 
   })
 
-  it.todo('allows game to proceed to showdown if players are all-in before river');
+  it('prevents transition to gameover before showdown is complete', async () => {
+    await localDeploy();
+    await setPlayers();
+    await localDeposit();
+
+    // Raise to 90 and then p2's raise will be less than 2x
+    const txnRaise = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt64.from(99))
+    });
+    await txnRaise.prove();
+    await txnRaise.sign([playerPrivKey1]).send();
+
+    // And if player 1 calls, we should have 'showdown' state
+    const txnCall = await Mina.transaction(playerPubKey2, () => {
+      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CALL), UInt64.from(0))
+    });
+    await txnCall.prove();
+    await txnCall.sign([playerPrivKey2]).send();
+
+    const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    // make sure we've reached showdown...
+    expect(gamestate).toEqual(SHOWDOWNPENDING);
+
+    // We should NOT be able to call 'showdown' method yet - 
+    // 1. Need other board cards
+    // 2. Both players need to show hands
+
+    // P2 raising to 99, all-in except 1, should not work
+
+    //const txnFail0 = await Mina.transaction(playerPubKey2, () => {
+    //  zkAppInstance.showdown()
+    //});
+    //await txnFail0.prove();
+    //await txnFail0.sign([playerPrivKey2]).send();
+    //console.log("Trying showdown?")
+    try {
+      const txnFail = await Mina.transaction(playerPubKey2, () => {
+        zkAppInstance.showdown()
+      });
+      // If it doesn't fail it will not call the 'expect' below
+      expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
+      // await txnFail.prove();
+    } catch (e: any) {
+      const err_str = e.toString();
+      expect(err_str).toMatch('Invalid showdown gamestate!');
+    }
+
+    console.log("Failed somehow?")
+
+  })
+
+  it.todo('allows transition from showdown to gameover');
 
   it.todo('allows players to show their cards');
 
-  it.todo('allows players to claim their profits after showdown');
+  it.todo('allows players to claim their profits after game over');
 
 });
