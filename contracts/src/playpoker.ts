@@ -1,5 +1,5 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
-import { PoZKerApp, cardMapping52 } from './PoZKer.js';
+import { PoZKerApp, actionMapping, cardMapping52 } from './PoZKer.js';
 //import { readline } from 'readline';
 //const readline = require('readline');
 import readline from 'readline';
@@ -21,15 +21,9 @@ import {
 } from 'o1js';
 import { getHoleFromOracle, getFlopFromOracle, getRiverFromOracle, getTakeFromOracle } from "./oracleLib.js";
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
+import { Card, getMerkleMapWitness, parseCardInt, getShowdownData } from './gameutils.js';
 
 await isReady;
-
-type Card = '2d' | '3d' | '4d' | '5d' | '6d' | '7d' | '8d' | '9d' | 'Td' | 'Jd' | 'Qd' | 'Kd' | 'Ad' | '2c' | '3c' | '4c' | '5c' | '6c' | '7c' | '8c' | '9c' | 'Tc' | 'Jc' | 'Qc' | 'Kc' | 'Ac' | '2h' | '3h' | '4h' | '5h' | '6h' | '7h' | '8h' | '9h' | 'Th' | 'Jh' | 'Qh' | 'Kh' | 'Ah' | '2s' | '3s' | '4s' | '5s' | '6s' | '7s' | '8s' | '9s' | 'Ts' | 'Js' | 'Qs' | 'Ks' | 'As';
-
-const cards: Card[] = ['2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh', 'Qh', 'Kh', 'Ah',
-    '2d', '3d', '4d', '5d', '6d', '7d', '8d', '9d', 'Td', 'Jd', 'Qd', 'Kd', 'Ad',
-    '2c', '3c', '4c', '5c', '6c', '7c', '8c', '9c', 'Tc', 'Jc', 'Qc', 'Kc', 'Ac',
-    '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', 'Ts', 'Js', 'Qs', 'Ks', 'As']
 
 // import { evaluate_7_cards } from './evaluator7.js';
 //ReadLine.
@@ -93,11 +87,6 @@ function getRandomInt(min: number, max: number) {
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-
-function parseCardInt(cardInt: number): Card {
-    return cards[cardInt];
-}
-
 
 const SLEEP_TIME_SHORT = 0; // 1000;
 const SLEEP_TIME_LONG = 0; //3000;
@@ -265,8 +254,8 @@ console.log("player 2 hole cards:", parseCardInt(parseInt(card3.toString())), pa
 console.log("Screen will be cleared after 3 seconds...")
 
 // Exact same logic as for player 1
-let c3 = ElGamalFF.encrypt(Field(card3), keys1.pk);
-let c4 = ElGamalFF.encrypt(Field(card4), keys1.pk);
+let c3 = ElGamalFF.encrypt(Field(card3), keys2.pk);
+let c4 = ElGamalFF.encrypt(Field(card4), keys2.pk);
 
 const txnC4 = await Mina.transaction(playerPubKey1, () => {
     // Have to put it in slots 1 and 2
@@ -317,11 +306,11 @@ console.log("Check: 5")
 // Raise 37
 // Check 41
 const actionMap: { [key: number]: number } = {
-    1: 23,
-    2: 29,
-    3: 31,
-    4: 37,
-    5: 41,
+    1: actionMapping["Bet"],
+    2: actionMapping["Call"],
+    3: actionMapping["Fold"],
+    4: actionMapping["Raise"],
+    5: actionMapping["Check"],
 };
 
 const actionList = ["", "Bets", "Calls", "Folds", "Raises", "Checks"]
@@ -386,135 +375,10 @@ function buildJSMap(fnLoad: string) {
     return map;
 }
 
-const fnBasic = 'lookup_table_basic.json';
-const fnFlush = 'lookup_table_flushes.json';
-const lookupTableBasic = JSON.parse(fs.readFileSync(fnBasic, 'utf-8'));
-const lookupTableFlushes = JSON.parse(fs.readFileSync(fnFlush, 'utf-8'));
 
 
 
 
-// Want mapping from prime52 encoding (in cardMapping52) back to the 0..51 indexes for our lookups
-type Prime52ToCardType = {
-    [key: number]: number;
-};
-
-const prime52ToCard: Prime52ToCardType = {
-}
-
-for (const [key, value] of Object.entries(cardMapping52)) {
-    // key, value would be like
-    // "7c": 131,
-    console.log(key, value);
-    const card: Card = key as Card;
-    const cardIndex = cards.indexOf(card);
-    prime52ToCard[value] = cardIndex;
-}
-
-
-function flushCheck(card1: number, card2: number, card3: number, card4: number, card5: number): boolean {
-    // if all of them are in the same block of 13, it's a flush
-    const suitNum1 = Math.floor(card1 / 13);
-    const suitNum2 = Math.floor(card2 / 13);
-    const suitNum3 = Math.floor(card3 / 13);
-    const suitNum4 = Math.floor(card4 / 13);
-    const suitNum5 = Math.floor(card5 / 13);
-    if (suitNum1 == suitNum2 && suitNum1 == suitNum3 && suitNum1 == suitNum4 && suitNum1 == suitNum5) {
-        return true;
-    }
-    return false;
-}
-
-function evaluateHand(card1: number, card2: number, card3: number, card4: number, card5: number): [number, number, boolean] {
-    // Hands will be the 0..51 indexes!
-
-    const lookupKey = card1 % 13 * card2 % 13 * card3 % 13 * card4 % 13 * card5 % 13
-    let lookupVal = lookupTableBasic[lookupKey]
-    const isFlush = flushCheck(card1, card2, card3, card4, card5)
-    if (isFlush) {
-        lookupVal = lookupTableFlushes[lookupKey]
-    }
-    return [lookupKey, lookupVal, isFlush];
-}
-
-
-function getMerkleMapWitness(isFlush: boolean, merkleMapKey: Field): MerkleMapWitness {
-    //console.log(merkleMapBasic.getRoot())
-    console.log(merkleMapFlush.getRoot())
-
-    let witness: MerkleMapWitness;
-    if (isFlush) {
-        let w = merkleMapBasic.getWitness(merkleMapKey);
-        witness = new MerkleMapWitness(w.isLefts, w.siblings);
-    }
-    else {
-        let w = merkleMapFlush.getWitness(merkleMapKey);
-        witness = new MerkleMapWitness(w.isLefts, w.siblings);
-
-    }
-    return witness;
-}
-
-function getShowdownData(allCardsUint: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64]):
-    [[Bool, Bool, Bool, Bool, Bool, Bool, Bool],
-        Bool,
-        Field,
-        Field] {
-
-    // Want cards in 0 to 52 numbering
-    const allCards: [number, number, number, number, number, number, number] = [-1, -1, -1, -1, -1, -1, -1];
-    for (let i = 0; i < 7; i++) {
-        const prime52: number = parseInt(allCardsUint[i].toString());
-        const cardIndex = prime52ToCard[prime52];
-        allCards[i] = cardIndex;
-    }
-
-    // Find best 5 card hand from 7 cards 
-    let useCards: [boolean, boolean, boolean, boolean, boolean, boolean, boolean] = [false, false, false, false, false, false, false];
-    let isFlush: boolean = false;
-    let merkleMapKey: number = 0;
-    // 7462 total hands (so indexes 0 to 7641) so every hand should be lower than this
-    let merkleMapVal: number = 7462;
-    for (let i = 0; i < 7; i++) {
-        const card1 = allCards[i];
-        for (let j = i + 1; j < 7; j++) {
-            const card2 = allCards[j];
-            for (let k = j + 1; k < 7; k++) {
-                const card3 = allCards[k];
-                for (let l = k + 1; l < 7; l++) {
-                    const card4 = allCards[l];
-                    for (let m = l + 1; m < 7; m++) {
-                        const card5 = allCards[m];
-
-                        const [merkleMapKey_, merkleMapVal_, isFlush_] = evaluateHand(card1, card2, card3, card4, card5);
-                        // lower is better
-                        if (merkleMapVal_ < merkleMapVal) {
-                            merkleMapVal = merkleMapVal_;
-                            merkleMapKey = merkleMapKey_;
-                            isFlush = isFlush_;
-                            useCards = [false, false, false, false, false, false, false];
-                            useCards[i] = true;
-                            useCards[j] = true;
-                            useCards[k] = true;
-                            useCards[l] = true;
-                            useCards[m] = true;
-                        }
-
-                    }
-                }
-            }
-        }
-    }
-
-    // Want to return these as fields...
-    const useCardsRet: [Bool, Bool, Bool, Bool, Bool, Bool, Bool] = [Bool(useCards[0]), Bool(useCards[1]), Bool(useCards[2]), Bool(useCards[3]), Bool(useCards[4]), Bool(useCards[5]), Bool(useCards[6])];
-    const isFlushRet = Bool(isFlush);
-    const merkleMapKeyRet = Field(merkleMapKey);
-    const merkleMapValRet: Field = Field(merkleMapVal);
-
-    return [useCardsRet, isFlushRet, merkleMapKeyRet, merkleMapValRet];
-
-}
 
 // Main game loop - keep accepting actions until hand ends
 while (true) {
@@ -571,11 +435,11 @@ while (true) {
 
         const allCardsP1: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card1prime52), UInt64.from(card2prime52), boardPrimes[0], boardPrimes[1], boardPrimes[2], boardPrimes[3], boardPrimes[4]]
         const [useCardsP1, isFlushP1, merkleMapKeyP1, merkleMapValP1] = getShowdownData(allCardsP1);
-        const pathP1: MerkleMapWitness = getMerkleMapWitness(isFlushP1.toBoolean(), merkleMapKeyP1)
+        const pathP1: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP1.toBoolean(), merkleMapKeyP1)
 
         const allCardsP2: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card3prime52), UInt64.from(card4prime52), boardPrimes[0], boardPrimes[1], boardPrimes[2], boardPrimes[3], boardPrimes[4]]
         const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
-        const pathP2: MerkleMapWitness = getMerkleMapWitness(isFlushP2.toBoolean(), merkleMapKeyP2)
+        const pathP2: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP2.toBoolean(), merkleMapKeyP2)
 
         const txnA = await Mina.transaction(playerPubKey1, () => {
             zkAppInstance.showCards(allCardsP1[0],
