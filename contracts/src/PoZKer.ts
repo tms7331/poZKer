@@ -170,6 +170,8 @@ export class PoZKerApp extends SmartContract {
     Check = UInt64.from(actionMapping["Check"]);
     PreflopCall = UInt64.from(actionMapping["PreflopCall"]);
 
+    NullBoardcard = Field(cardMapping52[""]);
+
     // This are generated via the genmap script
     MerkleMapRootBasic = Field("27699641125309939543225716816460043210743676221173039607853127025430840122106");
     MerkleMapRootFlush = Field("12839577190240250171319696533609974348200540625786415982151412596597428662991");
@@ -576,7 +578,10 @@ export class PoZKerApp extends SmartContract {
         // Remember - cardPrime52 should be in the 52 format
         // We'll always store the board card product in slot2
         const slot2 = this.slot2.getAndAssertEquals();
-        const slot2New = slot2.mul(cardPrime52);
+
+        // Remember - we start out having the board card be Null*5
+        // Need to do this so we can ensure at showdown that player submitted all cards
+        const slot2New = slot2.mul(cardPrime52).div(this.NullBoardcard);
         this.slot2.set(slot2New)
     }
 
@@ -777,6 +782,9 @@ export class PoZKerApp extends SmartContract {
         const boardcardMulReal = UInt64.from(slot2);
         // CHECK 4. check that board cards are the real board cards
         boardcardMul.assertEquals(boardcardMulReal);
+        // And check that we have 5 boardcards - should not be divisible by null val
+        const nullBoardcardUint = UInt64.from(this.NullBoardcard);
+        boardcardMulReal.divMod(nullBoardcardUint).rest.assertEquals(UInt64.from(0));
 
         // And now we can store the lookup value in the appropriate slot
 
@@ -857,7 +865,9 @@ export class PoZKerApp extends SmartContract {
         this.slot1.set(slot1New);
 
         // We want this to be '1' so we can properly multiply our board values
-        this.slot2.set(Field(1));
+        const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
+        this.slot2.set(noBoardcards);
+        //this.slot2.set(Field(1));
     }
 
     @method commitCard(slotI: Field, encryptedCard: Field) {
