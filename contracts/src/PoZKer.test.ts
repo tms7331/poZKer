@@ -1,8 +1,11 @@
-import { PoZKerApp, actionMapping } from './PoZKer';
+import { PoZKerApp, actionMapping, cardMapping52 } from './PoZKer';
 import {
-  Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt64,
+  Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt64, Bool, MerkleMapWitness
 } from 'o1js';
+import fs from 'fs';
 import { Cipher, ElGamalFF } from 'o1js-elgamal';
+import { getMerkleMapWitness, getShowdownData } from './gameutils.js';
+import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
 
 let proofsEnabled = false;
 
@@ -123,6 +126,7 @@ describe('PoZKer', () => {
     let keys1 = ElGamalFF.generateKeys();
     let keys2 = ElGamalFF.generateKeys();
 
+
     // Player 1 will encrypt their cards - we'll pretend that we've done 
 
     // shuffles and encryptions, and player 2 has decrypted their half of the
@@ -160,8 +164,8 @@ describe('PoZKer', () => {
     await txnC3.sign([playerPrivKey1]).send();
 
     // Exact same logic as for player 1
-    let c3 = ElGamalFF.encrypt(Field(card3), keys1.pk);
-    let c4 = ElGamalFF.encrypt(Field(card4), keys1.pk);
+    let c3 = ElGamalFF.encrypt(Field(card3), keys2.pk);
+    let c4 = ElGamalFF.encrypt(Field(card4), keys2.pk);
 
     const txnC4 = await Mina.transaction(playerPubKey1, () => {
       // Have to put it in slots 1 and 2
@@ -510,14 +514,13 @@ describe('PoZKer', () => {
     await setPlayers();
     await localDeposit();
 
-    // Raise to 90 and then p2's raise will be less than 2x
+    // Just immediately go all-in to finish betting
     const txnRaise = await Mina.transaction(playerPubKey1, () => {
       zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt64.from(99))
     });
     await txnRaise.prove();
     await txnRaise.sign([playerPrivKey1]).send();
 
-    // And if player 1 calls, we should have 'showdown' state
     const txnCall = await Mina.transaction(playerPubKey2, () => {
       zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CALL), UInt64.from(0))
     });
@@ -531,15 +534,6 @@ describe('PoZKer', () => {
     // We should NOT be able to call 'showdown' method yet - 
     // 1. Need other board cards
     // 2. Both players need to show hands
-
-    // P2 raising to 99, all-in except 1, should not work
-
-    //const txnFail0 = await Mina.transaction(playerPubKey2, () => {
-    //  zkAppInstance.showdown()
-    //});
-    //await txnFail0.prove();
-    //await txnFail0.sign([playerPrivKey2]).send();
-    //console.log("Trying showdown?")
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
         zkAppInstance.showdown()
@@ -552,13 +546,143 @@ describe('PoZKer', () => {
       expect(err_str).toMatch('Invalid showdown gamestate!');
     }
 
-    console.log("Failed somehow?")
-
   })
 
-  it.todo('allows transition from showdown to gameover');
+  it.only('allows players to show their cards', async () => {
+    await localDeploy();
+    await setPlayers();
+    await localDeposit();
 
-  it.todo('allows players to show their cards');
+    // Just immediately go all-in to finish betting
+    const txnRaise = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt64.from(99))
+    });
+    await txnRaise.prove();
+    await txnRaise.sign([playerPrivKey1]).send();
+
+    const txnCall = await Mina.transaction(playerPubKey2, () => {
+      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CALL), UInt64.from(0))
+    });
+    await txnCall.prove();
+    await txnCall.sign([playerPrivKey2]).send();
+
+    const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    // make sure we've reached showdown...
+    expect(gamestate).toEqual(SHOWDOWNPENDING);
+
+    const card1prime52 = cardMapping52["Ah"];
+    const card2prime52 = cardMapping52["Ad"];
+    // we'll give p2 a flush
+    const card3prime52 = cardMapping52["Ks"];
+    const card4prime52 = cardMapping52["Ts"];
+
+    const boardcard0 = cardMapping52["Kc"];
+    const boardcard1 = cardMapping52["Ac"];
+    const boardcard2 = cardMapping52["Qs"];
+    const boardcard3 = cardMapping52["8s"];
+    const boardcard4 = cardMapping52["6s"];
+
+
+
+
+    // Commits cards for both players...
+    await localCommitCards(card1prime52, card2prime52, card3prime52, card4prime52);
+
+    // other player has to store halfway decrypted cards first!
+    // commitCard(slotI: Field, encryptedCard: Field)
+    // commitCard(slotI: Field, encryptedCard: Field)
+    // // And now other player can see cards and store it
+    // storeCardHash(slotI: Field, c2a: Field, c2b: Field, cipherKeys: Field, playerSecKey: PrivateKey)
+
+    const boardcards = [boardcard0, boardcard1, boardcard2, boardcard3, boardcard4];
+
+    for (const bc of boardcards) {
+      const txnB = await Mina.transaction(playerPubKey1, () => {
+        zkAppInstance.tallyBoardCards(Field(bc));
+      });
+      await txnB.prove();
+      await txnB.sign([playerPrivKey1]).send();
+    }
+
+    // Loading map
+    const merkleMapBasicFn = "merkleMapBasic.json"
+    const merkleMapFlushFn = "merkleMapFlush.json"
+
+    const jsonDataBasic = fs.readFileSync(merkleMapBasicFn, 'utf8');
+    const merkleMapBasic: MerkleMapSerializable = deserialize(jsonDataBasic);
+
+    const jsonDataFlush = fs.readFileSync(merkleMapFlushFn, 'utf8');
+    const merkleMapFlush: MerkleMapSerializable = deserialize(jsonDataFlush);
+
+    const allCardsP1: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card1prime52), UInt64.from(card2prime52), UInt64.from(boardcard0), UInt64.from(boardcard1), UInt64.from(boardcard2), UInt64.from(boardcard3), UInt64.from(boardcard4)]
+    const [useCardsP1, isFlushP1, merkleMapKeyP1, merkleMapValP1] = getShowdownData(allCardsP1);
+    const pathP1: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP1.toBoolean(), merkleMapKeyP1)
+
+    const allCardsP2: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card3prime52), UInt64.from(card4prime52), UInt64.from(boardcard0), UInt64.from(boardcard1), UInt64.from(boardcard2), UInt64.from(boardcard3), UInt64.from(boardcard4)]
+    const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
+    const pathP2: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP2.toBoolean(), merkleMapKeyP2)
+
+    const txnA = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.showCards(allCardsP1[0],
+        allCardsP1[1],
+        allCardsP1[2],
+        allCardsP1[3],
+        allCardsP1[4],
+        allCardsP1[5],
+        allCardsP1[6],
+        useCardsP1[0],
+        useCardsP1[1],
+        useCardsP1[2],
+        useCardsP1[3],
+        useCardsP1[4],
+        useCardsP1[5],
+        useCardsP1[6],
+        isFlushP1,
+        playerPrivKey1,
+        merkleMapKeyP1,
+        merkleMapValP1,
+        pathP1)
+    });
+    await txnA.prove();
+    await txnA.sign([playerPrivKey1]).send();
+
+
+
+    const txnB = await Mina.transaction(playerPubKey2, () => {
+      zkAppInstance.showCards(allCardsP2[0],
+        allCardsP2[1],
+        allCardsP2[2],
+        allCardsP2[3],
+        allCardsP2[4],
+        allCardsP2[5],
+        allCardsP2[6],
+        useCardsP2[0],
+        useCardsP2[1],
+        useCardsP2[2],
+        useCardsP2[3],
+        useCardsP2[4],
+        useCardsP2[5],
+        useCardsP2[6],
+        isFlushP2,
+        playerPrivKey2,
+        merkleMapKeyP2,
+        merkleMapValP2,
+        pathP2)
+    });
+    await txnB.prove();
+    await txnB.sign([playerPrivKey2]).send();
+
+    // Showdown means no more actions, need to handle card logic though
+    // showdown(v1: Field, v2: Field)
+    const txn = await Mina.transaction(playerPubKey2, () => {
+      zkAppInstance.showdown()
+    });
+    await txn.prove();
+    await txn.sign([playerPrivKey2]).send();
+  })
+
+
+  it.todo('allows transition from showdown to gameover');
 
   it.todo('allows players to claim their profits after game over');
 
