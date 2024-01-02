@@ -148,9 +148,17 @@ export const cardMapping52 = {
     "": 241,
 }
 
+const cardMapping52_list = [2, 3, 5, 7, 11, 13, 17, 19];
+
+
+
+
 
 export class PoZKerApp extends SmartContract {
     GameOver = UInt64.from(actionMapping["GameOver"]);
+
+    //cardMapping52_list = [UInt64.from(1), UInt64.from(2), UInt64.from(3)]
+    cardMapping52_list = [UInt64.from(2), UInt64.from(3), UInt64.from(5), UInt64.from(7), UInt64.from(11), UInt64.from(13), UInt64.from(17), UInt64.from(19)]
 
     P1 = UInt64.from(actionMapping["P1"]);
     P2 = UInt64.from(actionMapping["P2"]);
@@ -585,6 +593,59 @@ export class PoZKerApp extends SmartContract {
         this.slot2.set(slot2New)
     }
 
+
+    convert52to13(c52: UInt64): UInt64 {
+        // takes care of converting a card in cardMapping52 format to cardMapping13
+        // "2h": 2,  "2d": 43, "2c": 103, "2s": 173,
+        // "3h": 3,  "3d": 47, "3c": 107, "3s": 179,
+        // "4h": 5,  "4d": 53, "4c": 109, "4s": 181,
+        // "5h": 7,  "5d": 59, "5c": 113, "5s": 191,
+        // "6h": 11, "6d": 61, "6c": 127, "6s": 193,
+        // "7h": 13, "7d": 67, "7c": 131, "7s": 197,
+        // "8h": 17, "8d": 71, "8c": 137, "8s": 199,
+        // "9h": 19, "9d": 73, "9c": 139, "9s": 211,
+        // "Th": 23, "Td": 79, "Tc": 149, "Ts": 223,
+        // "Jh": 29, "Jd": 83, "Jc": 151, "Js": 227,
+        // "Qh": 31, "Qd": 89, "Qc": 157, "Qs": 229,
+        // "Kh": 37, "Kd": 97, "Kc": 163, "Ks": 233,
+        // "Ah": 41, "Ad": 101,"Ac": 167, "As": 239,
+
+        const c13 = Provable.switch([
+            // CONDITIONS
+            c52.equals(UInt64.from(2)).or(c52.equals(UInt64.from(43))).or(c52.equals(UInt64.from(103))).or(c52.equals(UInt64.from(173))),
+            c52.equals(UInt64.from(3)).or(c52.equals(UInt64.from(47))).or(c52.equals(UInt64.from(107))).or(c52.equals(UInt64.from(179))),
+            c52.equals(UInt64.from(5)).or(c52.equals(UInt64.from(53))).or(c52.equals(UInt64.from(109))).or(c52.equals(UInt64.from(181))),
+            c52.equals(UInt64.from(7)).or(c52.equals(UInt64.from(59))).or(c52.equals(UInt64.from(113))).or(c52.equals(UInt64.from(191))),
+            c52.equals(UInt64.from(11)).or(c52.equals(UInt64.from(61))).or(c52.equals(UInt64.from(127))).or(c52.equals(UInt64.from(193))),
+            c52.equals(UInt64.from(13)).or(c52.equals(UInt64.from(67))).or(c52.equals(UInt64.from(131))).or(c52.equals(UInt64.from(197))),
+            c52.equals(UInt64.from(17)).or(c52.equals(UInt64.from(71))).or(c52.equals(UInt64.from(137))).or(c52.equals(UInt64.from(199))),
+            c52.equals(UInt64.from(19)).or(c52.equals(UInt64.from(73))).or(c52.equals(UInt64.from(139))).or(c52.equals(UInt64.from(211))),
+            c52.equals(UInt64.from(23)).or(c52.equals(UInt64.from(79))).or(c52.equals(UInt64.from(149))).or(c52.equals(UInt64.from(223))),
+            c52.equals(UInt64.from(29)).or(c52.equals(UInt64.from(83))).or(c52.equals(UInt64.from(151))).or(c52.equals(UInt64.from(227))),
+            c52.equals(UInt64.from(31)).or(c52.equals(UInt64.from(89))).or(c52.equals(UInt64.from(157))).or(c52.equals(UInt64.from(229))),
+            c52.equals(UInt64.from(37)).or(c52.equals(UInt64.from(97))).or(c52.equals(UInt64.from(163))).or(c52.equals(UInt64.from(233))),
+            c52.equals(UInt64.from(41)).or(c52.equals(UInt64.from(101))).or(c52.equals(UInt64.from(167))).or(c52.equals(UInt64.from(239)))],
+            // RETURN TYPE
+            UInt64,
+            // SELECT VALUES
+            [UInt64.from(2),
+            UInt64.from(3),
+            UInt64.from(5),
+            UInt64.from(7),
+            UInt64.from(11),
+            UInt64.from(13),
+            UInt64.from(17),
+            UInt64.from(19),
+            UInt64.from(23),
+            UInt64.from(29),
+            UInt64.from(31),
+            UInt64.from(37),
+            UInt64.from(41),])
+
+        return c13;
+
+    }
+
     calcLookupVal(holecard0: UInt64,
         holecard1: UInt64,
         boardcard0: UInt64,
@@ -600,17 +661,26 @@ export class PoZKerApp extends SmartContract {
         useBoardcards3: Bool,
         useBoardcards4: Bool,
     ): UInt64 {
-        const v1 = Provable.if(useHolecard0, holecard0, UInt64.from(1)).divMod(13).rest;
-        const v2 = Provable.if(useHolecard1, holecard1, UInt64.from(1)).divMod(13).rest;
-        const v3 = Provable.if(useBoardcards0, boardcard0, UInt64.from(1)).divMod(13).rest;
-        const v4 = Provable.if(useBoardcards1, boardcard1, UInt64.from(1)).divMod(13).rest;
-        const v5 = Provable.if(useBoardcards2, boardcard2, UInt64.from(1)).divMod(13).rest;
-        const v6 = Provable.if(useBoardcards3, boardcard3, UInt64.from(1)).divMod(13).rest;
-        const v7 = Provable.if(useBoardcards4, boardcard4, UInt64.from(1)).divMod(13).rest;
+        // Remember - all cards are in cardMapping52 format
+        let lookupVal = UInt64.from(1);
 
-        const lookupVal = v1.mul(v2).mul(v3).mul(v4).mul(v5).mul(v6).mul(v7);
+        const cardList = [holecard0, holecard1, boardcard0, boardcard1, boardcard2, boardcard3, boardcard4];
+        const boolList = [useHolecard0, useHolecard1, useBoardcards0, useBoardcards1, useBoardcards2, useBoardcards3, useBoardcards4];
+
+        // Incredibly ugly but we need to convert cards from cardMapping52 to cardMapping13
+        // And then multiply together all the ones that are used to get the lookup val
+        for (let i = 0; i < 7; i++) {
+            const c52 = cardList[i];
+            const c13 = this.convert52to13(c52)
+            const boolUse = boolList[i];
+            // So if we use it, use the value, otherwise just 1...
+            const lvMul = Provable.if(boolUse, c13, UInt64.from(1));
+            lookupVal = lookupVal.mul(lvMul);
+        }
+
         return lookupVal;
     }
+
 
     calcCheckFlush(holecard0: UInt64,
         holecard1: UInt64,
@@ -627,35 +697,53 @@ export class PoZKerApp extends SmartContract {
         useBoardcards3: Bool,
         useBoardcards4: Bool,
     ): Bool {
-        // A valid flush lookup will be one in wich all 5 cards have the same quotient when
-        // divided by 13
-        const v1 = Provable.if(useHolecard0, holecard0, UInt64.from(4)).divMod(13).quotient;
-        const v2 = Provable.if(useHolecard1, holecard1, UInt64.from(4)).divMod(13).quotient;
-        const v3 = Provable.if(useBoardcards0, boardcard0, UInt64.from(4)).divMod(13).quotient;
-        const v4 = Provable.if(useBoardcards1, boardcard1, UInt64.from(4)).divMod(13).quotient;
-        const v5 = Provable.if(useBoardcards2, boardcard2, UInt64.from(4)).divMod(13).quotient;
-        const v6 = Provable.if(useBoardcards3, boardcard3, UInt64.from(4)).divMod(13).quotient;
-        const v7 = Provable.if(useBoardcards4, boardcard4, UInt64.from(4)).divMod(13).quotient;
 
-        let isFlush: Bool = Bool(true);
-        for (let x of [v1, v2, v3, v4, v5, v6, v7]) {
-            const realX = Provable.if(x.equals(UInt64.from(4)), Bool(false), Bool(true));
-            for (let y of [v1, v2, v3, v4, v5, v6, v7]) {
-                // Can we do this instead?  Would simplify some logic
-                // if (x == y) {
-                //     continue
-                // }
+        const cardList = [holecard0, holecard1, boardcard0, boardcard1, boardcard2, boardcard3, boardcard4];
+        const boolList = [useHolecard0, useHolecard1, useBoardcards0, useBoardcards1, useBoardcards2, useBoardcards3, useBoardcards4];
 
-                // valid quotients are 0, 1, 2, 3
-                // we put '4' as our placeholder for unused cards
-                // So if values are anything except 4, we should confirm they're the same
-                const realY = Provable.if(y.equals(UInt64.from(4)), Bool(false), Bool(true));
-                const quotientMatch = Provable.if(realX.and(realY), x.equals(y), Bool(true));
-                isFlush = isFlush.and(quotientMatch);
-            }
+        let allHearts = Bool(true);
+        let allDiamonds = Bool(true);
+        let allClubs = Bool(true);
+        let allSpades = Bool(true);
 
+        // So idea - go through and set all to true
+        // After each valid card, all the suits that don't match
+        // will be set to false
+        // So at the end if any of the bools is still 'true', it
+        // must be the case that every card we used was of that suit
+
+        for (let i = 0; i < 7; i++) {
+            const c52 = cardList[i];
+            const boolUse = boolList[i];
+
+            // Ranges for each suit
+            // "2h": 2, "Ah": 41,
+            // "2d": 43, "Ad": 101,
+            // "2c": 103, "Ac": 167,
+            // "2s": 173, "As": 239,
+            const minHeart = UInt64.from(2);
+            const maxHeart = UInt64.from(41);
+            const minDiamond = UInt64.from(43);
+            const maxDiamond = UInt64.from(101);
+            const minClub = UInt64.from(103);
+            const maxClub = UInt64.from(167);
+            const minSpade = UInt64.from(173);
+            const maxSpade = UInt64.from(239);
+
+            const isHeart = Provable.if(boolUse.not(), Bool(true), c52.greaterThanOrEqual(minHeart).and(c52.lessThanOrEqual(maxHeart)));
+            const isDiamond = Provable.if(boolUse.not(), Bool(true), c52.greaterThanOrEqual(minDiamond).and(c52.lessThanOrEqual(maxDiamond)));
+            const isClub = Provable.if(boolUse.not(), Bool(true), c52.greaterThanOrEqual(minClub).and(c52.lessThanOrEqual(maxClub)));
+            const isSpade = Provable.if(boolUse.not(), Bool(true), c52.greaterThanOrEqual(minSpade).and(c52.lessThanOrEqual(maxSpade)));
+
+            allHearts = allHearts.and(isHeart);
+            allDiamonds = allDiamonds.and(isDiamond);
+            allClubs = allClubs.and(isClub);
+            allSpades = allSpades.and(isSpade);
         }
+
+        const isFlush = allHearts.or(allDiamonds).or(allClubs).or(allSpades)
         return isFlush;
+
     }
 
     @method showCards(holecard0: UInt64,
@@ -697,6 +785,7 @@ export class PoZKerApp extends SmartContract {
         const slot1 = this.slot1.getAndAssertEquals();
         // We are going to be storing the product of all the board card primes here!
         const slot2 = this.slot2.getAndAssertEquals();
+
 
         // 0 - make sure player is a part of the game...
         const player = PublicKey.fromPrivateKey(playerSecKey);
@@ -754,8 +843,6 @@ export class PoZKerApp extends SmartContract {
             useBoardcards3,
             useBoardcards4)
 
-
-        isFlush.assertEquals(isFlushReal, 'Player did not specify hand correctly!');
 
         lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Player did not pass in their real cards!');
 
@@ -833,7 +920,7 @@ export class PoZKerApp extends SmartContract {
         // 3. and store the hash in a slot
 
         // For both players their encrypted card will be stored here
-        const slot0 = this.slot1.getAndAssertEquals();
+        const slot0 = this.slot0.getAndAssertEquals();
         const slot1 = this.slot1.getAndAssertEquals();
         const slot2 = this.slot2.getAndAssertEquals();
 
