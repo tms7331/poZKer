@@ -17,7 +17,6 @@ const cards: Card[] = ['2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh
     '2c', '3c', '4c', '5c', '6c', '7c', '8c', '9c', 'Tc', 'Jc', 'Qc', 'Kc', 'Ac',
     '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', 'Ts', 'Js', 'Qs', 'Ks', 'As']
 
-
 // TODO - don't like that we're loading this here, any way we could refactor?
 const fnBasic = 'lookup_table_basic.json';
 const fnFlush = 'lookup_table_flushes.json';
@@ -50,7 +49,7 @@ export function getMerkleMapWitness(merkleMapBasic: MerkleMapSerializable,
 }
 
 
-
+// TODO - we're not currently using this, should we switch back to it?
 // Want mapping from prime52 encoding (in cardMapping52) back to the 0..51 indexes for our lookups
 type Prime52ToCardType = {
     [key: number]: number;
@@ -62,30 +61,63 @@ const prime52ToCard: Prime52ToCardType = {
 for (const [key, value] of Object.entries(cardMapping52)) {
     // key, value would be like
     // "7c": 131,
-    console.log(key, value);
+    // console.log(key, value);
     const card: Card = key as Card;
     const cardIndex = cards.indexOf(card);
     prime52ToCard[value] = cardIndex;
 }
 
+function _getSuit(card: number): String {
+    // get suit from the ccard in cardMapping52 format
+    if ((2 <= card) && (card <= 41)) {
+        return "H";
+    }
+    else if ((43 <= card) && (card <= 101)) {
+        return "D";
+    }
+    else if ((103 <= card) && (card <= 167)) {
+        return "C";
+    }
+    else if ((173 <= card) && (card <= 239)) {
+        return "S";
+    }
+    return "-";
+}
 
 function flushCheck(card1: number, card2: number, card3: number, card4: number, card5: number): boolean {
-    // if all of them are in the same block of 13, it's a flush
-    const suitNum1 = Math.floor(card1 / 13);
-    const suitNum2 = Math.floor(card2 / 13);
-    const suitNum3 = Math.floor(card3 / 13);
-    const suitNum4 = Math.floor(card4 / 13);
-    const suitNum5 = Math.floor(card5 / 13);
-    if (suitNum1 == suitNum2 && suitNum1 == suitNum3 && suitNum1 == suitNum4 && suitNum1 == suitNum5) {
-        return true;
+    // It's sufficient to get the suit of the first card and compare cards 2-5 to it
+    const suit0 = _getSuit(card1);
+
+    const otherCards = [card2, card3, card4, card5];
+    for (let i = 0; i < 4; i++) {
+        const card = otherCards[i];
+        const suit = _getSuit(card);
+        if (suit != suit0) {
+            return false;
+        }
     }
-    return false;
+    return true;
+}
+
+const cardMapping52to13: { [key: number]: number } = { 2: 2, 3: 3, 5: 5, 7: 7, 11: 11, 13: 13, 17: 17, 19: 19, 23: 23, 29: 29, 31: 31, 37: 37, 41: 41, 43: 2, 47: 3, 53: 5, 59: 7, 61: 11, 67: 13, 71: 17, 73: 19, 79: 23, 83: 29, 89: 31, 97: 37, 101: 41, 103: 2, 107: 3, 109: 5, 113: 7, 127: 11, 131: 13, 137: 17, 139: 19, 149: 23, 151: 29, 157: 31, 163: 37, 167: 41, 173: 2, 179: 3, 181: 5, 191: 7, 193: 11, 197: 13, 199: 17, 211: 19, 223: 23, 227: 29, 229: 31, 233: 37, 239: 41 };
+
+function _calcLookupKey(card1: number, card2: number, card3: number, card4: number, card5: number): number {
+    // Remember - hand is in cardMapping52 prime format
+    // get a map from 52 prime to 13 prime lookup values
+    // and then multiply together
+    let lookupKey = 1;
+    const cards = [card1, card2, card3, card4, card5];
+    for (let i = 0; i < 5; i++) {
+        const card = cards[i];
+        const cardVal = cardMapping52to13[card];
+        lookupKey = lookupKey * cardVal;
+    }
+    return lookupKey;
 }
 
 function evaluateHand(card1: number, card2: number, card3: number, card4: number, card5: number): [number, number, boolean] {
-    // Hands will be the 0..51 indexes!
 
-    const lookupKey = card1 % 13 * card2 % 13 * card3 % 13 * card4 % 13 * card5 % 13
+    const lookupKey = _calcLookupKey(card1, card2, card3, card4, card5)
     let lookupVal = lookupTableBasic[lookupKey]
     const isFlush = flushCheck(card1, card2, card3, card4, card5)
     if (isFlush) {
@@ -105,8 +137,9 @@ export function getShowdownData(allCardsUint: [UInt64, UInt64, UInt64, UInt64, U
     const allCards: [number, number, number, number, number, number, number] = [-1, -1, -1, -1, -1, -1, -1];
     for (let i = 0; i < 7; i++) {
         const prime52: number = parseInt(allCardsUint[i].toString());
-        const cardIndex = prime52ToCard[prime52];
-        allCards[i] = cardIndex;
+        // const cardIndex = prime52ToCard[prime52];
+        // allCards[i] = cardIndex;
+        allCards[i] = prime52;
     }
 
     // Find best 5 card hand from 7 cards 
@@ -126,7 +159,11 @@ export function getShowdownData(allCardsUint: [UInt64, UInt64, UInt64, UInt64, U
                     for (let m = l + 1; m < 7; m++) {
                         const card5 = allCards[m];
 
+                        console.log("GOT CARDS, CALCULATING VAL")
+                        console.log(card1, card2, card3, card4, card5);
+
                         const [merkleMapKey_, merkleMapVal_, isFlush_] = evaluateHand(card1, card2, card3, card4, card5);
+                        console.log("LOOKING UP", merkleMapKey_, merkleMapVal_, isFlush_)
                         // lower is better
                         if (merkleMapVal_ < merkleMapVal) {
                             merkleMapVal = merkleMapVal_;

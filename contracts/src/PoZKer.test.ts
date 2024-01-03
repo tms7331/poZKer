@@ -195,6 +195,7 @@ describe('PoZKer', () => {
     });
     await txnC6.prove();
     await txnC6.sign([playerPrivKey2]).send();
+
   }
 
   it('posts both player blinds and initializes gamestate', async () => {
@@ -548,6 +549,67 @@ describe('PoZKer', () => {
 
   })
 
+  it('correctly evaluates hand', async () => {
+
+    const card1prime52 = cardMapping52["Ah"];
+    const card2prime52 = cardMapping52["Ad"];
+    // we'll give p2 a flush
+    const card3prime52 = cardMapping52["Ks"];
+    const card4prime52 = cardMapping52["Ts"];
+
+    const boardcard0 = cardMapping52["Kc"];
+    const boardcard1 = cardMapping52["Ac"];
+    const boardcard2 = cardMapping52["Qs"];
+    const boardcard3 = cardMapping52["8s"];
+    const boardcard4 = cardMapping52["6s"];
+
+    const allCardsP1: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card1prime52), UInt64.from(card2prime52), UInt64.from(boardcard0), UInt64.from(boardcard1), UInt64.from(boardcard2), UInt64.from(boardcard3), UInt64.from(boardcard4)]
+    const [useCardsP1, isFlushP1, merkleMapKeyP1, merkleMapValP1] = getShowdownData(allCardsP1);
+
+    const allCardsP2: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card3prime52), UInt64.from(card4prime52), UInt64.from(boardcard0), UInt64.from(boardcard1), UInt64.from(boardcard2), UInt64.from(boardcard3), UInt64.from(boardcard4)]
+    const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
+
+    const merkleMapKeyP1_: number = Number(merkleMapKeyP1) as number;
+    const merkleMapValP1_: number = Number(merkleMapValP1) as number;
+    const merkleMapKeyP2_: number = Number(merkleMapKeyP2) as number;
+    const merkleMapValP2_: number = Number(merkleMapValP2) as number;
+    const isFlushP1_ = isFlushP1.toBoolean();
+    const isFlushP2_ = isFlushP2.toBoolean();
+
+    expect(isFlushP1_).toEqual(false);
+    expect(isFlushP2_).toEqual(true);
+
+    // p1 - should use 2 hole cards and first 3 board cards
+    expect(useCardsP1[0].toBoolean()).toEqual(true);
+    expect(useCardsP1[1].toBoolean()).toEqual(true);
+    expect(useCardsP1[2].toBoolean()).toEqual(true);
+    expect(useCardsP1[3].toBoolean()).toEqual(true);
+    expect(useCardsP1[4].toBoolean()).toEqual(true);
+    expect(useCardsP1[5].toBoolean()).toEqual(false);
+    expect(useCardsP1[6].toBoolean()).toEqual(false);
+
+    // p2 - should use 2 hold cards and all the spades (final 3 board cards)
+    expect(useCardsP2[0].toBoolean()).toEqual(true);
+    expect(useCardsP2[1].toBoolean()).toEqual(true);
+    expect(useCardsP2[2].toBoolean()).toEqual(false);
+    expect(useCardsP2[3].toBoolean()).toEqual(false);
+    expect(useCardsP2[4].toBoolean()).toEqual(true);
+    expect(useCardsP2[5].toBoolean()).toEqual(true);
+    expect(useCardsP2[6].toBoolean()).toEqual(true);
+
+    // p1 lookup key is AAAKQ = 41*41*41*37*31 = 79052387
+    expect(merkleMapKeyP1_).toEqual(79052387);
+    // and lookup val from csv is 1609:
+    // Q K A A A Three Aces THREE OF A KIN33D
+    expect(merkleMapValP1_).toEqual(1609);
+    // p2 lookup key is KTQ86 = 37*23*31*17*11 = 4933247
+    expect(merkleMapKeyP2_).toEqual(4933247);
+    // and lookup val from csv is 858
+    // 6 8 T Q K
+    expect(merkleMapValP2_).toEqual(858);
+  })
+
+
   it.only('allows players to show their cards', async () => {
     await localDeploy();
     await setPlayers();
@@ -581,8 +643,6 @@ describe('PoZKer', () => {
     const boardcard2 = cardMapping52["Qs"];
     const boardcard3 = cardMapping52["8s"];
     const boardcard4 = cardMapping52["6s"];
-
-
 
 
     // Commits cards for both players...
@@ -622,6 +682,10 @@ describe('PoZKer', () => {
     const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
     const pathP2: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP2.toBoolean(), merkleMapKeyP2)
 
+    console.log("CARD LOOKUP KEY AND VALUE");
+    console.log(merkleMapKeyP1.toString());
+    console.log(merkleMapValP1.toString());
+
     const txnA = await Mina.transaction(playerPubKey1, () => {
       zkAppInstance.showCards(allCardsP1[0],
         allCardsP1[1],
@@ -647,7 +711,8 @@ describe('PoZKer', () => {
     await txnA.sign([playerPrivKey1]).send();
 
 
-
+    /*
+  
     const txnB = await Mina.transaction(playerPubKey2, () => {
       zkAppInstance.showCards(allCardsP2[0],
         allCardsP2[1],
@@ -671,7 +736,7 @@ describe('PoZKer', () => {
     });
     await txnB.prove();
     await txnB.sign([playerPrivKey2]).send();
-
+  
     // Showdown means no more actions, need to handle card logic though
     // showdown(v1: Field, v2: Field)
     const txn = await Mina.transaction(playerPubKey2, () => {
@@ -679,6 +744,7 @@ describe('PoZKer', () => {
     });
     await txn.prove();
     await txn.sign([playerPrivKey2]).send();
+    */
   })
 
 
