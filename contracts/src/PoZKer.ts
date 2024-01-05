@@ -810,7 +810,6 @@ export class PoZKerApp extends SmartContract {
         // CHECK 3. re-hash the cards and confirm it matches their stored hash
         cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
 
-
         // CHECK 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
         // the lookupVal is the expected key for our merkle map
         const lookupVal: UInt64 = this.calcLookupVal(holecard0,
@@ -844,7 +843,7 @@ export class PoZKerApp extends SmartContract {
             useBoardcards4)
 
         isFlushReal.assertEquals(isFlush, 'Player did not pass in correct flush value!');
-        lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Player did not pass in their real cards!');
+        lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Incorrect hand strenght passed in!');
 
         // MerkleMapRootBasic
         // MerkleMapRootFlush

@@ -5,8 +5,8 @@ import {
     UInt64,
 } from 'o1js';
 import fs from 'fs';
-import { cardMapping52 } from './PoZKer.js';
-
+import { cardMapping52, actionMapping } from './PoZKer.js';
+import { getCardFromOracle } from "./oracleLib.js";
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
 
 
@@ -158,11 +158,11 @@ export function getShowdownData(allCardsUint: [UInt64, UInt64, UInt64, UInt64, U
                     for (let m = l + 1; m < 7; m++) {
                         const card5 = allCards[m];
 
-                        console.log("GOT CARDS, CALCULATING VAL")
-                        console.log(card1, card2, card3, card4, card5);
+                        // console.log("GOT CARDS, CALCULATING VAL")
+                        // console.log(card1, card2, card3, card4, card5);
 
                         const [merkleMapKey_, merkleMapVal_, isFlush_] = evaluateHand(card1, card2, card3, card4, card5);
-                        console.log("LOOKING UP", merkleMapKey_, merkleMapVal_, isFlush_)
+                        // console.log("LOOKING UP", merkleMapKey_, merkleMapVal_, isFlush_)
                         // lower is better
                         if (merkleMapVal_ < merkleMapVal) {
                             merkleMapVal = merkleMapVal_;
@@ -190,4 +190,59 @@ export function getShowdownData(allCardsUint: [UInt64, UInt64, UInt64, UInt64, U
 
     return [useCardsRet, isFlushRet, merkleMapKeyRet, merkleMapValRet];
 
+}
+
+
+function parseOracleResp(cardHand0: number) {
+    const cardInt = cardHand0 - 1;
+    return cardInt;
+}
+
+export async function getCardAndPrime(GAME_ID: number) {
+    // Return both a card integer (0 to 51) and its prime52 value
+    const cardr = await getCardFromOracle(GAME_ID.toString());
+    // Takes care of subtracting one because oracle responses are 1..52 instead of 0..51
+    const card = parseOracleResp(cardr.hand[0]);
+    const cardPrime52 = cardMapping52[parseCardInt(card)];
+    return [card, cardPrime52];
+}
+
+
+const P1 = actionMapping["P1"];
+const P2 = actionMapping["P2"];
+const PREFLOP = actionMapping["Preflop"];
+const FLOP = actionMapping["Flop"];
+const TURN = actionMapping["Turn"];
+const RIVER = actionMapping["River"];
+const SHOWDOWNPENDING = actionMapping["ShowdownPending"];
+// const GAMEOVER = actionMapping["GameOver"]
+
+
+export function getStreet(gamestate: number) {
+    if (gamestate % PREFLOP == 0) {
+        return "Preflop";
+    }
+    else if (gamestate % FLOP == 0) {
+        return "Flop";
+    }
+    else if (gamestate % TURN == 0) {
+        return "Turn";
+    }
+    else if (gamestate % RIVER == 0) {
+        return "River";
+    }
+    else if (gamestate % SHOWDOWNPENDING == 0) {
+        return "ShowdownPending";
+    }
+    throw "Invalid street!";
+}
+
+export function getPlayer(gamestate: number) {
+    if (gamestate % P1 == 0) {
+        return "p1";
+    }
+    else if (gamestate % P2 == 0) {
+        return "p2";
+    }
+    throw "Invalid player!";
 }

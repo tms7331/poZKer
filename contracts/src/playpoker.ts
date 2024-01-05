@@ -19,9 +19,8 @@ import {
     MerkleMap,
     MerkleMapWitness,
 } from 'o1js';
-import { getHoleFromOracle, getFlopFromOracle, getRiverFromOracle, getTakeFromOracle } from "./oracleLib.js";
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
-import { Card, getMerkleMapWitness, parseCardInt, getShowdownData } from './gameutils.js';
+import { Card, getMerkleMapWitness, parseCardInt, getShowdownData, getCardAndPrime, getPlayer, getStreet } from './gameutils.js';
 
 await isReady;
 
@@ -58,29 +57,12 @@ const jsonDataFlush = fs.readFileSync(merkleMapFlushFn, 'utf8');
 const merkleMapFlush: MerkleMapSerializable = deserialize(jsonDataFlush);
 
 // These have to be stored in PoZKer class!
-console.log(merkleMapBasic.getRoot())
-console.log(merkleMapFlush.getRoot())
-
-
-
-//txnFund = await Mina.transaction(fundedPubKey1, () => {
-//  AccountUpdate.fundNewAccount(playerPubKey1);
-//
-//    send({ to: player, amount: sendAmount });
-//  //zkAppInstance.deploy();
-//});
-//await txnFund.sign([feePayer1.privateKey, zkAppPrivateKey]).send();
-
-//const p1Hash = Poseidon.hash(playerPrivKey1.toFields());
-//const p2Hash = Poseidon.hash(playerPrivKey2.toFields());
-//console.log("HASHes", p1Hash.toString())
-//console.log("HASHes", p2Hash.toString())
-
+// console.log(merkleMapBasic.getRoot())
+// console.log(merkleMapFlush.getRoot())
 
 // Keys for elgamal encryption/decryption
 let keys1 = ElGamalFF.generateKeys();
 let keys2 = ElGamalFF.generateKeys();
-
 
 function getRandomInt(min: number, max: number) {
     min = Math.ceil(min);
@@ -118,12 +100,6 @@ const deployTxn = await Mina.transaction(deployerAccount, () => {
 });
 await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
 // ----------------------------------------------------
-
-//const txn1 = await Mina.transaction(playerPubKey1, () => {
-//    zkAppInstance.initState(playerPubKey1, playerPubKey2)
-//});
-//await txn1.prove();
-//await txn1.sign([playerPrivKey1]).send();
 
 let txSend1 = await Mina.transaction(fundedPubKey1, () => {
     AccountUpdate.fundNewAccount(fundedPubKey1).send({
@@ -176,24 +152,17 @@ await sleep(SLEEP_TIME_LONG);
 
 console.log("Dealing cards to player 1, look away player 2!");
 await sleep(SLEEP_TIME_SHORT);
-let card1 = -1
-let card2 = -1;
 
-const retVal = await getHoleFromOracle(GAME_ID.toString());
-const retValHand = retVal.hand
-card1 = retValHand[0];
-card2 = retValHand[1];
 
-// For showdown we'll need the prime52 of the cards
-const card1prime52 = cardMapping52[parseCardInt(card1)];
-const card2prime52 = cardMapping52[parseCardInt(card2)];
-
+// player 1 cards...
+const [card1, card1prime52] = await getCardAndPrime(GAME_ID)
+const [card2, card2prime52] = await getCardAndPrime(GAME_ID)
 
 // Player 1 will encrypt their cards - we'll pretend that we've done 
 // shuffles and encryptions, and player 2 has decrypted their half of the
 // key and that is what player2 is committing to the blockchain...
-let c0 = ElGamalFF.encrypt(Field(card1), keys1.pk);
-let c1 = ElGamalFF.encrypt(Field(card2), keys1.pk);
+let c0 = ElGamalFF.encrypt(Field(card1prime52), keys1.pk);
+let c1 = ElGamalFF.encrypt(Field(card2prime52), keys1.pk);
 
 const txnC1 = await Mina.transaction(playerPubKey2, () => {
     // Have to put it in slots 1 and 2
@@ -225,37 +194,26 @@ await txnC3.prove();
 await txnC3.sign([playerPrivKey1]).send();
 
 
-//const txn90 = await Mina.transaction(playerPubKey1, async () => {
-//    console.log("RETVAL", retVal);
-//});
-//await txn90.prove();
-//await txn90.sign([playerPrivKey1]).send();
 console.log("player 1 hole cards:", parseCardInt(parseInt(card1.toString())), parseCardInt(parseInt(card2.toString())));
 console.log("Screen will be cleared after 3 seconds...")
 
 await sleep(SLEEP_TIME_LONG);
-clear();
+// clear();
 
 
 console.log("Dealing cards to player 2, look away player 1!");
 await sleep(SLEEP_TIME_SHORT);
-let card3 = -1
-let card4 = -1;
 
-const retVal2 = await getHoleFromOracle(GAME_ID.toString());
-const retValHand2 = retVal2.hand
-card3 = retValHand2[0];
-card4 = retValHand2[1];
+const [card3, card3prime52] = await getCardAndPrime(GAME_ID)
+const [card4, card4prime52] = await getCardAndPrime(GAME_ID)
 
-const card3prime52 = cardMapping52[parseCardInt(card3)];
-const card4prime52 = cardMapping52[parseCardInt(card4)];
 
 console.log("player 2 hole cards:", parseCardInt(parseInt(card3.toString())), parseCardInt(parseInt(card4.toString())));
 console.log("Screen will be cleared after 3 seconds...")
 
 // Exact same logic as for player 1
-let c3 = ElGamalFF.encrypt(Field(card3), keys2.pk);
-let c4 = ElGamalFF.encrypt(Field(card4), keys2.pk);
+let c3 = ElGamalFF.encrypt(Field(card3prime52), keys2.pk);
+let c4 = ElGamalFF.encrypt(Field(card4prime52), keys2.pk);
 
 const txnC4 = await Mina.transaction(playerPubKey1, () => {
     // Have to put it in slots 1 and 2
@@ -287,64 +245,21 @@ await txnC6.prove();
 await txnC6.sign([playerPrivKey2]).send();
 
 await sleep(SLEEP_TIME_LONG);
-clear();
-
+// clear();
 
 
 // now start game loop...
-console.log("ACTIONS LIST:")
-console.log("Bet: 1")
-console.log("Call: 2")
-console.log("Fold: 3")
-console.log("Raise: 4")
-console.log("Check: 5")
+console.log("POSSIBLE ACTIONS: bet, call, fold, raise, check")
 
-// Map actions to their prime values to keep game simple for users
-// Bet 23
-// Call 29
-// Fold 31
-// Raise 37
-// Check 41
-const actionMap: { [key: number]: number } = {
-    1: actionMapping["Bet"],
-    2: actionMapping["Call"],
-    3: actionMapping["Fold"],
-    4: actionMapping["Raise"],
-    5: actionMapping["Check"],
+// user will enter string of their action but we need the corresponding prime
+const actionMap: { [key: string]: number } = {
+    "bet": actionMapping["Bet"],
+    "call": actionMapping["Call"],
+    "fold": actionMapping["Fold"],
+    "raise": actionMapping["Raise"],
+    "check": actionMapping["Check"],
 };
 
-const actionList = ["", "Bets", "Calls", "Folds", "Raises", "Checks"]
-
-
-
-function get_street(gamestate: number) {
-    if (gamestate % 5 == 0) {
-        return "Preflop";
-    }
-    else if (gamestate % 7 == 0) {
-        return "Flop";
-    }
-    else if (gamestate % 11 == 0) {
-        return "Turn";
-    }
-    else if (gamestate % 13 == 0) {
-        return "River";
-    }
-    else if (gamestate % 17 == 0) {
-        return "Showdown";
-    }
-    throw "Invalid street!";
-}
-
-function get_player(gamestate: number) {
-    if (gamestate % 2 == 0) {
-        return "p1";
-    }
-    else if (gamestate % 3 == 0) {
-        return "p2";
-    }
-    throw "Invalid player!";
-}
 
 // let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
 let currStreet = "Preflop";
@@ -353,73 +268,44 @@ const boardStrs: Card[] = []
 const boardPrimes: UInt64[] = []
 
 
-function buildJSMap(fnLoad: string) {
-    const map = new MerkleMap();
-    const dataArray = JSON.parse(fs.readFileSync(fnLoad, 'utf-8'));
-    //const dataArray = JSON.parse(fs.readFileSync('./lookup_table_basic.json', 'utf-8'))
-    console.log("DATA ARRAY", dataArray.length);
-    let counter = 0;
-    for (var key in dataArray) {
-        if (dataArray.hasOwnProperty(key)) {
-            console.log(counter, key + " -> " + dataArray[key]);
-
-            // map.set(Field(0), Field(100));
-            map.set(Field(key), Field(dataArray[key]));
-            counter += 1;
-            // Break early for testing...
-            if (counter > 5) {
-                break;
-            }
-        }
-    }
-    return map;
-}
-
-
-
-
-
-
 // Main game loop - keep accepting actions until hand ends
 while (true) {
     let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
 
     // let player: string = lastAction < LastActions.Bet_P1 ? "0" : "1";
-    let player: string = get_player(gamestate);
+    let player: string = getPlayer(gamestate);
 
     if (player === "p1") {
-        const action = await question("Player 1 - Choose your action\n") as number;
-        // If it's a bet/call/raise - need to include amount
+        const actionStr: string = await question("Player 1 - Choose your action\n") as string;
+        // If it's a bet/raise - need to include amount
         let amount: number = 0;
-        if (action == 1 || action == 4) {
+        if (actionStr == "bet" || actionStr == "raise") {
             amount = await question("Player 1 - Choose amount\n") as number;
         }
-        const actionField = UInt64.from(actionMap[action]);
+        const actionField = UInt64.from(actionMap[actionStr]);
         const betSize = UInt64.from(amount);
         const txn = await Mina.transaction(playerPubKey1, () => {
             zkAppInstance.takeAction(playerPrivKey1, actionField, betSize)
         });
         await txn.prove();
         await txn.sign([playerPrivKey1]).send();
-        const actionStr = actionList[action];
+        //const actionStr = actionList[action];
         console.log("Player 1", actionStr)
     }
     else if (player === "p2") {
-
-        const action = await question("Player 2 - Choose your action\n") as number;
+        const actionStr: string = await question("Player 2 - Choose your action\n") as string;
         // If it's a bet/call/raise - need to include amount
         let amount: number = 0;
-        if (action == 1 || action == 4) {
+        if (actionStr == "bet" || actionStr == "raise") {
             amount = await question("Player 2 - Choose amount\n") as number;
         }
-        const actionField = UInt64.from(actionMap[action]);
+        const actionField = UInt64.from(actionMap[actionStr]);
         const betSize = UInt64.from(amount);
         const txn = await Mina.transaction(playerPubKey2, () => {
             zkAppInstance.takeAction(playerPrivKey2, actionField, betSize);
         });
         await txn.prove();
         await txn.sign([playerPrivKey2]).send();
-        const actionStr = actionList[action];
         console.log("Player 2", actionStr)
     }
     else {
@@ -428,9 +314,9 @@ while (true) {
     }
 
     gamestate = parseInt(zkAppInstance.gamestate.get().toString());
-    let street = get_street(gamestate);
+    let street = getStreet(gamestate);
     // const street = zkAppInstance.street.get().toString()
-    if (street == "Showdown") {
+    if (street == "ShowdownPending") {
         // BOTH players must show cards before we can do showdown...
 
         const allCardsP1: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card1prime52), UInt64.from(card2prime52), boardPrimes[0], boardPrimes[1], boardPrimes[2], boardPrimes[3], boardPrimes[4]]
@@ -503,17 +389,16 @@ while (true) {
     else if (currStreet != street) {
         if (street == "Flop") {
             console.log("DEALING FLOP...")
-            let flop = await getFlopFromOracle(GAME_ID.toString());
-            let flopHand: [Card, Card, Card] = flop.hand
-            boardStrs.push(parseCardInt(parseInt(flopHand[0])));
-            boardStrs.push(parseCardInt(parseInt(flopHand[1])));
-            boardStrs.push(parseCardInt(parseInt(flopHand[2])));
+
+            const [flop1, cardPrime1] = await getCardAndPrime(GAME_ID)
+            const [flop2, cardPrime2] = await getCardAndPrime(GAME_ID)
+            const [flop3, cardPrime3] = await getCardAndPrime(GAME_ID)
+
+            boardStrs.push(parseCardInt(flop1));
+            boardStrs.push(parseCardInt(flop2));
+            boardStrs.push(parseCardInt(flop3));
             console.log("BOARD IS", boardStrs);
 
-            // We have to keep track of the board cards...
-            const cardPrime1 = cardMapping52[flopHand[0]];
-            const cardPrime2 = cardMapping52[flopHand[1]];
-            const cardPrime3 = cardMapping52[flopHand[2]];
             boardPrimes.push(UInt64.from(cardPrime1));
             boardPrimes.push(UInt64.from(cardPrime2));
             boardPrimes.push(UInt64.from(cardPrime3));
@@ -531,7 +416,6 @@ while (true) {
             await txnB.prove();
             await txnB.sign([playerPrivKey2]).send();
 
-
             const txnC = await Mina.transaction(playerPubKey2, () => {
                 zkAppInstance.tallyBoardCards(Field(cardPrime3))
             });
@@ -541,14 +425,19 @@ while (true) {
         }
         else if (street == "Turn") {
             console.log("DEALING TURN...")
-            let turn = await getTakeFromOracle(GAME_ID.toString());
-            let turnHand: Card = turn.hand[0]
-            boardStrs.push(parseCardInt(parseInt(turnHand)));
+            // let turn = await getTakeFromOracle(GAME_ID.toString());
+            // let turnHand: Card = turn.hand[0]
+            //boardStrs.push(parseCardInt(parseInt(turnHand)));
+
+            const [turn, cardPrime1] = await getCardAndPrime(GAME_ID)
+            boardStrs.push(parseCardInt(turn));
             console.log("BOARD IS", boardStrs);
 
-            //const cardPrime1 = (takeHand[0] % 13);
-            const cardPrime1 = cardMapping52[turnHand];
             boardPrimes.push(UInt64.from(cardPrime1));
+
+            //const cardPrime1 = (takeHand[0] % 13);
+            // const cardPrime1 = cardMapping52[boardStrs[3]];
+            // boardPrimes.push(UInt64.from(cardPrime1));
             const txnA = await Mina.transaction(playerPubKey2, () => {
                 zkAppInstance.tallyBoardCards(Field(cardPrime1))
             });
@@ -558,14 +447,23 @@ while (true) {
         }
         else if (street == "River") {
             console.log("DEALING RIVER...")
-            let river = await getRiverFromOracle(GAME_ID.toString());
-            let riverHand: Card = river.hand[0]
-            boardStrs.push(parseCardInt(parseInt(riverHand)));
+            // let river = await getRiverFromOracle(GAME_ID.toString());
+            // let riverHand: Card = river.hand[0]
+            // boardStrs.push(parseCardInt(parseInt(riverHand)));
+            // console.log("BOARD IS", boardStrs);
+
+            // //const cardPrime1 = riverHand[0] % 13;
+            // const cardPrime1 = cardMapping52[boardStrs[4]];
+            // boardPrimes.push(UInt64.from(cardPrime1));
+
+
+            const [river, cardPrime1] = await getCardAndPrime(GAME_ID)
+            boardStrs.push(parseCardInt(river));
             console.log("BOARD IS", boardStrs);
 
-            //const cardPrime1 = riverHand[0] % 13;
-            const cardPrime1 = cardMapping52[riverHand];
             boardPrimes.push(UInt64.from(cardPrime1));
+
+
             const txnA = await Mina.transaction(playerPubKey2, () => {
                 zkAppInstance.tallyBoardCards(Field(cardPrime1))
             });
@@ -576,6 +474,12 @@ while (true) {
     }
 }
 
+// Sanity check - should always be in GameOver state here...
+const gamestate = parseInt(zkAppInstance.gamestate.get().toString());
+console.log("gamestate", gamestate)
+if (gamestate != actionMapping["GameOver"]) {
+    throw "Invalid game state!";
+}
 
 const bal3 = zkAppInstance.stack1.get().toString();
 const bal4 = zkAppInstance.stack2.get().toString();
