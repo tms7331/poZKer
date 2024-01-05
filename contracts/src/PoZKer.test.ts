@@ -9,10 +9,8 @@ import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js
 
 let proofsEnabled = false;
 
-
-
 // taken from actionMapping
-const NULL = actionMapping["Null"];
+// const NULL = actionMapping["Null"];
 const BET = actionMapping["Bet"];
 const CALL = actionMapping["Call"];
 const FOLD = actionMapping["Fold"];
@@ -610,7 +608,7 @@ describe('PoZKer', () => {
   })
 
 
-  it.only('allows players to show their cards', async () => {
+  it('allows players to show their cards', async () => {
     await localDeploy();
     await setPlayers();
     await localDeposit();
@@ -682,10 +680,6 @@ describe('PoZKer', () => {
     const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
     const pathP2: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP2.toBoolean(), merkleMapKeyP2)
 
-    console.log("CARD LOOKUP KEY AND VALUE");
-    console.log(merkleMapKeyP1.toString());
-    console.log(merkleMapValP1.toString());
-
     const txnA = await Mina.transaction(playerPubKey1, () => {
       zkAppInstance.showCards(allCardsP1[0],
         allCardsP1[1],
@@ -710,9 +704,6 @@ describe('PoZKer', () => {
     await txnA.prove();
     await txnA.sign([playerPrivKey1]).send();
 
-
-    /*
-  
     const txnB = await Mina.transaction(playerPubKey2, () => {
       zkAppInstance.showCards(allCardsP2[0],
         allCardsP2[1],
@@ -736,7 +727,12 @@ describe('PoZKer', () => {
     });
     await txnB.prove();
     await txnB.sign([playerPrivKey2]).send();
-  
+
+
+    // We should have transitioned to ShowdownComplete at this point
+    const gamestateSD: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    expect(gamestateSD).toEqual(actionMapping["ShowdownComplete"]);
+
     // Showdown means no more actions, need to handle card logic though
     // showdown(v1: Field, v2: Field)
     const txn = await Mina.transaction(playerPubKey2, () => {
@@ -744,12 +740,22 @@ describe('PoZKer', () => {
     });
     await txn.prove();
     await txn.sign([playerPrivKey2]).send();
-    */
+
+    // And after calling 'showdown' we should have transitioned to GameOver
+    const gamestateFinal: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    expect(gamestateFinal).toEqual(actionMapping["GameOver"]);
+
+    // And finally - both players can claim their profits
+    const txnWd = await Mina.transaction(playerPubKey2, () => {
+      zkAppInstance.withdraw(playerPrivKey2)
+    });
+    await txnWd.prove();
+    await txnWd.sign([playerPrivKey2]).send();
+
+    const stack1: number = Number(zkAppInstance.stack1.get().toBigInt()) as number;
+    const stack2: number = Number(zkAppInstance.stack2.get().toBigInt()) as number;
+    expect(stack1).toEqual(0);
+    expect(stack2).toEqual(0);
   })
-
-
-  it.todo('allows transition from showdown to gameover');
-
-  it.todo('allows players to claim their profits after game over');
 
 });

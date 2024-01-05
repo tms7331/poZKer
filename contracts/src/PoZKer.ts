@@ -843,7 +843,7 @@ export class PoZKerApp extends SmartContract {
             useBoardcards3,
             useBoardcards4)
 
-
+        isFlushReal.assertEquals(isFlush, 'Player did not pass in correct flush value!');
         lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Player did not pass in their real cards!');
 
         // MerkleMapRootBasic
@@ -854,24 +854,19 @@ export class PoZKerApp extends SmartContract {
             this.MerkleMapRootBasic,
         );
 
+        // TODO - fix path checks/logic...
         const pathValid = path.computeRootAndKey(merkleMapVal);
         pathValid[0].assertEquals(root);
         pathValid[1].assertEquals(merkleMapKey);
 
-        // Prime values of the boardcards
-        const boardcard0p = boardcard0.divMod(UInt64.from(13));
-        const boardcard1p = boardcard1.divMod(UInt64.from(13));
-        const boardcard2p = boardcard2.divMod(UInt64.from(13));
-        const boardcard3p = boardcard3.divMod(UInt64.from(13));
-        const boardcard4p = boardcard4.divMod(UInt64.from(13));
-        const boardcardMul = boardcard0p.rest.mul(boardcard1p.rest).mul(boardcard2p.rest).mul(boardcard3p.rest).mul(boardcard4p.rest)
-
+        const boardcardMul = boardcard0.mul(boardcard1).mul(boardcard2).mul(boardcard3).mul(boardcard4);
         const boardcardMulReal = UInt64.from(slot2);
+
         // CHECK 4. check that board cards are the real board cards
         boardcardMul.assertEquals(boardcardMulReal);
         // And check that we have 5 boardcards - should not be divisible by null val
         const nullBoardcardUint = UInt64.from(this.NullBoardcard);
-        boardcardMulReal.divMod(nullBoardcardUint).rest.assertEquals(UInt64.from(0));
+        boardcardMulReal.divMod(nullBoardcardUint).rest.equals(UInt64.from(0)).assertFalse();
 
         // And now we can store the lookup value in the appropriate slot
 

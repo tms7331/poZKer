@@ -37,13 +37,12 @@ export function getMerkleMapWitness(merkleMapBasic: MerkleMapSerializable,
 
     let witness: MerkleMapWitness;
     if (isFlush) {
-        let w = merkleMapBasic.getWitness(merkleMapKey);
+        let w = merkleMapFlush.getWitness(merkleMapKey);
         witness = new MerkleMapWitness(w.isLefts, w.siblings);
     }
     else {
-        let w = merkleMapFlush.getWitness(merkleMapKey);
+        let w = merkleMapBasic.getWitness(merkleMapKey);
         witness = new MerkleMapWitness(w.isLefts, w.siblings);
-
     }
     return witness;
 }
