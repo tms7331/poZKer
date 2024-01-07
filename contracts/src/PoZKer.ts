@@ -548,36 +548,41 @@ export class PoZKerApp extends SmartContract {
 
         const stack1 = this.stack1.getAndAssertEquals();
         const stack2 = this.stack2.getAndAssertEquals();
+        // Sanity check - if it's a showdown both stacks must be equal
+        stack1.assertEquals(stack2);
 
-        const p1WinnerBal = stack1.add(this.GameBuyin.sub(stack2));
-        const p2WinnerBal = stack2.add(this.GameBuyin.sub(stack1));
-        p1WinnerBal.add(p2WinnerBal).assertEquals(this.GameBuyin.mul(UInt64.from(2)));
+        const p1WinnerBal = this.GameBuyin.add(this.GameBuyin.sub(stack2));
+        const p2WinnerBal = this.GameBuyin.add(this.GameBuyin.sub(stack1));
 
         // Convention is we'll have stored player1's lookup value for their hand 
         // in slot0, and player2's lookup value in slot1
         const slot0 = this.slot0.getAndAssertEquals();
         const slot1 = this.slot1.getAndAssertEquals();
 
+        // If we get a tie - split the pot
+        const tieAdj = Provable.if(
+            Bool(slot0 === slot1),
+            // Could subtract from either one here - stacks must be the same
+            this.GameBuyin.sub(stack2),
+            UInt64.from(0),
+        );
+
         // Lower is better for the hand rankings
         const stack1Final = Provable.if(
             Bool(slot0.lessThan(slot1)),
             p1WinnerBal,
-            stack1
+            stack1.add(tieAdj)
         );
         const stack2Final = Provable.if(
             Bool(slot1.lessThan(slot0)),
             p2WinnerBal,
-            stack2
+            stack2.add(tieAdj)
         );
 
-        // If we get a tie - split the pot
-        const tieAdj = Provable.if(
-            Bool(slot0 === slot1),
-            this.GameBuyin.sub(stack2),
-            UInt64.from(0),
-        );
-        this.stack1.set(stack1Final.add(tieAdj));
-        this.stack2.set(stack2Final.add(tieAdj));
+        stack1Final.add(stack2Final).assertEquals(this.GameBuyin.mul(UInt64.from(2)));
+
+        this.stack1.set(stack1Final);
+        this.stack2.set(stack2Final);
 
         this.gamestate.set(this.GameOver);
     }
