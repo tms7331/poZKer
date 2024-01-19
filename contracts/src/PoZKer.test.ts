@@ -1,11 +1,12 @@
 import { PoZKerApp, actionMapping, cardMapping52 } from './PoZKer';
 import {
-  Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt64, Bool, MerkleMapWitness
+  Poseidon, CircuitString, Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt64, MerkleMapWitness
 } from 'o1js';
 import fs from 'fs';
 import { Cipher, ElGamalFF } from 'o1js-elgamal';
 import { getMerkleMapWitness, getShowdownData } from './gameutils.js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
+import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY } from './mentalpoker.js';
 
 let proofsEnabled = false;
 
@@ -759,156 +760,47 @@ describe('PoZKer', () => {
   })
 
 
+  it.only('encodes and decodes a hand', async () => {
 
-  it.only('failing test case...', async () => {
-    await localDeploy();
-    await setPlayers();
-    await localDeposit();
+    const cardPoint = PrivateKey.fromBigInt(BigInt(41)).toPublicKey();
 
-    // Just immediately go all-in to finish betting
-    const txnRaise = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt64.from(99))
-    });
-    await txnRaise.prove();
-    await txnRaise.sign([playerPrivKey1]).send();
+    let card: Card = new Card(EMPTYKEY, cardPoint, EMPTYKEY);
 
-    const txnCall = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CALL), UInt64.from(0))
-    });
-    await txnCall.prove();
-    await txnCall.sign([playerPrivKey2]).send();
+    // shuffleKey is a singular key for each player, unique key
+    const shuffleKeyP1 = PrivateKey.fromBase58('EKEkAXjGJ6V3hYzKzAhMmL99457RH4NV8g9PuvkAYPZrySxxAjx3')
+    const shuffleKeyP2 = PrivateKey.fromBase58('EKEjUYuVthQgmY5QZAqg68TCzi1rNLN1JPimnohGbLN1wTEXiMWs')
 
-    const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
-    // make sure we've reached showdown...
-    expect(gamestate).toEqual(SHOWDOWNPENDING);
+    // need a cardKey for each card
+    const cardSecretP1 = PrivateKey.fromBase58('EKEK7kMjM6ETaffSUi16BxM8ifZi4yS75nUNdgXUqkZtZfBvBjue')
+    const cardSecretP2 = PrivateKey.fromBase58('EKEcBmCtWv9FP8mqWLSFTqhHKchwn9e1h6niFZyYLvQK118DbNpY')
 
-    const card1prime52 = cardMapping52["3d"];
-    const card2prime52 = cardMapping52["5d"];
-    // we'll give p2 a flush
-    const card3prime52 = cardMapping52["Jd"];
-    const card4prime52 = cardMapping52["Ah"];
+    // If dealing with full deck need to shuffle as part of this step
 
-    // [ 'Ts', 'Qh', '6c', 'Jh', 'Th' ]
-    const boardcard0 = cardMapping52["Ts"];
-    const boardcard1 = cardMapping52["Qh"];
-    const boardcard2 = cardMapping52["6c"];
-    const boardcard3 = cardMapping52["Jh"];
-    const boardcard4 = cardMapping52["Th"];
+    // shuffleKey, so each player can shuffle at any point in this round
+    card = addPlayerToCardMask(card, shuffleKeyP1);
+    card = mask(card);
 
+    card = addPlayerToCardMask(card, shuffleKeyP2);
+    card = mask(card);
 
-    // Commits cards for both players...
-    await localCommitCards(card1prime52, card2prime52, card3prime52, card4prime52);
+    // cards are shuffled at this point, should not shuffle again
+    // so we're REMOVING our mask with the shuffle key
+    // and then remasking with a different key (unique to each card)
+    card = partialUnmask(card, shuffleKeyP1);
+    card = addPlayerToCardMask(card, cardSecretP1);
+    card = mask(card);
 
-    // other player has to store halfway decrypted cards first!
-    // commitCard(slotI: Field, encryptedCard: Field)
-    // commitCard(slotI: Field, encryptedCard: Field)
-    // // And now other player can see cards and store it
-    // storeCardHash(slotI: Field, c2a: Field, c2b: Field, cipherKeys: Field, playerSecKey: PrivateKey)
+    card = partialUnmask(card, shuffleKeyP2);
+    card = addPlayerToCardMask(card, cardSecretP2);
+    card = mask(card);
 
-    const boardcards = [boardcard0, boardcard1, boardcard2, boardcard3, boardcard4];
+    // Final round - both unmasks should result in original card
+    // and we can decode in either order
+    card = partialUnmask(card, cardSecretP2);
+    card = partialUnmask(card, cardSecretP1);
 
-    for (const bc of boardcards) {
-      const txnB = await Mina.transaction(playerPubKey1, () => {
-        zkAppInstance.tallyBoardCards(Field(bc));
-      });
-      await txnB.prove();
-      await txnB.sign([playerPrivKey1]).send();
-    }
-
-    // Loading map
-    const merkleMapBasicFn = "merkleMapBasic.json"
-    const merkleMapFlushFn = "merkleMapFlush.json"
-
-    const jsonDataBasic = fs.readFileSync(merkleMapBasicFn, 'utf8');
-    const merkleMapBasic: MerkleMapSerializable = deserialize(jsonDataBasic);
-
-    const jsonDataFlush = fs.readFileSync(merkleMapFlushFn, 'utf8');
-    const merkleMapFlush: MerkleMapSerializable = deserialize(jsonDataFlush);
-
-    const allCardsP1: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card1prime52), UInt64.from(card2prime52), UInt64.from(boardcard0), UInt64.from(boardcard1), UInt64.from(boardcard2), UInt64.from(boardcard3), UInt64.from(boardcard4)]
-    const [useCardsP1, isFlushP1, merkleMapKeyP1, merkleMapValP1] = getShowdownData(allCardsP1);
-    const pathP1: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP1.toBoolean(), merkleMapKeyP1)
-
-    const allCardsP2: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card3prime52), UInt64.from(card4prime52), UInt64.from(boardcard0), UInt64.from(boardcard1), UInt64.from(boardcard2), UInt64.from(boardcard3), UInt64.from(boardcard4)]
-    const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
-    const pathP2: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP2.toBoolean(), merkleMapKeyP2)
-
-    const txnA = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.showCards(allCardsP1[0],
-        allCardsP1[1],
-        allCardsP1[2],
-        allCardsP1[3],
-        allCardsP1[4],
-        allCardsP1[5],
-        allCardsP1[6],
-        useCardsP1[0],
-        useCardsP1[1],
-        useCardsP1[2],
-        useCardsP1[3],
-        useCardsP1[4],
-        useCardsP1[5],
-        useCardsP1[6],
-        isFlushP1,
-        playerPrivKey1,
-        merkleMapKeyP1,
-        merkleMapValP1,
-        pathP1)
-    });
-    await txnA.prove();
-    await txnA.sign([playerPrivKey1]).send();
-
-    const txnB = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.showCards(allCardsP2[0],
-        allCardsP2[1],
-        allCardsP2[2],
-        allCardsP2[3],
-        allCardsP2[4],
-        allCardsP2[5],
-        allCardsP2[6],
-        useCardsP2[0],
-        useCardsP2[1],
-        useCardsP2[2],
-        useCardsP2[3],
-        useCardsP2[4],
-        useCardsP2[5],
-        useCardsP2[6],
-        isFlushP2,
-        playerPrivKey2,
-        merkleMapKeyP2,
-        merkleMapValP2,
-        pathP2)
-    });
-    await txnB.prove();
-    await txnB.sign([playerPrivKey2]).send();
-
-
-    // We should have transitioned to ShowdownComplete at this point
-    const gamestateSD: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
-    expect(gamestateSD).toEqual(actionMapping["ShowdownComplete"]);
-
-    // Showdown means no more actions, need to handle card logic though
-    // showdown(v1: Field, v2: Field)
-    const txn = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.showdown()
-    });
-    await txn.prove();
-    await txn.sign([playerPrivKey2]).send();
-
-    // And after calling 'showdown' we should have transitioned to GameOver
-    const gamestateFinal: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
-    expect(gamestateFinal).toEqual(actionMapping["GameOver"]);
-
-    // And finally - both players can claim their profits
-    const txnWd = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.withdraw(playerPrivKey2)
-    });
-    await txnWd.prove();
-    await txnWd.sign([playerPrivKey2]).send();
-
-    const stack1: number = Number(zkAppInstance.stack1.get().toBigInt()) as number;
-    const stack2: number = Number(zkAppInstance.stack2.get().toBigInt()) as number;
-    expect(stack1).toEqual(0);
-    expect(stack2).toEqual(0);
+    // Card should be decoded at this point
+    expect(card.msg.toBase58()).toMatch(cardPoint.toBase58());
   })
 
 });
