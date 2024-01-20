@@ -1,6 +1,6 @@
 import { cardMapping52 } from './PoZKer';
 import { PrivateKey, PublicKey, UInt64, } from 'o1js';
-import { getShowdownData, cardPrimeToPublicKey, buildCardMapping } from './gameutils.js';
+import { getShowdownData, cardPrimeToPublicKey, buildCardMapping, shuffleCards } from './gameutils.js';
 import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY } from './mentalpoker.js';
 
 
@@ -67,7 +67,7 @@ describe('PoZKer', () => {
     })
 
 
-    it.only('encodes and decodes a hand', async () => {
+    it('encodes and decodes a hand', async () => {
 
         const cardMapping: Record<string, string> = buildCardMapping(cardMapping52)
 
@@ -117,6 +117,23 @@ describe('PoZKer', () => {
         // And - we should be able to map back to the card string
         const decodedCard = cardMapping[card.msg.toBase58()];
         expect(decodedCard).toMatch(encodeCard);
+    })
+
+
+    it.only('shuffles cards', async () => {
+        const primeList = [];
+        for (const [_key, value] of Object.entries(cardMapping52)) {
+            primeList.push(value);
+        }
+        const shuffled = shuffleCards(primeList)
+        expect(primeList.length).toEqual(shuffled.length);
+
+        expect(primeList).not.toEqual(shuffled);
+        // But after sorting they should be the same...
+        shuffled.sort();
+        primeList.sort();
+        expect(primeList).toEqual(shuffled);
+
     })
 
 });

@@ -274,3 +274,19 @@ export function buildCardMapping(cardMapping52: Record<string, number>): Record<
     return keyToCard;
 }
 
+
+// fisher-yates shuffle, from chatgpt
+export function shuffleCards(inputArray: number[]): number[] {
+    // Clone the input array to avoid modifying the original array
+    const array = [...inputArray];
+
+    for (let i = array.length - 1; i > 0; i--) {
+        // Generate a random index between 0 and i (inclusive)
+        const randomIndex = Math.floor(Math.random() * (i + 1));
+
+        // Swap the elements at randomIndex and i
+        [array[i], array[randomIndex]] = [array[randomIndex], array[i]];
+    }
+
+    return array;
+}
