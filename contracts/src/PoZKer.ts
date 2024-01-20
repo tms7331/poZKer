@@ -33,6 +33,9 @@ Check 41
 */
 
 
+
+
+
 export const actionMapping = {
     // Showdown logic: when players need to show their cards we'll set this to
     // be gamestate.  Then as each player shows their cards, we'll multiply by
@@ -147,11 +150,6 @@ export const cardMapping52 = {
     "As": 239,
     "": 241,
 }
-
-const cardMapping52_list = [2, 3, 5, 7, 11, 13, 17, 19];
-
-
-
 
 
 export class PoZKerApp extends SmartContract {
@@ -982,5 +980,7 @@ export class PoZKerApp extends SmartContract {
 
         this.slot1.set(slot1New);
         this.slot2.set(slot2New);
+
+
     }
 }

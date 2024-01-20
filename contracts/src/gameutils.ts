@@ -3,6 +3,8 @@ import {
     MerkleMapWitness,
     Bool,
     UInt64,
+    PrivateKey,
+    PublicKey,
 } from 'o1js';
 import fs from 'fs';
 import { cardMapping52, actionMapping } from './PoZKer.js';
@@ -246,3 +248,29 @@ export function getPlayer(gamestate: number) {
     }
     throw "Invalid player!";
 }
+
+
+// We need public keys as points for our mental poker encryption scheme,
+// it's acceptable to make these points deterministic
+export function cardPrimeToPublicKey(cardPrime: number): PublicKey {
+    return PrivateKey.fromBigInt(BigInt(cardPrime)).toPublicKey();
+}
+
+// Want to return a mapping that will allow us to recover the card
+// from the public key generated with cardPrimeToPublicKey
+// This will map back to the card str!
+export function buildCardMapping(cardMapping52: Record<string, number>): Record<string, string> {
+    // Example usage
+    const keyToCard: Record<string, string> = {}
+
+    for (const [key, value] of Object.entries(cardMapping52)) {
+        if (key === "") {
+            continue
+        }
+        const publicKey: PublicKey = cardPrimeToPublicKey(value)
+        const publicKeyStr: string = publicKey.toBase58();
+        keyToCard[publicKeyStr] = key;
+    }
+    return keyToCard;
+}
+

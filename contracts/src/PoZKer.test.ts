@@ -1,10 +1,8 @@
 import { PoZKerApp, actionMapping, cardMapping52 } from './PoZKer';
-import {
-  Poseidon, CircuitString, Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt64, MerkleMapWitness
-} from 'o1js';
+import { Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt64, MerkleMapWitness } from 'o1js';
 import fs from 'fs';
 import { Cipher, ElGamalFF } from 'o1js-elgamal';
-import { getMerkleMapWitness, getShowdownData } from './gameutils.js';
+import { getMerkleMapWitness, getShowdownData, cardPrimeToPublicKey, buildCardMapping } from './gameutils.js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
 import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY } from './mentalpoker.js';
 
@@ -762,7 +760,13 @@ describe('PoZKer', () => {
 
   it.only('encodes and decodes a hand', async () => {
 
-    const cardPoint = PrivateKey.fromBigInt(BigInt(41)).toPublicKey();
+    const cardMapping: Record<string, string> = buildCardMapping(cardMapping52)
+
+    const encodeCard = "Th";
+    const thPrime = cardMapping52[encodeCard];
+    const cardPoint = cardPrimeToPublicKey(thPrime);
+
+    // const cardPoint = PrivateKey.fromBigInt(BigInt(41)).toPublicKey();
 
     let card: Card = new Card(EMPTYKEY, cardPoint, EMPTYKEY);
 
@@ -801,6 +805,9 @@ describe('PoZKer', () => {
 
     // Card should be decoded at this point
     expect(card.msg.toBase58()).toMatch(cardPoint.toBase58());
+    // And - we should be able to map back to the card string
+    const decodedCard = cardMapping[card.msg.toBase58()];
+    expect(decodedCard).toMatch(encodeCard);
   })
 
 });
