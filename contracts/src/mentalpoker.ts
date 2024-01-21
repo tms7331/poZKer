@@ -47,8 +47,7 @@ function computeSharedSecret(local: PrivateKey, remote: PublicKey): PublicKey {
 }
 
 export function mask(card: Card, nonce: Scalar = Scalar.random()): Card {
-    const isUnmasked: Bool = card.pk.equals(EMPTYKEY);
-    if (isUnmasked.toBoolean()) {
+    if (card.pk.equals(EMPTYKEY).toBoolean()) {
         throw new Error('illegal_operation: unable to mask as there are no players available to unmask');
     }
     const ePriv = PrivateKey.fromFields(nonce.toFields());
@@ -61,16 +60,13 @@ export function mask(card: Card, nonce: Scalar = Scalar.random()): Card {
     return new Card(PublicKey.fromGroup(epk), PublicKey.fromGroup(msg), card.pk);
 }
 
-
 export function partialUnmask(card: Card, playerSecret: PrivateKey): Card {
-    const isUnmasked: Bool = card.pk.equals(EMPTYKEY);
-    const pk = PublicKey.fromGroup(card.pk.toGroup().sub(playerSecret.toPublicKey().toGroup()));
-    const epk = Provable.if(isUnmasked, PublicKey.empty(), card.epk);
-    const safeEpk = Provable.if(epk.isEmpty(), EMPTYKEY, card.epk);
-    const d1 = computeSharedSecret(playerSecret, safeEpk);
-    const msg = PublicKey.fromGroup(card.msg.toGroup().sub(d1.toGroup()));
-    const pubKey = Provable.if(isUnmasked, card.msg, msg);
-    const privKey = Provable.if(isUnmasked, card.pk, pk);
-    const retCard = new Card(epk, pubKey, privKey);
+    if (card.pk.equals(EMPTYKEY).toBoolean() || card.epk.equals(EMPTYKEY).toBoolean()) {
+        throw new Error('Cannot unmask card with empty key');
+    }
+    const d1 = computeSharedSecret(playerSecret, card.epk);
+    const pubKey = PublicKey.fromGroup(card.msg.toGroup().sub(d1.toGroup()));
+    const privKey = PublicKey.fromGroup(card.pk.toGroup().sub(playerSecret.toPublicKey().toGroup()));;
+    const retCard = new Card(card.epk, pubKey, privKey);
     return retCard;
 }
