@@ -1,6 +1,4 @@
-import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, AccountUpdate, Poseidon, MerkleMapWitness } from 'o1js';
-import { Cipher, ElGamalFF } from 'o1js-elgamal';
-
+import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, AccountUpdate, Poseidon, MerkleMapWitness, Scalar } from 'o1js';
 
 /*
 Creating a mapping of prime numbers in order to combine:
@@ -910,7 +908,16 @@ export class PoZKerApp extends SmartContract {
         return round2
     }
 
-    @method storeCardHash(slotI: Field, c2a: Field, c2b: Field, cipherKeys: Field, playerSecKey: PrivateKey) {
+
+    decodeCard(epk: PublicKey, msg: PublicKey, playerSecret: PrivateKey) {
+        const d1 = PublicKey.fromGroup(epk.toGroup().scale(Scalar.fromFields(playerSecret.toFields())));
+        const pubKey = PublicKey.fromGroup(msg.toGroup().sub(d1.toGroup()));
+        return pubKey
+    }
+
+
+    @method storeCardHash(slotI: Field, playerSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey) {
+
         // Used to store a hash of the player's cards
         // 1. decrypt both cards
         // 2. double hash the resulting value
@@ -918,20 +925,18 @@ export class PoZKerApp extends SmartContract {
 
         // For both players their encrypted card will be stored here
         const slot0 = this.slot0.getAndAssertEquals();
-        const slot1 = this.slot1.getAndAssertEquals();
-        const slot2 = this.slot2.getAndAssertEquals();
+        // these are the cards
+        const msg1F = this.slot1.getAndAssertEquals();
+        const msg2F = this.slot2.getAndAssertEquals();
+        const msg1 = PublicKey.fromFields([msg1F]);
+        const msg2 = PublicKey.fromFields([msg2F]);
 
         // We are ALWAYS storing the encrypted cards in slots1 and 2
 
         // Want to decrypt BOTH cards, and multiply them together
-
-        // Need to recreate ciphers - we ONLY stashed the first value before...
-        const c1 = new Cipher({ c1: slot1, c2: c2a });
-        const c2 = new Cipher({ c1: slot2, c2: c2b });
-        const holecard1: Field = ElGamalFF.decrypt(c1, cipherKeys);
-        const holecard2: Field = ElGamalFF.decrypt(c2, cipherKeys);
-
-        const cardHash = this.generateHash(holecard1, holecard2, playerSecKey);
+        const holecard1 = this.decodeCard(epk1, msg1, playerSecret).toFields()[0];
+        const holecard2 = this.decodeCard(epk2, msg2, playerSecret).toFields()[0];
+        const cardHash = this.generateHash(holecard1, holecard2, playerSecret);
 
         const slot0New = Provable.if(
             slotI.equals(0),
@@ -942,45 +947,39 @@ export class PoZKerApp extends SmartContract {
         const slot1New = Provable.if(
             slotI.equals(1),
             cardHash,
-            slot1,
+            Field(0),
         );
 
         this.slot0.set(slot0New);
         this.slot1.set(slot1New);
 
-        // We want this to be '1' so we can properly multiply our board values
+        // We'll store board cards in slot2, initialize with all nul values
         const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
         this.slot2.set(noBoardcards);
-        //this.slot2.set(Field(1));
     }
 
-    @method commitCard(slotI: Field, encryptedCard: Field) {
-        // For each player we want to store their encrypyted card in slots 1 and 2
-        // and then we'll decrypt it and store the hash
+    @method commitCard(slotI: Field, msg: Field) {
+        // msg corresponds to the field representation of the msg PublicKey in the mentalpoker Card struct
 
-        // Note - encryptedCard will be the 'c1' value of a elgamal Cipher
-        // the user will have to pass in the 'c2' value in the decrypt function
+        // The other player should perform their half of the partialUnmask,
+        // and then commit the results here
 
-        // 'slotI' param is just the memory slot where we will save this card
-        slotI.assertLessThanOrEqual(2);
-        slotI.assertGreaterThanOrEqual(1);
+        // Players can then decrypt their cards, preserving the secrecy of the
+        // cards and avoiding the need for a trusted dealer
+
         const slot1 = this.slot1.getAndAssertEquals();
         const slot2 = this.slot2.getAndAssertEquals();
-
         const slot1New = Provable.if(
             slotI.equals(1),
-            encryptedCard,
+            msg,
             slot1,
         );
         const slot2New = Provable.if(
             slotI.equals(2),
-            encryptedCard,
+            msg,
             slot2,
         );
-
         this.slot1.set(slot1New);
         this.slot2.set(slot2New);
-
-
     }
 }
