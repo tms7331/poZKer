@@ -1,8 +1,8 @@
 import { PoZKerApp, actionMapping, cardMapping52 } from './PoZKer';
 import { Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt64, MerkleMapWitness } from 'o1js';
 import fs from 'fs';
-import { Cipher, ElGamalFF } from 'o1js-elgamal';
-import { getMerkleMapWitness, getShowdownData, } from './gameutils.js';
+import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY } from './mentalpoker.js';
+import { getMerkleMapWitness, getShowdownData, cardPrimeToPublicKey, CardStr } from './gameutils.js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
 
 let proofsEnabled = false;
@@ -117,23 +117,40 @@ describe('PoZKer', () => {
     console.log("Player 2 Stack:", bal2.toString());
   }
 
-  async function localCommitCards(card1: number, card2: number, card3: number, card4: number) {
+  function encryptCard(cardPrime: number, shuffleKeyP1: PrivateKey, shuffleKeyP2: PrivateKey): Card {
+    const cardPoint = cardPrimeToPublicKey(cardPrime);
+    let card: Card = new Card(EMPTYKEY, cardPoint, EMPTYKEY);
 
-    let keys1 = ElGamalFF.generateKeys();
-    let keys2 = ElGamalFF.generateKeys();
+    card = addPlayerToCardMask(card, shuffleKeyP1);
+    card = mask(card);
+
+    card = addPlayerToCardMask(card, shuffleKeyP2);
+    card = mask(card);
+    return card
+
+  }
 
 
-    // Player 1 will encrypt their cards - we'll pretend that we've done 
+  async function localCommitCards(cardPrime1: number, cardPrime2: number, cardPrime3: number, cardPrime4: number) {
+    // Only using single encoding here
 
-    // shuffles and encryptions, and player 2 has decrypted their half of the
-    // key and that is what player2 is committing to the blockchain...
-    let c0 = ElGamalFF.encrypt(Field(card1), keys1.pk);
-    let c1 = ElGamalFF.encrypt(Field(card2), keys1.pk);
+    // Use private keys for shuffleKeys to simplify....
+    let card1 = encryptCard(cardPrime1, playerPrivKey1, playerPrivKey2)
+    let card2 = encryptCard(cardPrime2, playerPrivKey1, playerPrivKey2)
+    let card3 = encryptCard(cardPrime3, playerPrivKey1, playerPrivKey2)
+    let card4 = encryptCard(cardPrime4, playerPrivKey1, playerPrivKey2)
+
+    // Player 2 shoould halfway decrypt cards 1 and 2, and vice versa for 3 and 4
+    card1 = partialUnmask(card1, playerPrivKey2);
+    card2 = partialUnmask(card2, playerPrivKey2);
+    card3 = partialUnmask(card2, playerPrivKey1);
+    card4 = partialUnmask(card2, playerPrivKey1);
+
 
     const txnC1 = await Mina.transaction(playerPubKey2, () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(1);
-      zkAppInstance.commitCard(slotI, c0.c1)
+      zkAppInstance.commitCard(slotI, card1.msg.toFields()[0])
     });
     await txnC1.prove();
     await txnC1.sign([playerPrivKey2]).send();
@@ -141,7 +158,7 @@ describe('PoZKer', () => {
     const txnC2 = await Mina.transaction(playerPubKey2, () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(2);
-      zkAppInstance.commitCard(slotI, c1.c1)
+      zkAppInstance.commitCard(slotI, card2.msg.toFields()[0])
     });
     await txnC2.prove();
     await txnC2.sign([playerPrivKey2]).send();
@@ -150,23 +167,18 @@ describe('PoZKer', () => {
     const txnC3 = await Mina.transaction(playerPubKey1, () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(0);
-      const c2a = c0.c2;
-      const c2b = c1.c2;
-      const cipherKeys = keys1.sk;
-      const playerSecKey = playerPrivKey1;
-      zkAppInstance.storeCardHash(slotI, c2a, c2b, cipherKeys, playerSecKey)
+      const playerSecret = playerPrivKey1;
+      const msgField1 = card1.msg.toFields()[1];
+      const msgField2 = card2.msg.toFields()[1];
+      zkAppInstance.storeCardHash(slotI, playerSecret, card1.epk, card2.epk, msgField1, msgField2);
     });
     await txnC3.prove();
     await txnC3.sign([playerPrivKey1]).send();
 
-    // Exact same logic as for player 1
-    let c3 = ElGamalFF.encrypt(Field(card3), keys2.pk);
-    let c4 = ElGamalFF.encrypt(Field(card4), keys2.pk);
-
     const txnC4 = await Mina.transaction(playerPubKey1, () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(1);
-      zkAppInstance.commitCard(slotI, c3.c1)
+      zkAppInstance.commitCard(slotI, card3.msg.toFields()[0])
     });
     await txnC4.prove();
     await txnC4.sign([playerPrivKey1]).send();
@@ -174,7 +186,7 @@ describe('PoZKer', () => {
     const txnC5 = await Mina.transaction(playerPubKey1, () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(2);
-      zkAppInstance.commitCard(slotI, c4.c1)
+      zkAppInstance.commitCard(slotI, card4.msg.toFields()[0])
     });
     await txnC5.prove();
     await txnC5.sign([playerPrivKey1]).send();
@@ -183,15 +195,13 @@ describe('PoZKer', () => {
     const txnC6 = await Mina.transaction(playerPubKey2, () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(1);
-      const c2a = c3.c2;
-      const c2b = c4.c2;
-      const cipherKeys = keys2.sk;
-      const playerSecKey = playerPrivKey2;
-      zkAppInstance.storeCardHash(slotI, c2a, c2b, cipherKeys, playerSecKey)
+      const playerSecret = playerPrivKey2;
+      const msgField1 = card3.msg.toFields()[1];
+      const msgField2 = card4.msg.toFields()[1];
+      zkAppInstance.storeCardHash(slotI, playerSecret, card3.epk, card4.epk, msgField1, msgField2);
     });
     await txnC6.prove();
     await txnC6.sign([playerPrivKey2]).send();
-
   }
 
   it('posts both player blinds and initializes gamestate', async () => {
@@ -545,7 +555,7 @@ describe('PoZKer', () => {
 
   })
 
-  it('allows players to show their cards', async () => {
+  it.only('allows players to show their cards', async () => {
     await localDeploy();
     await setPlayers();
     await localDeposit();

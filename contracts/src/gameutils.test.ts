@@ -68,7 +68,6 @@ describe('PoZKer', () => {
 
 
     it('encodes and decodes a hand', async () => {
-
         const cardMapping: Record<string, string> = buildCardMapping(cardMapping52)
 
         const encodeCard = "Th";
@@ -120,7 +119,7 @@ describe('PoZKer', () => {
     })
 
 
-    it.only('shuffles cards', async () => {
+    it('shuffles cards', async () => {
         const primeList = [];
         for (const [_key, value] of Object.entries(cardMapping52)) {
             primeList.push(value);

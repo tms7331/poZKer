@@ -915,8 +915,7 @@ export class PoZKerApp extends SmartContract {
         return pubKey
     }
 
-
-    @method storeCardHash(slotI: Field, playerSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey) {
+    @method storeCardHash(slotI: Field, playerSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey, msgField1: Field, msgField2: Field) {
 
         // Used to store a hash of the player's cards
         // 1. decrypt both cards
@@ -928,8 +927,9 @@ export class PoZKerApp extends SmartContract {
         // these are the cards
         const msg1F = this.slot1.getAndAssertEquals();
         const msg2F = this.slot2.getAndAssertEquals();
-        const msg1 = PublicKey.fromFields([msg1F]);
-        const msg2 = PublicKey.fromFields([msg2F]);
+        // We have to pass in the second field to get them to match
+        const msg1 = PublicKey.fromFields([msg1F, msgField1]);
+        const msg2 = PublicKey.fromFields([msg2F, msgField2]);
 
         // We are ALWAYS storing the encrypted cards in slots1 and 2
 

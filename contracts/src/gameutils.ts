@@ -12,9 +12,9 @@ import { getCardFromOracle } from "./oracleLib.js";
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
 
 
-export type Card = '2d' | '3d' | '4d' | '5d' | '6d' | '7d' | '8d' | '9d' | 'Td' | 'Jd' | 'Qd' | 'Kd' | 'Ad' | '2c' | '3c' | '4c' | '5c' | '6c' | '7c' | '8c' | '9c' | 'Tc' | 'Jc' | 'Qc' | 'Kc' | 'Ac' | '2h' | '3h' | '4h' | '5h' | '6h' | '7h' | '8h' | '9h' | 'Th' | 'Jh' | 'Qh' | 'Kh' | 'Ah' | '2s' | '3s' | '4s' | '5s' | '6s' | '7s' | '8s' | '9s' | 'Ts' | 'Js' | 'Qs' | 'Ks' | 'As';
+export type CardStr = '2d' | '3d' | '4d' | '5d' | '6d' | '7d' | '8d' | '9d' | 'Td' | 'Jd' | 'Qd' | 'Kd' | 'Ad' | '2c' | '3c' | '4c' | '5c' | '6c' | '7c' | '8c' | '9c' | 'Tc' | 'Jc' | 'Qc' | 'Kc' | 'Ac' | '2h' | '3h' | '4h' | '5h' | '6h' | '7h' | '8h' | '9h' | 'Th' | 'Jh' | 'Qh' | 'Kh' | 'Ah' | '2s' | '3s' | '4s' | '5s' | '6s' | '7s' | '8s' | '9s' | 'Ts' | 'Js' | 'Qs' | 'Ks' | 'As';
 
-const cards: Card[] = ['2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh', 'Qh', 'Kh', 'Ah',
+const cards: CardStr[] = ['2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh', 'Qh', 'Kh', 'Ah',
     '2d', '3d', '4d', '5d', '6d', '7d', '8d', '9d', 'Td', 'Jd', 'Qd', 'Kd', 'Ad',
     '2c', '3c', '4c', '5c', '6c', '7c', '8c', '9c', 'Tc', 'Jc', 'Qc', 'Kc', 'Ac',
     '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', 'Ts', 'Js', 'Qs', 'Ks', 'As']
@@ -25,7 +25,7 @@ const fnFlush = 'lookup_table_flushes.json';
 const lookupTableBasic = JSON.parse(fs.readFileSync(fnBasic, 'utf-8'));
 const lookupTableFlushes = JSON.parse(fs.readFileSync(fnFlush, 'utf-8'));
 
-export function parseCardInt(cardInt: number): Card {
+export function parseCardInt(cardInt: number): CardStr {
     return cards[cardInt];
 }
 
@@ -63,7 +63,7 @@ for (const [key, value] of Object.entries(cardMapping52)) {
     // key, value would be like
     // "7c": 131,
     // console.log(key, value);
-    const card: Card = key as Card;
+    const card: CardStr = key as CardStr;
     const cardIndex = cards.indexOf(card);
     prime52ToCard[value] = cardIndex;
 }
