@@ -765,7 +765,9 @@ export class PoZKerApp extends SmartContract {
         playerSecKey: PrivateKey,
         merkleMapKey: Field,
         merkleMapVal: Field,
-        path: MerkleMapWitness
+        path: MerkleMapWitness,
+        holecard0Field: Field,
+        holecard1Field: Field
     ) {
 
         /*
@@ -805,8 +807,15 @@ export class PoZKerApp extends SmartContract {
 
         // MerkleMapRootBasic, MerkleMapRootFlush
 
-        const holecard0Field = holecard0.toFields()[0];
-        const holecard1Field = holecard1.toFields()[0];
+        //const holecard0Field = holecard0.toFields()[0];
+        //const holecard1Field = holecard1.toFields()[0];
+
+        // ISSUE - can't do this conversion inside the contract
+        // how can we confirm field corresponds to prime52 value?
+        // const k1 = PrivateKey.fromBigInt(BigInt(holecard0.toBigInt())).toPublicKey();
+        // const k2 = PrivateKey.fromBigInt(BigInt(holecard1.toBigInt())).toPublicKey();
+        // const holecard0Field = k1.toFields()[0];
+        // const holecard1Field = k2.toFields()[0];
         const cardHash = this.generateHash(holecard0Field, holecard1Field, playerSecKey);
         // CHECK 3. re-hash the cards and confirm it matches their stored hash
         cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
@@ -909,7 +918,7 @@ export class PoZKerApp extends SmartContract {
     }
 
 
-    decodeCard(epk: PublicKey, msg: PublicKey, playerSecret: PrivateKey) {
+    decodeCard(epk: PublicKey, msg: PublicKey, playerSecret: PrivateKey): PublicKey {
         const d1 = PublicKey.fromGroup(epk.toGroup().scale(Scalar.fromFields(playerSecret.toFields())));
         const pubKey = PublicKey.fromGroup(msg.toGroup().sub(d1.toGroup()));
         return pubKey
@@ -934,8 +943,10 @@ export class PoZKerApp extends SmartContract {
         // We are ALWAYS storing the encrypted cards in slots1 and 2
 
         // Want to decrypt BOTH cards, and multiply them together
-        const holecard1 = this.decodeCard(epk1, msg1, playerSecret).toFields()[0];
-        const holecard2 = this.decodeCard(epk2, msg2, playerSecret).toFields()[0];
+        const holecardPublicKey1 = this.decodeCard(epk1, msg1, playerSecret)
+        const holecardPublicKey2 = this.decodeCard(epk2, msg2, playerSecret)
+        const holecard1 = holecardPublicKey1.toFields()[0];
+        const holecard2 = holecardPublicKey2.toFields()[0];
         const cardHash = this.generateHash(holecard1, holecard2, playerSecret);
 
         const slot0New = Provable.if(
