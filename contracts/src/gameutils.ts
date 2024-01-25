@@ -8,7 +8,6 @@ import {
 } from 'o1js';
 import fs from 'fs';
 import { cardMapping52, actionMapping } from './PoZKer.js';
-import { getCardFromOracle } from "./oracleLib.js";
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
 
 
@@ -200,16 +199,6 @@ function parseOracleResp(cardHand0: number) {
     return cardInt;
 }
 
-export async function getCardAndPrime(GAME_ID: number) {
-    // Return both a card integer (0 to 51) and its prime52 value
-    const cardr = await getCardFromOracle(GAME_ID.toString());
-    // Takes care of subtracting one because oracle responses are 1..52 instead of 0..51
-    const card = parseOracleResp(cardr.hand[0]);
-    const cardPrime52 = cardMapping52[parseCardInt(card)];
-    return [card, cardPrime52];
-}
-
-
 const P1 = actionMapping["P1"];
 const P2 = actionMapping["P2"];
 const PREFLOP = actionMapping["Preflop"];
@@ -276,7 +265,7 @@ export function buildCardMapping(cardMapping52: Record<string, number>): Record<
 
 
 // fisher-yates shuffle, from chatgpt
-export function shuffleCards(inputArray: number[]): number[] {
+export function shuffleCards<T>(inputArray: Array<T>): Array<T> {
     // Clone the input array to avoid modifying the original array
     const array = [...inputArray];
 

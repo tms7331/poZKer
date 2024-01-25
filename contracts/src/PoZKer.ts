@@ -763,6 +763,7 @@ export class PoZKerApp extends SmartContract {
         useBoardcards4: Bool,
         isFlush: Bool,
         playerSecKey: PrivateKey,
+        shuffleKey: PrivateKey,
         merkleMapKey: Field,
         merkleMapVal: Field,
         path: MerkleMapWitness,
@@ -816,7 +817,7 @@ export class PoZKerApp extends SmartContract {
         // const k2 = PrivateKey.fromBigInt(BigInt(holecard1.toBigInt())).toPublicKey();
         // const holecard0Field = k1.toFields()[0];
         // const holecard1Field = k2.toFields()[0];
-        const cardHash = this.generateHash(holecard0Field, holecard1Field, playerSecKey);
+        const cardHash = this.generateHash(holecard0Field, holecard1Field, shuffleKey);
         // CHECK 3. re-hash the cards and confirm it matches their stored hash
         cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
 
@@ -918,13 +919,13 @@ export class PoZKerApp extends SmartContract {
     }
 
 
-    decodeCard(epk: PublicKey, msg: PublicKey, playerSecret: PrivateKey): PublicKey {
-        const d1 = PublicKey.fromGroup(epk.toGroup().scale(Scalar.fromFields(playerSecret.toFields())));
+    decodeCard(epk: PublicKey, msg: PublicKey, shuffleSecret: PrivateKey): PublicKey {
+        const d1 = PublicKey.fromGroup(epk.toGroup().scale(Scalar.fromFields(shuffleSecret.toFields())));
         const pubKey = PublicKey.fromGroup(msg.toGroup().sub(d1.toGroup()));
         return pubKey
     }
 
-    @method storeCardHash(slotI: Field, playerSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey, msgField1: Field, msgField2: Field) {
+    @method storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey, msgField1: Field, msgField2: Field) {
 
         // Used to store a hash of the player's cards
         // 1. decrypt both cards
@@ -943,11 +944,11 @@ export class PoZKerApp extends SmartContract {
         // We are ALWAYS storing the encrypted cards in slots1 and 2
 
         // Want to decrypt BOTH cards, and multiply them together
-        const holecardPublicKey1 = this.decodeCard(epk1, msg1, playerSecret)
-        const holecardPublicKey2 = this.decodeCard(epk2, msg2, playerSecret)
+        const holecardPublicKey1 = this.decodeCard(epk1, msg1, shuffleSecret)
+        const holecardPublicKey2 = this.decodeCard(epk2, msg2, shuffleSecret)
         const holecard1 = holecardPublicKey1.toFields()[0];
         const holecard2 = holecardPublicKey2.toFields()[0];
-        const cardHash = this.generateHash(holecard1, holecard2, playerSecret);
+        const cardHash = this.generateHash(holecard1, holecard2, shuffleSecret);
 
         const slot0New = Provable.if(
             slotI.equals(0),

@@ -1,11 +1,11 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
 import { PoZKerApp, actionMapping, cardMapping52 } from './PoZKer.js';
+import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY } from './mentalpoker.js';
 //import { readline } from 'readline';
 //const readline = require('readline');
 import readline from 'readline';
 import fs from 'fs';
 import { promisify } from 'util';
-import { Cipher, ElGamalFF } from 'o1js-elgamal';
 import {
     isReady,
     shutdown,
@@ -13,6 +13,7 @@ import {
     Field,
     Mina,
     PrivateKey,
+    PublicKey,
     AccountUpdate,
     UInt64,
     Poseidon,
@@ -20,7 +21,7 @@ import {
     MerkleMapWitness,
 } from 'o1js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
-import { Card, getMerkleMapWitness, parseCardInt, getShowdownData, getCardAndPrime, getPlayer, getStreet } from './gameutils.js';
+import { CardStr, getMerkleMapWitness, parseCardInt, getShowdownData, getPlayer, getStreet, cardPrimeToPublicKey, buildCardMapping, shuffleCards } from './gameutils.js';
 
 await isReady;
 
@@ -60,9 +61,42 @@ const merkleMapFlush: MerkleMapSerializable = deserialize(jsonDataFlush);
 // console.log(merkleMapBasic.getRoot())
 // console.log(merkleMapFlush.getRoot())
 
-// Keys for elgamal encryption/decryption
-let keys1 = ElGamalFF.generateKeys();
-let keys2 = ElGamalFF.generateKeys();
+// Keys for card encryption/decryption
+const shuffleKeyP1 = PrivateKey.random()
+const shuffleKeyP2 = PrivateKey.random()
+
+
+
+// This is a mapping from the publicKey.toBase58() of the cards
+// to their string value, B62abcdefg... -> 5h
+const cardMapping = buildCardMapping(cardMapping52)
+
+// Have to encode all cards and perform shuffle!
+const cards: Card[] = []
+for (const [key, value] of Object.entries(cardMapping52)) {
+    const cardPoint: PublicKey = cardPrimeToPublicKey(value)
+    let card: Card = new Card(EMPTYKEY, cardPoint, EMPTYKEY);
+    cards.push(card);
+    // const publicKeyStr: string = publicKey.toBase58();
+    //keyToCard[publicKeyStr]
+}
+
+// Player 1's round - shuffle and encrypt
+let shuffledCardsR1 = shuffleCards(cards);
+for (let i = 0; i < shuffledCardsR1.length; i++) {
+    let card = addPlayerToCardMask(shuffledCardsR1[i], shuffleKeyP1);
+    card = mask(card);
+    shuffledCardsR1[i] = card;
+}
+
+// Player 2's round - shuffle and encrypt
+let shuffledCards = shuffleCards(shuffledCardsR1);
+for (let i = 0; i < shuffledCards.length; i++) {
+    let card = addPlayerToCardMask(shuffledCards[i], shuffleKeyP2);
+    card = mask(card);
+    shuffledCards[i] = card;
+}
+
 
 function getRandomInt(min: number, max: number) {
     min = Math.ceil(min);
@@ -72,8 +106,6 @@ function getRandomInt(min: number, max: number) {
 
 const SLEEP_TIME_SHORT = 0; // 1000;
 const SLEEP_TIME_LONG = 0; //3000;
-const GAME_ID = getRandomInt(1, 9999999999)
-console.log(" GENERATING GAME WITH ID ", GAME_ID);
 
 //console.log("ACCOUNTS", playerPubKey1.toBase58(), playerPubKey2.toBase58());
 
@@ -154,20 +186,33 @@ console.log("Dealing cards to player 1, look away player 2!");
 await sleep(SLEEP_TIME_SHORT);
 
 
-// player 1 cards...
-const [card1, card1prime52] = await getCardAndPrime(GAME_ID)
-const [card2, card2prime52] = await getCardAndPrime(GAME_ID)
+// Each player needs to halfway decrypt and then commit the card for the other player
 
-// Player 1 will encrypt their cards - we'll pretend that we've done 
-// shuffles and encryptions, and player 2 has decrypted their half of the
-// key and that is what player2 is committing to the blockchain...
-let c0 = ElGamalFF.encrypt(Field(card1prime52), keys1.pk);
-let c1 = ElGamalFF.encrypt(Field(card2prime52), keys1.pk);
+// player 1 cards are first two
+let card1 = shuffledCards[0];
+let card2 = shuffledCards[1];
+// player 2 should partially unmask and then commit
+card1 = partialUnmask(card1, shuffleKeyP2);
+card2 = partialUnmask(card2, shuffleKeyP2);
+
+
+// And inverse for player 1
+let card3 = shuffledCards[2];
+let card4 = shuffledCards[3];
+card3 = partialUnmask(card3, shuffleKeyP1);
+card4 = partialUnmask(card4, shuffleKeyP1);
+
+
+// Now the players can finish decoding their cards
+const [card1Str, card1prime52] = getCardAndPrimeHalf(card1, shuffleKeyP1)
+const [card2Str, card2prime52] = getCardAndPrimeHalf(card2, shuffleKeyP1)
+const [card3Str, card3prime52] = getCardAndPrimeHalf(card3, shuffleKeyP1)
+const [card4Str, card4prime52] = getCardAndPrimeHalf(card4, shuffleKeyP1)
 
 const txnC1 = await Mina.transaction(playerPubKey2, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(1);
-    zkAppInstance.commitCard(slotI, c0.c1)
+    zkAppInstance.commitCard(slotI, card1.msg.toFields()[0])
 });
 await txnC1.prove();
 await txnC1.sign([playerPrivKey2]).send();
@@ -175,7 +220,7 @@ await txnC1.sign([playerPrivKey2]).send();
 const txnC2 = await Mina.transaction(playerPubKey2, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(2);
-    zkAppInstance.commitCard(slotI, c1.c1)
+    zkAppInstance.commitCard(slotI, card2.msg.toFields()[0])
 });
 await txnC2.prove();
 await txnC2.sign([playerPrivKey2]).send();
@@ -184,17 +229,13 @@ await txnC2.sign([playerPrivKey2]).send();
 const txnC3 = await Mina.transaction(playerPubKey1, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(0);
-    const c2a = c0.c2;
-    const c2b = c1.c2;
-    const cipherKeys = keys1.sk;
-    const playerSecKey = playerPrivKey1;
-    zkAppInstance.storeCardHash(slotI, c2a, c2b, cipherKeys, playerSecKey)
+    zkAppInstance.storeCardHash(slotI, shuffleKeyP1, card1.epk, card2.epk, card1.msg.toFields()[1], card2.msg.toFields()[1]);
 });
 await txnC3.prove();
 await txnC3.sign([playerPrivKey1]).send();
 
 
-console.log("player 1 hole cards:", parseCardInt(parseInt(card1.toString())), parseCardInt(parseInt(card2.toString())));
+console.log("player 1 hole cards:", card1Str, card2Str)
 console.log("Screen will be cleared after 3 seconds...")
 
 await sleep(SLEEP_TIME_LONG);
@@ -204,21 +245,13 @@ await sleep(SLEEP_TIME_LONG);
 console.log("Dealing cards to player 2, look away player 1!");
 await sleep(SLEEP_TIME_SHORT);
 
-const [card3, card3prime52] = await getCardAndPrime(GAME_ID)
-const [card4, card4prime52] = await getCardAndPrime(GAME_ID)
-
-
-console.log("player 2 hole cards:", parseCardInt(parseInt(card3.toString())), parseCardInt(parseInt(card4.toString())));
+console.log("player 2 hole cards:", card3Str, card4Str)
 console.log("Screen will be cleared after 3 seconds...")
-
-// Exact same logic as for player 1
-let c3 = ElGamalFF.encrypt(Field(card3prime52), keys2.pk);
-let c4 = ElGamalFF.encrypt(Field(card4prime52), keys2.pk);
 
 const txnC4 = await Mina.transaction(playerPubKey1, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(1);
-    zkAppInstance.commitCard(slotI, c3.c1)
+    zkAppInstance.commitCard(slotI, card3.msg.toFields()[0])
 });
 await txnC4.prove();
 await txnC4.sign([playerPrivKey1]).send();
@@ -226,7 +259,7 @@ await txnC4.sign([playerPrivKey1]).send();
 const txnC5 = await Mina.transaction(playerPubKey1, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(2);
-    zkAppInstance.commitCard(slotI, c4.c1)
+    zkAppInstance.commitCard(slotI, card4.msg.toFields()[0])
 });
 await txnC5.prove();
 await txnC5.sign([playerPrivKey1]).send();
@@ -235,11 +268,9 @@ await txnC5.sign([playerPrivKey1]).send();
 const txnC6 = await Mina.transaction(playerPubKey2, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(1);
-    const c2a = c3.c2;
-    const c2b = c4.c2;
-    const cipherKeys = keys2.sk;
-    const playerSecKey = playerPrivKey2;
-    zkAppInstance.storeCardHash(slotI, c2a, c2b, cipherKeys, playerSecKey)
+    // const playerSecKey = playerPrivKey2;
+    zkAppInstance.storeCardHash(slotI, shuffleKeyP2, card3.epk, card4.epk, card3.msg.toFields()[1], card4.msg.toFields()[1]);
+
 });
 await txnC6.prove();
 await txnC6.sign([playerPrivKey2]).send();
@@ -264,9 +295,35 @@ const actionMap: { [key: string]: number } = {
 // let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
 let currStreet = "Preflop";
 
-const boardStrs: Card[] = []
+const boardStrs: CardStr[] = []
 const boardPrimes: UInt64[] = []
 
+
+
+
+function getCardAndPrime(card_: Card, shuffleKeyP1: PrivateKey, shuffleKeyP2: PrivateKey): [CardStr, number] {
+    // TODO - doesn't make sense to have this here, 
+    // function that takes both private keys is clearly no good.
+    // But how are players communicating with each other?
+    // Are we storing the cards in the contract and decoding step by step?
+    let card = partialUnmask(card_, shuffleKeyP1);
+    card = partialUnmask(card_, shuffleKeyP2);
+
+    const cardStr = cardMapping[card.msg.toBase58()] as CardStr;
+    const cardPrime = cardMapping52[cardStr];
+
+    // Now use map back to card
+    return [cardStr, cardPrime]
+}
+
+function getCardAndPrimeHalf(card_: Card, shuffleKey: PrivateKey): [CardStr, number] {
+    // Same as function above, need to rethink how this fits in
+    let card = partialUnmask(card_, shuffleKey);
+    const cardStr = cardMapping[card.msg.toBase58()] as CardStr;
+    const cardPrime = cardMapping52[cardStr];
+    // Now use map back to card
+    return [cardStr, cardPrime]
+}
 
 // Main game loop - keep accepting actions until hand ends
 while (true) {
@@ -327,6 +384,11 @@ while (true) {
         const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
         const pathP2: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP2.toBoolean(), merkleMapKeyP2)
 
+        const k1 = PrivateKey.fromBigInt(BigInt(card1prime52)).toPublicKey();
+        const k2 = PrivateKey.fromBigInt(BigInt(card2prime52)).toPublicKey();
+        const holecard1Field = k1.toFields()[0];
+        const holecard2Field = k2.toFields()[0];
+
         const txnA = await Mina.transaction(playerPubKey1, () => {
             zkAppInstance.showCards(allCardsP1[0],
                 allCardsP1[1],
@@ -344,12 +406,22 @@ while (true) {
                 useCardsP1[6],
                 isFlushP1,
                 playerPrivKey1,
+                shuffleKeyP1,
                 merkleMapKeyP1,
                 merkleMapValP1,
-                pathP1)
+                pathP1,
+                holecard1Field,
+                holecard2Field,
+            )
         });
         await txnA.prove();
         await txnA.sign([playerPrivKey1]).send();
+
+
+        const k3 = PrivateKey.fromBigInt(BigInt(card3prime52)).toPublicKey();
+        const k4 = PrivateKey.fromBigInt(BigInt(card4prime52)).toPublicKey();
+        const holecard3Field = k3.toFields()[0];
+        const holecard4Field = k4.toFields()[0];
 
         const txnB = await Mina.transaction(playerPubKey2, () => {
             zkAppInstance.showCards(allCardsP2[0],
@@ -368,9 +440,13 @@ while (true) {
                 useCardsP2[6],
                 isFlushP2,
                 playerPrivKey2,
+                shuffleKeyP2,
                 merkleMapKeyP2,
                 merkleMapValP2,
-                pathP2)
+                pathP2,
+                holecard3Field,
+                holecard4Field,
+            )
         });
         await txnB.prove();
         await txnB.sign([playerPrivKey2]).send();
@@ -390,13 +466,13 @@ while (true) {
         if (street == "Flop") {
             console.log("DEALING FLOP...")
 
-            const [flop1, cardPrime1] = await getCardAndPrime(GAME_ID)
-            const [flop2, cardPrime2] = await getCardAndPrime(GAME_ID)
-            const [flop3, cardPrime3] = await getCardAndPrime(GAME_ID)
+            const [flop1, cardPrime1] = getCardAndPrime(cards[4], shuffleKeyP1, shuffleKeyP2)
+            const [flop2, cardPrime2] = getCardAndPrime(cards[5], shuffleKeyP1, shuffleKeyP2)
+            const [flop3, cardPrime3] = getCardAndPrime(cards[6], shuffleKeyP1, shuffleKeyP2)
 
-            boardStrs.push(parseCardInt(flop1));
-            boardStrs.push(parseCardInt(flop2));
-            boardStrs.push(parseCardInt(flop3));
+            boardStrs.push(flop1)
+            boardStrs.push(flop2);
+            boardStrs.push(flop3);
             console.log("BOARD IS", boardStrs);
 
             boardPrimes.push(UInt64.from(cardPrime1));
@@ -429,15 +505,13 @@ while (true) {
             // let turnHand: Card = turn.hand[0]
             //boardStrs.push(parseCardInt(parseInt(turnHand)));
 
-            const [turn, cardPrime1] = await getCardAndPrime(GAME_ID)
-            boardStrs.push(parseCardInt(turn));
+            const [turn, cardPrime1] = getCardAndPrime(cards[7], shuffleKeyP1, shuffleKeyP2)
+
+            boardStrs.push(turn);
             console.log("BOARD IS", boardStrs);
 
             boardPrimes.push(UInt64.from(cardPrime1));
 
-            //const cardPrime1 = (takeHand[0] % 13);
-            // const cardPrime1 = cardMapping52[boardStrs[3]];
-            // boardPrimes.push(UInt64.from(cardPrime1));
             const txnA = await Mina.transaction(playerPubKey2, () => {
                 zkAppInstance.tallyBoardCards(Field(cardPrime1))
             });
@@ -447,22 +521,12 @@ while (true) {
         }
         else if (street == "River") {
             console.log("DEALING RIVER...")
-            // let river = await getRiverFromOracle(GAME_ID.toString());
-            // let riverHand: Card = river.hand[0]
-            // boardStrs.push(parseCardInt(parseInt(riverHand)));
-            // console.log("BOARD IS", boardStrs);
 
-            // //const cardPrime1 = riverHand[0] % 13;
-            // const cardPrime1 = cardMapping52[boardStrs[4]];
-            // boardPrimes.push(UInt64.from(cardPrime1));
-
-
-            const [river, cardPrime1] = await getCardAndPrime(GAME_ID)
-            boardStrs.push(parseCardInt(river));
+            const [river, cardPrime1] = getCardAndPrime(cards[8], shuffleKeyP1, shuffleKeyP2)
+            boardStrs.push(river);
             console.log("BOARD IS", boardStrs);
 
             boardPrimes.push(UInt64.from(cardPrime1));
-
 
             const txnA = await Mina.transaction(playerPubKey2, () => {
                 zkAppInstance.tallyBoardCards(Field(cardPrime1))
