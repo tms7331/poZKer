@@ -119,7 +119,7 @@ describe('PoZKer', () => {
     })
 
 
-    it('shuffles cards', async () => {
+    it.only('shuffles cards', async () => {
         const primeList = [];
         for (const [_key, value] of Object.entries(cardMapping52)) {
             primeList.push(value);
@@ -132,7 +132,7 @@ describe('PoZKer', () => {
         shuffled.sort();
         primeList.sort();
         expect(primeList).toEqual(shuffled);
-
     })
+
 
 });

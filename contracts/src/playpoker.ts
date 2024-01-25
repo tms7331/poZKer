@@ -384,11 +384,6 @@ while (true) {
         const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
         const pathP2: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP2.toBoolean(), merkleMapKeyP2)
 
-        const k1 = PrivateKey.fromBigInt(BigInt(card1prime52)).toPublicKey();
-        const k2 = PrivateKey.fromBigInt(BigInt(card2prime52)).toPublicKey();
-        const holecard1Field = k1.toFields()[0];
-        const holecard2Field = k2.toFields()[0];
-
         const txnA = await Mina.transaction(playerPubKey1, () => {
             zkAppInstance.showCards(allCardsP1[0],
                 allCardsP1[1],
@@ -410,18 +405,11 @@ while (true) {
                 merkleMapKeyP1,
                 merkleMapValP1,
                 pathP1,
-                holecard1Field,
-                holecard2Field,
             )
         });
         await txnA.prove();
         await txnA.sign([playerPrivKey1]).send();
 
-
-        const k3 = PrivateKey.fromBigInt(BigInt(card3prime52)).toPublicKey();
-        const k4 = PrivateKey.fromBigInt(BigInt(card4prime52)).toPublicKey();
-        const holecard3Field = k3.toFields()[0];
-        const holecard4Field = k4.toFields()[0];
 
         const txnB = await Mina.transaction(playerPubKey2, () => {
             zkAppInstance.showCards(allCardsP2[0],
@@ -444,8 +432,6 @@ while (true) {
                 merkleMapKeyP2,
                 merkleMapValP2,
                 pathP2,
-                holecard3Field,
-                holecard4Field,
             )
         });
         await txnB.prove();

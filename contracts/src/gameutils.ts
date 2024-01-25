@@ -249,7 +249,6 @@ export function cardPrimeToPublicKey(cardPrime: number): PublicKey {
 // from the public key generated with cardPrimeToPublicKey
 // This will map back to the card str!
 export function buildCardMapping(cardMapping52: Record<string, number>): Record<string, string> {
-    // Example usage
     const keyToCard: Record<string, string> = {}
 
     for (const [key, value] of Object.entries(cardMapping52)) {
@@ -278,4 +277,25 @@ export function shuffleCards<T>(inputArray: Array<T>): Array<T> {
     }
 
     return array;
+}
+
+// generates the mapping / switch statement used in cardPrimeToCardPoint
+export function buildCardPrimeToCardPointMapping(cardMapping52: Record<string, number>) {
+    const fn = "CardPointToPrimeMap.txt";
+    for (const [key, value] of Object.entries(cardMapping52)) {
+        if (key === "") {
+            continue
+        }
+        const publicKey: PublicKey = cardPrimeToPublicKey(value)
+        const publicKeyStr: string = publicKey.toBase58();
+        // just print them all out, we'll manually put together the switch statement
+        console.log(publicKeyStr)
+        console.log(value)
+
+        fs.appendFileSync(fn, publicKeyStr);
+        fs.appendFileSync(fn, "\n");
+        fs.appendFileSync(fn, value.toString());
+        fs.appendFileSync(fn, "\n");
+
+    }
 }

@@ -31,9 +31,6 @@ Check 41
 */
 
 
-
-
-
 export const actionMapping = {
     // Showdown logic: when players need to show their cards we'll set this to
     // be gamestate.  Then as each player shows their cards, we'll multiply by
@@ -583,6 +580,126 @@ export class PoZKerApp extends SmartContract {
         this.gamestate.set(this.GameOver);
     }
 
+    cardPrimeToCardPoint(cardPrime: UInt64): PublicKey {
+        /*
+        Players will pass in the prime52 value of their card, we want to get
+        the publickey, the cardPoint, associated with that card, so we can
+        ensure the cards they passed in are the cards that were committed
+    
+        Code to generate this mapping is in gameutils
+        */
+        console.log("Getting value");
+        Provable.log(cardPrime);
+        const cardPoint = Provable.switch([cardPrime.equals(UInt64.from(2)),
+        cardPrime.equals(UInt64.from(3)),
+        cardPrime.equals(UInt64.from(5)),
+        cardPrime.equals(UInt64.from(7)),
+        cardPrime.equals(UInt64.from(11)),
+        cardPrime.equals(UInt64.from(13)),
+        cardPrime.equals(UInt64.from(17)),
+        cardPrime.equals(UInt64.from(19)),
+        cardPrime.equals(UInt64.from(23)),
+        cardPrime.equals(UInt64.from(29)),
+        cardPrime.equals(UInt64.from(31)),
+        cardPrime.equals(UInt64.from(37)),
+        cardPrime.equals(UInt64.from(41)),
+        cardPrime.equals(UInt64.from(43)),
+        cardPrime.equals(UInt64.from(47)),
+        cardPrime.equals(UInt64.from(53)),
+        cardPrime.equals(UInt64.from(59)),
+        cardPrime.equals(UInt64.from(61)),
+        cardPrime.equals(UInt64.from(67)),
+        cardPrime.equals(UInt64.from(71)),
+        cardPrime.equals(UInt64.from(73)),
+        cardPrime.equals(UInt64.from(79)),
+        cardPrime.equals(UInt64.from(83)),
+        cardPrime.equals(UInt64.from(89)),
+        cardPrime.equals(UInt64.from(97)),
+        cardPrime.equals(UInt64.from(101)),
+        cardPrime.equals(UInt64.from(103)),
+        cardPrime.equals(UInt64.from(107)),
+        cardPrime.equals(UInt64.from(109)),
+        cardPrime.equals(UInt64.from(113)),
+        cardPrime.equals(UInt64.from(127)),
+        cardPrime.equals(UInt64.from(131)),
+        cardPrime.equals(UInt64.from(137)),
+        cardPrime.equals(UInt64.from(139)),
+        cardPrime.equals(UInt64.from(149)),
+        cardPrime.equals(UInt64.from(151)),
+        cardPrime.equals(UInt64.from(157)),
+        cardPrime.equals(UInt64.from(163)),
+        cardPrime.equals(UInt64.from(167)),
+        cardPrime.equals(UInt64.from(173)),
+        cardPrime.equals(UInt64.from(179)),
+        cardPrime.equals(UInt64.from(181)),
+        cardPrime.equals(UInt64.from(191)),
+        cardPrime.equals(UInt64.from(193)),
+        cardPrime.equals(UInt64.from(197)),
+        cardPrime.equals(UInt64.from(199)),
+        cardPrime.equals(UInt64.from(211)),
+        cardPrime.equals(UInt64.from(223)),
+        cardPrime.equals(UInt64.from(227)),
+        cardPrime.equals(UInt64.from(229)),
+        cardPrime.equals(UInt64.from(233)),
+        cardPrime.equals(UInt64.from(239))],
+            PublicKey,
+            [PublicKey.fromBase58("B62qs2xPJgNhvBw7ubgppB4YSDf1dYyvLYD1ghCrhnkXabLSVAainWx"),
+            PublicKey.fromBase58("B62qoK7BxuzJx9Kn7hzNXxJGLXXzmXgzfg59p4ZCWYGXsJE2hbwZC2j"),
+            PublicKey.fromBase58("B62qrKpP3NBbF97cx2aAdCmaSuVqaiGgvs9fMARxASPmVFgugoQekjr"),
+            PublicKey.fromBase58("B62qmn9ZV1nNyLUG7fCcQHpkkt4PaT8ctgtrPyqtBNHP2KfexF2hPro"),
+            PublicKey.fromBase58("B62qkj5CSRx9qWwYtHUWaYp5M3whGuhavCmZWBwsTAK9Du7xsq1NgUb"),
+            PublicKey.fromBase58("B62qopEG5GqujH3reoh4uAwcbGMJnzSBnokPS1aP7KZGJDK9Yvsn8g3"),
+            PublicKey.fromBase58("B62qoYts8pW1GVTt44vhA3esBDN67UsX9jLBackLGarfVKBRWtjQBkU"),
+            PublicKey.fromBase58("B62qmK1iyMJfJZXd717RexE9TVf7uLd848gpkWYnnnEufUUWjsmN1Xs"),
+            PublicKey.fromBase58("B62qjuepd8NRZzHqVbKcRJUtM5zdM9B2Me2pzDi4i1kUKz1C8Mous19"),
+            PublicKey.fromBase58("B62qmS2bNfvrRXPzLyvbaBVF9g2J6crL4zR6LjcRQzTxzqXTBEjprno"),
+            PublicKey.fromBase58("B62qnLS6BkhAXF3YHkpSZ9brNoLk1kSo55VQsZqrfYorZVrnjckzQfQ"),
+            PublicKey.fromBase58("B62qjbhEXAYUqMESzUk4XZcXf5dcTpUy8Sv4Kd231oKs29j25AF23Jc"),
+            PublicKey.fromBase58("B62qoa5ohnNnFEXfbPshXCzkBkgWSzXk3auy2yS9hyjLma4EkH7xWbs"),
+            PublicKey.fromBase58("B62qqqUB9WmFCviaiPxnvT6a8PhtFyyfWtGUC5fLzrZh8MLuHteR23u"),
+            PublicKey.fromBase58("B62qn7Qv1Ur7eEd8MUvm8G2QX2xy5KZ2XGFpHSvXFapzpUPe3mkqscG"),
+            PublicKey.fromBase58("B62qpaK3GbVbpeoZyF95KmaDbTzM9YPpzeGNFVNfiuCAaS6iEAUqTVy"),
+            PublicKey.fromBase58("B62qj8HkeQ2fzttty6TdWuDawJzFB1YozQARYCAtU3w2SUhDBtkQk8V"),
+            PublicKey.fromBase58("B62qj7gbbFMhEPnsmVsouRyDuqzqY5GYYL9xYYxC9VVoREJcGEZAmRy"),
+            PublicKey.fromBase58("B62qrYfYzv33FQ7tkKSveW4Bv5TPWR8w8BHFRboCezML9uia1JvQqM4"),
+            PublicKey.fromBase58("B62qnT7U86RKp6wmCeDN9H8hLoQM63iwREcaYZ3QprmbHFp3B8pJ3Tg"),
+            PublicKey.fromBase58("B62qmTF5nNcEfTqmoEuTgjBFRYdZ2P4SBBNsyV4qgtFuqKvWKVZ6vxH"),
+            PublicKey.fromBase58("B62qk6tpoVSvS9N6tba72VAYij9kGkYfntz2HxuGXWbKTHnJcexYLBU"),
+            PublicKey.fromBase58("B62qoXjH7mB9F1Lh7bqCJ2HK6ugV5aL4hsmJQKDhnNVPojqoUywk8tD"),
+            PublicKey.fromBase58("B62qpYXzESQUfvssCXHpMBBA68PDWyg5AbKqsS6uPh6edTeJRaeMCeX"),
+            PublicKey.fromBase58("B62qoNUbnMGz2wSP6fThYAzi9pgXjbXCsFLcN24feAGjfK9FEikyv44"),
+            PublicKey.fromBase58("B62qiuLMUJ9xPCYGqAzJY2C8JTwgAFhfgZFTnVRsq3EBksHKAE1G3mX"),
+            PublicKey.fromBase58("B62qobewhPUGcq3d51k7LpprwpdvZXHa3tt5cQqrHXFwGMYr1sfzytJ"),
+            PublicKey.fromBase58("B62qpzcCZwyVuc3jMMK6hSWML5XFBDHhjGzxmQxqbxsj7CUq69tz73u"),
+            PublicKey.fromBase58("B62qkJX7rwZhVvERKLTgdP1nR2uvp7r71gUMbg4r433hqGchqVUSAvH"),
+            PublicKey.fromBase58("B62qjzb33UZEW73Azm4UNLHt5h9j8QGN1VHthZ5qtLp4HW2RopPgqnq"),
+            PublicKey.fromBase58("B62qiyjjmivsXANPdai446hdVxbzp3XGvBeqrp2MwPagawWgGFscitu"),
+            PublicKey.fromBase58("B62qmm9QtXK2sgunTFQZHcZ4QLoWxcm2kqR8Funhhz1cCnoWDKrZCo7"),
+            PublicKey.fromBase58("B62qmCRjfwQf5TqVAthSsahapRo3TzAJLWV111Jvjysnd52T15Hhqv8"),
+            PublicKey.fromBase58("B62qndkT7z5GRdNdVzFVJS5n3VyY2F7Vz3EpGyPiCUpiHRUm6uLdb8Z"),
+            PublicKey.fromBase58("B62qkehCjfnN9sppd6XqsP8yBg5QcBgKpYbBqBz57ucmi5PLhwG2S9f"),
+            PublicKey.fromBase58("B62qnfRT4wwPbTqDA5RaLYpoQEnB1HoafQmpZDjyhqUGfy6JmcpW5cB"),
+            PublicKey.fromBase58("B62qpemVeQk9KtShw7i4LBkXHKncPLEmWvubA2Rm79adXDmNYP8DbuA"),
+            PublicKey.fromBase58("B62qiczv8AH2wHirAXEYWs3FofpqmwMAMqsH1turCF5pg4yDyTHo96o"),
+            PublicKey.fromBase58("B62qoxgp76z6NxCACZMhVFmtFivGBXySv6rt1K4njuQj5FDek14KqmZ"),
+            PublicKey.fromBase58("B62qrjCGUYUt7RkTaycWK9UxmK2UrL2PqzTnsfbZ2TqKJzoRRQ4AETX"),
+            PublicKey.fromBase58("B62qju23mB8xFV8LD6KuzjYP5TrQ5oC8m3nbq21kJCaQyJhwBrS1BYJ"),
+            PublicKey.fromBase58("B62qniYvDRvQeGenwoCSWbuHkRYVJP35a1KhrWVg8DEV22HMg9BbRby"),
+            PublicKey.fromBase58("B62qpt7XdABiHZtKWaf7wYmf4ZpeYJd2LfbT7w9dJAR9hhM4UC8MpsP"),
+            PublicKey.fromBase58("B62qn6aN7zUMDNDCq4s39nf32mks7YRRatUimtgmTyEH5ghPnbnCqER"),
+            PublicKey.fromBase58("B62qnwVexivudVh5CAj1yqGXFkrgjimR1F3WB4cq3VZ2KNn5WL8XNGX"),
+            PublicKey.fromBase58("B62qmTVrhEfXW1h5R9Ea8Lzgv8LapGZmmjBwzujsPoe58DtKA896QLb"),
+            PublicKey.fromBase58("B62qqPPARzHjNc222t1EHbaU2jAVNGxai1Pfv229xj2Qen6R3dHuw6V"),
+            PublicKey.fromBase58("B62qrdxHXHyuQjDSyYPsWYTEgtZBSEqF5bpTktk5RqSwbdojebLVZLH"),
+            PublicKey.fromBase58("B62qn9vSE3Jmep2pwx2XtfKV86omVpdcaYiY91mbcseKRRoPSEzx28Y"),
+            PublicKey.fromBase58("B62qogwrj3eDhmoNETRUX3VToBYuXo8r7NM8w1onp6RWYat1c56zpyu"),
+            PublicKey.fromBase58("B62qnp98SGKe6dQ2cTMUKJeWGhECfj57vZGS5D5MA9hr5bXFYMo3wDM"),
+            PublicKey.fromBase58("B62qqA4jWdkLUE2ceoJPyqVYViFga2kJJ1UUMG2hS4pbD8zxEHhtfvW")]);
+
+        return cardPoint;
+    }
+
+
     @method tallyBoardCards(cardPrime52: Field) {
         // Remember - cardPrime52 should be in the 52 format
         // We'll always store the board card product in slot2
@@ -767,8 +884,6 @@ export class PoZKerApp extends SmartContract {
         merkleMapKey: Field,
         merkleMapVal: Field,
         path: MerkleMapWitness,
-        holecard0Field: Field,
-        holecard1Field: Field
     ) {
 
         /*
@@ -817,7 +932,13 @@ export class PoZKerApp extends SmartContract {
         // const k2 = PrivateKey.fromBigInt(BigInt(holecard1.toBigInt())).toPublicKey();
         // const holecard0Field = k1.toFields()[0];
         // const holecard1Field = k2.toFields()[0];
-        const cardHash = this.generateHash(holecard0Field, holecard1Field, shuffleKey);
+
+        // TODO - get both card points here
+        const cardPoint1 = this.cardPrimeToCardPoint(holecard0);
+        const cardPoint2 = this.cardPrimeToCardPoint(holecard1);
+        const cardPoint1F = cardPoint1.toFields()[0]
+        const cardPoint2F = cardPoint2.toFields()[0]
+        const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleKey);
         // CHECK 3. re-hash the cards and confirm it matches their stored hash
         cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
 
@@ -926,7 +1047,6 @@ export class PoZKerApp extends SmartContract {
     }
 
     @method storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey, msgField1: Field, msgField2: Field) {
-
         // Used to store a hash of the player's cards
         // 1. decrypt both cards
         // 2. double hash the resulting value
@@ -944,11 +1064,12 @@ export class PoZKerApp extends SmartContract {
         // We are ALWAYS storing the encrypted cards in slots1 and 2
 
         // Want to decrypt BOTH cards, and multiply them together
-        const holecardPublicKey1 = this.decodeCard(epk1, msg1, shuffleSecret)
-        const holecardPublicKey2 = this.decodeCard(epk2, msg2, shuffleSecret)
-        const holecard1 = holecardPublicKey1.toFields()[0];
-        const holecard2 = holecardPublicKey2.toFields()[0];
-        const cardHash = this.generateHash(holecard1, holecard2, shuffleSecret);
+        const cardPoint1 = this.decodeCard(epk1, msg1, shuffleSecret)
+        const cardPoint2 = this.decodeCard(epk2, msg2, shuffleSecret)
+        // This is still a field representation of the card - not the prime52 value!
+        const cardPoint1F = cardPoint1.toFields()[0];
+        const cardPoint2F = cardPoint2.toFields()[0];
+        const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
 
         const slot0New = Provable.if(
             slotI.equals(0),
