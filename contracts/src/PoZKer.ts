@@ -588,8 +588,6 @@ export class PoZKerApp extends SmartContract {
     
         Code to generate this mapping is in gameutils
         */
-        console.log("Getting value");
-        Provable.log(cardPrime);
         const cardPoint = Provable.switch([cardPrime.equals(UInt64.from(2)),
         cardPrime.equals(UInt64.from(3)),
         cardPrime.equals(UInt64.from(5)),
@@ -906,7 +904,7 @@ export class PoZKerApp extends SmartContract {
         const slot2 = this.slot2.getAndAssertEquals();
 
 
-        // 0 - make sure player is a part of the game...
+        // CHECK 0. - make sure player is a part of the game...
         const player = PublicKey.fromPrivateKey(playerSecKey);
         const player1Hash = this.player1Hash.getAndAssertEquals();
         const player2Hash = this.player2Hash.getAndAssertEquals();
@@ -918,29 +916,6 @@ export class PoZKerApp extends SmartContract {
             slot0,
             slot1
         );
-
-        // 1. confirm the card lookup key and value are valid entries in the merkle map
-
-        // MerkleMapRootBasic, MerkleMapRootFlush
-
-        //const holecard0Field = holecard0.toFields()[0];
-        //const holecard1Field = holecard1.toFields()[0];
-
-        // ISSUE - can't do this conversion inside the contract
-        // how can we confirm field corresponds to prime52 value?
-        // const k1 = PrivateKey.fromBigInt(BigInt(holecard0.toBigInt())).toPublicKey();
-        // const k2 = PrivateKey.fromBigInt(BigInt(holecard1.toBigInt())).toPublicKey();
-        // const holecard0Field = k1.toFields()[0];
-        // const holecard1Field = k2.toFields()[0];
-
-        // TODO - get both card points here
-        const cardPoint1 = this.cardPrimeToCardPoint(holecard0);
-        const cardPoint2 = this.cardPrimeToCardPoint(holecard1);
-        const cardPoint1F = cardPoint1.toFields()[0]
-        const cardPoint2F = cardPoint2.toFields()[0]
-        const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleKey);
-        // CHECK 3. re-hash the cards and confirm it matches their stored hash
-        cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
 
         // CHECK 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
         // the lookupVal is the expected key for our merkle map
@@ -977,6 +952,7 @@ export class PoZKerApp extends SmartContract {
         isFlushReal.assertEquals(isFlush, 'Player did not pass in correct flush value!');
         lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Incorrect hand strenght passed in!');
 
+        // CHECK 1. confirm the card lookup key and value are valid entries in the merkle map
         // MerkleMapRootBasic
         // MerkleMapRootFlush
         const root = Provable.if(
@@ -984,16 +960,21 @@ export class PoZKerApp extends SmartContract {
             this.MerkleMapRootFlush,
             this.MerkleMapRootBasic,
         );
-
-        // TODO - fix path checks/logic...
         const pathValid = path.computeRootAndKey(merkleMapVal);
         pathValid[0].assertEquals(root);
         pathValid[1].assertEquals(merkleMapKey);
 
-        const boardcardMul = boardcard0.mul(boardcard1).mul(boardcard2).mul(boardcard3).mul(boardcard4);
-        const boardcardMulReal = UInt64.from(slot2);
+        // CHECK 3. re-hash the cards and confirm it matches their stored hash
+        const cardPoint1 = this.cardPrimeToCardPoint(holecard0);
+        const cardPoint2 = this.cardPrimeToCardPoint(holecard1);
+        const cardPoint1F = cardPoint1.toFields()[0]
+        const cardPoint2F = cardPoint2.toFields()[0]
+        const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleKey);
+        cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
 
         // CHECK 4. check that board cards are the real board cards
+        const boardcardMul = boardcard0.mul(boardcard1).mul(boardcard2).mul(boardcard3).mul(boardcard4);
+        const boardcardMulReal = UInt64.from(slot2);
         boardcardMul.assertEquals(boardcardMulReal);
         // And check that we have 5 boardcards - should not be divisible by null val
         const nullBoardcardUint = UInt64.from(this.NullBoardcard);
