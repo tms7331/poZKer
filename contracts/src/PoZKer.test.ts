@@ -152,7 +152,7 @@ describe('PoZKer', () => {
     const txnC1 = await Mina.transaction(playerPubKey2, () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(1);
-      zkAppInstance.commitCard(slotI, card1.msg.toFields()[0])
+      zkAppInstance.commitCard(slotI, card1.msg)
     });
     await txnC1.prove();
     await txnC1.sign([playerPrivKey2]).send();
@@ -160,7 +160,7 @@ describe('PoZKer', () => {
     const txnC2 = await Mina.transaction(playerPubKey2, () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(2);
-      zkAppInstance.commitCard(slotI, card2.msg.toFields()[0])
+      zkAppInstance.commitCard(slotI, card2.msg)
     });
     await txnC2.prove();
     await txnC2.sign([playerPrivKey2]).send();
@@ -170,9 +170,7 @@ describe('PoZKer', () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(0);
       const playerSecret = playerPrivKey1;
-      const msgField1 = card1.msg.toFields()[1];
-      const msgField2 = card2.msg.toFields()[1];
-      zkAppInstance.storeCardHash(slotI, playerSecret, card1.epk, card2.epk, msgField1, msgField2);
+      zkAppInstance.storeCardHash(slotI, playerSecret, card1.epk, card2.epk, card1.msg, card2.msg);
     });
     await txnC3.prove();
     await txnC3.sign([playerPrivKey1]).send();
@@ -180,7 +178,7 @@ describe('PoZKer', () => {
     const txnC4 = await Mina.transaction(playerPubKey1, () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(1);
-      zkAppInstance.commitCard(slotI, card3.msg.toFields()[0])
+      zkAppInstance.commitCard(slotI, card3.msg)
     });
     await txnC4.prove();
     await txnC4.sign([playerPrivKey1]).send();
@@ -188,7 +186,7 @@ describe('PoZKer', () => {
     const txnC5 = await Mina.transaction(playerPubKey1, () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(2);
-      zkAppInstance.commitCard(slotI, card4.msg.toFields()[0])
+      zkAppInstance.commitCard(slotI, card4.msg)
     });
     await txnC5.prove();
     await txnC5.sign([playerPrivKey1]).send();
@@ -198,9 +196,7 @@ describe('PoZKer', () => {
       // Have to put it in slots 1 and 2
       const slotI = Field(1);
       const playerSecret = playerPrivKey2;
-      const msgField1 = card3.msg.toFields()[1];
-      const msgField2 = card4.msg.toFields()[1];
-      zkAppInstance.storeCardHash(slotI, playerSecret, card3.epk, card4.epk, msgField1, msgField2);
+      zkAppInstance.storeCardHash(slotI, playerSecret, card3.epk, card4.epk, card3.msg, card4.msg);
     });
     await txnC6.prove();
     await txnC6.sign([playerPrivKey2]).send();
@@ -557,7 +553,7 @@ describe('PoZKer', () => {
 
   })
 
-  it.only('allows players to show their cards', async () => {
+  it('allows players to show their cards', async () => {
     await localDeploy();
     await setPlayers();
     await localDeposit();

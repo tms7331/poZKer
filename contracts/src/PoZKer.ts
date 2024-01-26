@@ -1046,7 +1046,7 @@ export class PoZKerApp extends SmartContract {
         return pubKey
     }
 
-    @method storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey, msgField1: Field, msgField2: Field) {
+    @method storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey, msg1: PublicKey, msg2: PublicKey) {
         // Used to store a hash of the player's cards
         // 1. decrypt both cards
         // 2. double hash the resulting value
@@ -1054,12 +1054,13 @@ export class PoZKerApp extends SmartContract {
 
         // For both players their encrypted card will be stored here
         const slot0 = this.slot0.getAndAssertEquals();
-        // these are the cards
+        // these are the cards - should be the same as 'msg' that we passed in
+        // but have to pass in 'msg' because we need the secon field
         const msg1F = this.slot1.getAndAssertEquals();
         const msg2F = this.slot2.getAndAssertEquals();
-        // We have to pass in the second field to get them to match
-        const msg1 = PublicKey.fromFields([msg1F, msgField1]);
-        const msg2 = PublicKey.fromFields([msg2F, msgField2]);
+
+        msg1F.assertEquals(msg1.toFields()[0]);
+        msg2F.assertEquals(msg2.toFields()[0]);
 
         // We are ALWAYS storing the encrypted cards in slots1 and 2
 
@@ -1091,7 +1092,7 @@ export class PoZKerApp extends SmartContract {
         this.slot2.set(noBoardcards);
     }
 
-    @method commitCard(slotI: Field, msg: Field) {
+    @method commitCard(slotI: Field, msg: PublicKey) {
         // msg corresponds to the field representation of the msg PublicKey in the mentalpoker Card struct
 
         // The other player should perform their half of the partialUnmask,
@@ -1100,16 +1101,18 @@ export class PoZKerApp extends SmartContract {
         // Players can then decrypt their cards, preserving the secrecy of the
         // cards and avoiding the need for a trusted dealer
 
+        const msgF = msg.toFields()[0];
+
         const slot1 = this.slot1.getAndAssertEquals();
         const slot2 = this.slot2.getAndAssertEquals();
         const slot1New = Provable.if(
             slotI.equals(1),
-            msg,
+            msgF,
             slot1,
         );
         const slot2New = Provable.if(
             slotI.equals(2),
-            msg,
+            msgF,
             slot2,
         );
         this.slot1.set(slot1New);
