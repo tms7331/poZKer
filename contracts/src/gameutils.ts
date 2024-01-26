@@ -9,6 +9,7 @@ import {
 import fs from 'fs';
 import { cardMapping52, actionMapping } from './PoZKer.js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
+import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY } from './mentalpoker.js';
 
 
 export type CardStr = '2d' | '3d' | '4d' | '5d' | '6d' | '7d' | '8d' | '9d' | 'Td' | 'Jd' | 'Qd' | 'Kd' | 'Ad' | '2c' | '3c' | '4c' | '5c' | '6c' | '7c' | '8c' | '9c' | 'Tc' | 'Jc' | 'Qc' | 'Kc' | 'Ac' | '2h' | '3h' | '4h' | '5h' | '6h' | '7h' | '8h' | '9h' | 'Th' | 'Jh' | 'Qh' | 'Kh' | 'Ah' | '2s' | '3s' | '4s' | '5s' | '6s' | '7s' | '8s' | '9s' | 'Ts' | 'Js' | 'Qs' | 'Ks' | 'As';
@@ -298,4 +299,30 @@ export function buildCardPrimeToCardPointMapping(cardMapping52: Record<string, n
         fs.appendFileSync(fn, "\n");
 
     }
+}
+
+
+// Helper functions for decoding cards
+export function getCardAndPrime(cardMapping: Record<string, string>, card_: Card, shuffleKeyP1: PrivateKey, shuffleKeyP2: PrivateKey): [CardStr, number] {
+    // TODO - doesn't make sense to have this here, 
+    // function that takes both private keys is clearly no good.
+    // But how are players communicating with each other?
+    // Are we storing the cards in the contract and decoding step by step?
+    let card = partialUnmask(card_, shuffleKeyP1);
+    card = partialUnmask(card, shuffleKeyP2);
+
+    const cardStr = cardMapping[card.msg.toBase58()] as CardStr;
+    const cardPrime = cardMapping52[cardStr];
+
+    // Now use map back to card
+    return [cardStr, cardPrime]
+}
+
+export function getCardAndPrimeHalf(cardMapping: Record<string, string>, card_: Card, shuffleKey: PrivateKey): [CardStr, number] {
+    // Same as function above, need to rethink how this fits in
+    let card = partialUnmask(card_, shuffleKey);
+    const cardStr = cardMapping[card.msg.toBase58()] as CardStr;
+    const cardPrime = cardMapping52[cardStr];
+    // Now use map back to card
+    return [cardStr, cardPrime]
 }

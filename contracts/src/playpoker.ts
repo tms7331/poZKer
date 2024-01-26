@@ -21,7 +21,7 @@ import {
     MerkleMapWitness,
 } from 'o1js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
-import { CardStr, getMerkleMapWitness, parseCardInt, getShowdownData, getPlayer, getStreet, cardPrimeToPublicKey, buildCardMapping, shuffleCards } from './gameutils.js';
+import { CardStr, getMerkleMapWitness, getShowdownData, getPlayer, getStreet, cardPrimeToPublicKey, buildCardMapping, shuffleCards, getCardAndPrime, getCardAndPrimeHalf } from './gameutils.js';
 
 await isReady;
 
@@ -137,29 +137,6 @@ await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
 
 
 // TODO - move these to separate script...
-function getCardAndPrime(card_: Card, shuffleKeyP1: PrivateKey, shuffleKeyP2: PrivateKey): [CardStr, number] {
-    // TODO - doesn't make sense to have this here, 
-    // function that takes both private keys is clearly no good.
-    // But how are players communicating with each other?
-    // Are we storing the cards in the contract and decoding step by step?
-    let card = partialUnmask(card_, shuffleKeyP1);
-    card = partialUnmask(card, shuffleKeyP2);
-
-    const cardStr = cardMapping[card.msg.toBase58()] as CardStr;
-    const cardPrime = cardMapping52[cardStr];
-
-    // Now use map back to card
-    return [cardStr, cardPrime]
-}
-
-function getCardAndPrimeHalf(card_: Card, shuffleKey: PrivateKey): [CardStr, number] {
-    // Same as function above, need to rethink how this fits in
-    let card = partialUnmask(card_, shuffleKey);
-    const cardStr = cardMapping[card.msg.toBase58()] as CardStr;
-    const cardPrime = cardMapping52[cardStr];
-    // Now use map back to card
-    return [cardStr, cardPrime]
-}
 
 
 let txSend1 = await Mina.transaction(fundedPubKey1, () => {
@@ -234,10 +211,10 @@ card4 = partialUnmask(card4, shuffleKeyP1);
 
 
 // Now the players can finish decoding their cards
-const [card1Str, card1prime52] = getCardAndPrimeHalf(card1, shuffleKeyP1)
-const [card2Str, card2prime52] = getCardAndPrimeHalf(card2, shuffleKeyP1)
-const [card3Str, card3prime52] = getCardAndPrimeHalf(card3, shuffleKeyP2)
-const [card4Str, card4prime52] = getCardAndPrimeHalf(card4, shuffleKeyP2)
+const [card1Str, card1prime52] = getCardAndPrimeHalf(cardMapping, card1, shuffleKeyP1)
+const [card2Str, card2prime52] = getCardAndPrimeHalf(cardMapping, card2, shuffleKeyP1)
+const [card3Str, card3prime52] = getCardAndPrimeHalf(cardMapping, card3, shuffleKeyP2)
+const [card4Str, card4prime52] = getCardAndPrimeHalf(cardMapping, card4, shuffleKeyP2)
 
 const txnC1 = await Mina.transaction(playerPubKey2, () => {
     // Have to put it in slots 1 and 2
@@ -461,9 +438,9 @@ while (true) {
         if (street == "Flop") {
             console.log("DEALING FLOP...")
 
-            const [flop1, cardPrime1] = getCardAndPrime(shuffledCards[4], shuffleKeyP1, shuffleKeyP2)
-            const [flop2, cardPrime2] = getCardAndPrime(shuffledCards[5], shuffleKeyP1, shuffleKeyP2)
-            const [flop3, cardPrime3] = getCardAndPrime(shuffledCards[6], shuffleKeyP1, shuffleKeyP2)
+            const [flop1, cardPrime1] = getCardAndPrime(cardMapping, shuffledCards[4], shuffleKeyP1, shuffleKeyP2)
+            const [flop2, cardPrime2] = getCardAndPrime(cardMapping, shuffledCards[5], shuffleKeyP1, shuffleKeyP2)
+            const [flop3, cardPrime3] = getCardAndPrime(cardMapping, shuffledCards[6], shuffleKeyP1, shuffleKeyP2)
 
             boardStrs.push(flop1)
             boardStrs.push(flop2);
@@ -500,7 +477,7 @@ while (true) {
             // let turnHand: Card = turn.hand[0]
             //boardStrs.push(parseCardInt(parseInt(turnHand)));
 
-            const [turn, cardPrime1] = getCardAndPrime(shuffledCards[7], shuffleKeyP1, shuffleKeyP2)
+            const [turn, cardPrime1] = getCardAndPrime(cardMapping, shuffledCards[7], shuffleKeyP1, shuffleKeyP2)
 
             boardStrs.push(turn);
             console.log("BOARD IS", boardStrs);
@@ -517,7 +494,7 @@ while (true) {
         else if (street == "River") {
             console.log("DEALING RIVER...")
 
-            const [river, cardPrime1] = getCardAndPrime(shuffledCards[8], shuffleKeyP1, shuffleKeyP2)
+            const [river, cardPrime1] = getCardAndPrime(cardMapping, shuffledCards[8], shuffleKeyP1, shuffleKeyP2)
             boardStrs.push(river);
             console.log("BOARD IS", boardStrs);
 
