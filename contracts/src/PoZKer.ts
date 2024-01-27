@@ -211,6 +211,49 @@ export class PoZKerApp extends SmartContract {
         this.player2Hash.set(p2Hash);
     }
 
+    recordMove(player: PublicKey) {
+        // TODO - how can we record this number?
+        const blockNumber = this.network.blockchainLength;
+    }
+
+    @method playerTimeout(playerSecKey: PrivateKey) {
+        // If the other player hasn't made a move in n blocks, we can
+        // end the hand and claim the pot...
+        // TODO - we need to be recording block numbers so we can verify timeout condition is met
+
+        const gamestate = this.gamestate.getAndAssertEquals();
+        const player1Hash = this.player1Hash.getAndAssertEquals();
+        const player2Hash = this.player2Hash.getAndAssertEquals();
+        const stack1 = this.stack1.getAndAssertEquals();
+        const stack2 = this.stack2.getAndAssertEquals();
+
+        gamestate.equals(this.GameOver).not().assertTrue('Game has already finished!');
+
+        const player = PublicKey.fromPrivateKey(playerSecKey);
+        const playerHash = Poseidon.hash(player.toFields());
+
+        const p1WinnerBal = stack1.add(this.GameBuyin.sub(stack2));
+        const p2WinnerBal = stack2.add(this.GameBuyin.sub(stack1));
+
+        // We must  check that that the OTHER player has timed out for this to be valid
+        const stack1Final = Provable.if(
+            playerHash.equals(player2Hash),
+            p1WinnerBal,
+            stack1
+        );
+        const stack2Final = Provable.if(
+            playerHash.equals(player1Hash),
+            p2WinnerBal,
+            stack2
+        );
+
+        this.stack1.set(stack1Final);
+        this.stack2.set(stack2Final);
+
+        this.gamestate.set(this.GameOver)
+    }
+
+
     @method withdraw(playerSecKey: PrivateKey) {
         // Can ONLY withdraw when the hand is over!
         const isGameOver = this.gamestate.getAndAssertEquals();
@@ -242,7 +285,6 @@ export class PoZKerApp extends SmartContract {
             UInt64.from(0),
             stack1
         );
-
         this.stack1.set(stack1New);
 
         const stack2New = Provable.if(
@@ -1074,6 +1116,7 @@ export class PoZKerApp extends SmartContract {
     }
 
     @method commitCard(slotI: Field, msg: PublicKey) {
+
         // msg corresponds to the field representation of the msg PublicKey in the mentalpoker Card struct
 
         // The other player should perform their half of the partialUnmask,
