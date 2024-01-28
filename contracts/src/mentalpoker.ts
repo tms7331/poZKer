@@ -1,7 +1,7 @@
 // NOTE - Code ported from snarkyjs implementation
 // Available under Apache License 2.0 at: 
 // https://github.com/mirceanis/prove-my-turn/blob/main/src/utils.ts
-import { Struct, Group, Scalar, PublicKey, PrivateKey, Bool, Provable, } from 'o1js';
+import { Struct, Group, Scalar, PublicKey, PrivateKey, Bool, Provable, Poseidon, Field } from 'o1js';
 import fs from 'fs';
 
 export class Card extends Struct({
@@ -137,6 +137,18 @@ export function buildCardMapping(cardMapping52: Record<string, number>): Record<
         keyToCard[publicKeyStr] = key;
     }
     return keyToCard;
+}
+
+
+
+// Players will need to share shuffled cards via some centralized server
+// In order to have it remain trustless, if both players exchange a half
+// encrypted deck and then confirim hash of fully encrypted cards are the same
+// deck
+export function hashShuffledDeck(shuffledCards: Card[]) {
+    const msgArr: Field[] = shuffledCards.map(item => item.msg.toFields()[0]);
+    msgArr.sort()
+    return Poseidon.hash(msgArr);
 }
 
 

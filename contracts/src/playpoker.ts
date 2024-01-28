@@ -1,6 +1,5 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
 import { PoZKerApp, actionMapping, cardMapping52 } from './PoZKer.js';
-import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY } from './mentalpoker.js';
 //import { readline } from 'readline';
 //const readline = require('readline');
 import readline from 'readline';
@@ -21,7 +20,8 @@ import {
     MerkleMapWitness,
 } from 'o1js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
-import { CardStr, getMerkleMapWitness, getShowdownData, getPlayer, getStreet, cardPrimeToPublicKey, buildCardMapping, shuffleCards, getCardAndPrime, getCardAndPrimeHalf } from './gameutils.js';
+import { CardStr, getMerkleMapWitness, getShowdownData, getPlayer, getStreet, shuffleCards } from './gameutils.js';
+import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY, cardPrimeToPublicKey, getCardAndPrimeHalf, getCardAndPrime, hashShuffledDeck } from './mentalpoker.js';
 
 await isReady;
 
@@ -69,7 +69,9 @@ const shuffleKeyP2 = PrivateKey.random()
 
 // This is a mapping from the publicKey.toBase58() of the cards
 // to their string value, B62abcdefg... -> 5h
-const cardMapping = buildCardMapping(cardMapping52)
+// const cardMapping = buildCardMapping(cardMapping52)
+// console.log(cardMapping)
+// throw ("FU");
 
 // Have to encode all cards and perform shuffle!
 const cards: Card[] = []
@@ -95,6 +97,14 @@ for (let i = 0; i < shuffledCards.length; i++) {
     let card = addPlayerToCardMask(shuffledCards[i], shuffleKeyP2);
     card = mask(card);
     shuffledCards[i] = card;
+}
+
+// So each playeyr should be able to do this and get the same hash...
+// Need to separate shuffles and then how can they exchange hashes?
+const hash1 = hashShuffledDeck(shuffledCards)
+const hash2 = hashShuffledDeck(shuffledCards)
+if (hash1 != hash2) {
+    throw ("Bad hashes!")
 }
 
 
@@ -211,10 +221,14 @@ card4 = partialUnmask(card4, shuffleKeyP1);
 
 
 // Now the players can finish decoding their cards
-const [card1Str, card1prime52] = getCardAndPrimeHalf(cardMapping, card1, shuffleKeyP1)
-const [card2Str, card2prime52] = getCardAndPrimeHalf(cardMapping, card2, shuffleKeyP1)
-const [card3Str, card3prime52] = getCardAndPrimeHalf(cardMapping, card3, shuffleKeyP2)
-const [card4Str, card4prime52] = getCardAndPrimeHalf(cardMapping, card4, shuffleKeyP2)
+const card1Str = getCardAndPrimeHalf(card1, shuffleKeyP1)
+const card2Str = getCardAndPrimeHalf(card2, shuffleKeyP1)
+const card3Str = getCardAndPrimeHalf(card3, shuffleKeyP2)
+const card4Str = getCardAndPrimeHalf(card4, shuffleKeyP2)
+const card1prime52 = cardMapping52[card1Str as CardStr]
+const card2prime52 = cardMapping52[card2Str as CardStr]
+const card3prime52 = cardMapping52[card3Str as CardStr]
+const card4prime52 = cardMapping52[card4Str as CardStr]
 
 const txnC1 = await Mina.transaction(playerPubKey2, () => {
     // Have to put it in slots 1 and 2
@@ -438,13 +452,16 @@ while (true) {
         if (street == "Flop") {
             console.log("DEALING FLOP...")
 
-            const [flop1, cardPrime1] = getCardAndPrime(cardMapping, shuffledCards[4], shuffleKeyP1, shuffleKeyP2)
-            const [flop2, cardPrime2] = getCardAndPrime(cardMapping, shuffledCards[5], shuffleKeyP1, shuffleKeyP2)
-            const [flop3, cardPrime3] = getCardAndPrime(cardMapping, shuffledCards[6], shuffleKeyP1, shuffleKeyP2)
+            const flop1 = getCardAndPrime(shuffledCards[4], shuffleKeyP1, shuffleKeyP2)
+            const flop2 = getCardAndPrime(shuffledCards[5], shuffleKeyP1, shuffleKeyP2)
+            const flop3 = getCardAndPrime(shuffledCards[6], shuffleKeyP1, shuffleKeyP2)
+            const cardPrime1 = cardMapping52[flop1 as CardStr]
+            const cardPrime2 = cardMapping52[flop2 as CardStr]
+            const cardPrime3 = cardMapping52[flop3 as CardStr]
 
-            boardStrs.push(flop1)
-            boardStrs.push(flop2);
-            boardStrs.push(flop3);
+            boardStrs.push(flop1 as CardStr)
+            boardStrs.push(flop2 as CardStr);
+            boardStrs.push(flop3 as CardStr);
             console.log("BOARD IS", boardStrs);
 
             boardPrimes.push(UInt64.from(cardPrime1));
@@ -476,10 +493,10 @@ while (true) {
             // let turn = await getTakeFromOracle(GAME_ID.toString());
             // let turnHand: Card = turn.hand[0]
             //boardStrs.push(parseCardInt(parseInt(turnHand)));
+            const turn = getCardAndPrime(shuffledCards[7], shuffleKeyP1, shuffleKeyP2)
+            const cardPrime1 = cardMapping52[turn as CardStr]
 
-            const [turn, cardPrime1] = getCardAndPrime(cardMapping, shuffledCards[7], shuffleKeyP1, shuffleKeyP2)
-
-            boardStrs.push(turn);
+            boardStrs.push(turn as CardStr);
             console.log("BOARD IS", boardStrs);
 
             boardPrimes.push(UInt64.from(cardPrime1));
@@ -494,8 +511,10 @@ while (true) {
         else if (street == "River") {
             console.log("DEALING RIVER...")
 
-            const [river, cardPrime1] = getCardAndPrime(cardMapping, shuffledCards[8], shuffleKeyP1, shuffleKeyP2)
-            boardStrs.push(river);
+            const river = getCardAndPrime(shuffledCards[8], shuffleKeyP1, shuffleKeyP2)
+            const cardPrime1 = cardMapping52[river as CardStr]
+            boardStrs.push(river as CardStr);
+
             console.log("BOARD IS", boardStrs);
 
             boardPrimes.push(UInt64.from(cardPrime1));

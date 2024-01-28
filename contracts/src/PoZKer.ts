@@ -1,4 +1,4 @@
-import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, AccountUpdate, Poseidon, MerkleMapWitness, Scalar } from 'o1js';
+import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, UInt32, AccountUpdate, Poseidon, MerkleMapWitness, Scalar, } from 'o1js';
 
 /*
 Creating a mapping of prime numbers in order to combine:
@@ -214,6 +214,7 @@ export class PoZKerApp extends SmartContract {
     recordMove(player: PublicKey) {
         // TODO - how can we record this number?
         const blockNumber = this.network.blockchainLength;
+        const bn: UInt32 = blockNumber.getAndAssertEquals();
     }
 
     @method playerTimeout(playerSecKey: PrivateKey) {
