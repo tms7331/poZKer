@@ -1,7 +1,7 @@
 import { cardMapping52 } from './PoZKer';
 import { PrivateKey, PublicKey, UInt64, } from 'o1js';
-import { getShowdownData, cardPrimeToPublicKey, buildCardMapping, shuffleCards } from './gameutils.js';
-import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY } from './mentalpoker.js';
+import { getShowdownData, shuffleCards } from './gameutils.js';
+import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY, cardPrimeToPublicKey, buildCardMapping, } from './mentalpoker.js';
 
 
 describe('PoZKer', () => {

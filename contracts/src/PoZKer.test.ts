@@ -1,8 +1,8 @@
 import { PoZKerApp, actionMapping, cardMapping52 } from './PoZKer';
 import { Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt64, MerkleMapWitness } from 'o1js';
 import fs from 'fs';
-import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY } from './mentalpoker.js';
-import { getMerkleMapWitness, getShowdownData, cardPrimeToPublicKey, CardStr } from './gameutils.js';
+import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY, cardPrimeToPublicKey } from './mentalpoker.js';
+import { getMerkleMapWitness, getShowdownData } from './gameutils.js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
 
 let proofsEnabled = false;

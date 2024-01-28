@@ -3,13 +3,10 @@ import {
     MerkleMapWitness,
     Bool,
     UInt64,
-    PrivateKey,
-    PublicKey,
 } from 'o1js';
 import fs from 'fs';
 import { cardMapping52, actionMapping } from './PoZKer.js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
-import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY } from './mentalpoker.js';
 
 
 export type CardStr = '2d' | '3d' | '4d' | '5d' | '6d' | '7d' | '8d' | '9d' | 'Td' | 'Jd' | 'Qd' | 'Kd' | 'Ad' | '2c' | '3c' | '4c' | '5c' | '6c' | '7c' | '8c' | '9c' | 'Tc' | 'Jc' | 'Qc' | 'Kc' | 'Ac' | '2h' | '3h' | '4h' | '5h' | '6h' | '7h' | '8h' | '9h' | 'Th' | 'Jh' | 'Qh' | 'Kh' | 'Ah' | '2s' | '3s' | '4s' | '5s' | '6s' | '7s' | '8s' | '9s' | 'Ts' | 'Js' | 'Qs' | 'Ks' | 'As';
@@ -194,12 +191,6 @@ export function getShowdownData(allCardsUint: [UInt64, UInt64, UInt64, UInt64, U
 
 }
 
-
-function parseOracleResp(cardHand0: number) {
-    const cardInt = cardHand0 - 1;
-    return cardInt;
-}
-
 const P1 = actionMapping["P1"];
 const P2 = actionMapping["P2"];
 const PREFLOP = actionMapping["Preflop"];
@@ -240,29 +231,6 @@ export function getPlayer(gamestate: number) {
 }
 
 
-// We need public keys as points for our mental poker encryption scheme,
-// it's acceptable to make these points deterministic
-export function cardPrimeToPublicKey(cardPrime: number): PublicKey {
-    return PrivateKey.fromBigInt(BigInt(cardPrime)).toPublicKey();
-}
-
-// Want to return a mapping that will allow us to recover the card
-// from the public key generated with cardPrimeToPublicKey
-// This will map back to the card str!
-export function buildCardMapping(cardMapping52: Record<string, number>): Record<string, string> {
-    const keyToCard: Record<string, string> = {}
-
-    for (const [key, value] of Object.entries(cardMapping52)) {
-        if (key === "") {
-            continue
-        }
-        const publicKey: PublicKey = cardPrimeToPublicKey(value)
-        const publicKeyStr: string = publicKey.toBase58();
-        keyToCard[publicKeyStr] = key;
-    }
-    return keyToCard;
-}
-
 
 // fisher-yates shuffle, from chatgpt
 export function shuffleCards<T>(inputArray: Array<T>): Array<T> {
@@ -278,51 +246,4 @@ export function shuffleCards<T>(inputArray: Array<T>): Array<T> {
     }
 
     return array;
-}
-
-// generates the mapping / switch statement used in cardPrimeToCardPoint
-export function buildCardPrimeToCardPointMapping(cardMapping52: Record<string, number>) {
-    const fn = "CardPointToPrimeMap.txt";
-    for (const [key, value] of Object.entries(cardMapping52)) {
-        if (key === "") {
-            continue
-        }
-        const publicKey: PublicKey = cardPrimeToPublicKey(value)
-        const publicKeyStr: string = publicKey.toBase58();
-        // just print them all out, we'll manually put together the switch statement
-        console.log(publicKeyStr)
-        console.log(value)
-
-        fs.appendFileSync(fn, publicKeyStr);
-        fs.appendFileSync(fn, "\n");
-        fs.appendFileSync(fn, value.toString());
-        fs.appendFileSync(fn, "\n");
-
-    }
-}
-
-
-// Helper functions for decoding cards
-export function getCardAndPrime(cardMapping: Record<string, string>, card_: Card, shuffleKeyP1: PrivateKey, shuffleKeyP2: PrivateKey): [CardStr, number] {
-    // TODO - doesn't make sense to have this here, 
-    // function that takes both private keys is clearly no good.
-    // But how are players communicating with each other?
-    // Are we storing the cards in the contract and decoding step by step?
-    let card = partialUnmask(card_, shuffleKeyP1);
-    card = partialUnmask(card, shuffleKeyP2);
-
-    const cardStr = cardMapping[card.msg.toBase58()] as CardStr;
-    const cardPrime = cardMapping52[cardStr];
-
-    // Now use map back to card
-    return [cardStr, cardPrime]
-}
-
-export function getCardAndPrimeHalf(cardMapping: Record<string, string>, card_: Card, shuffleKey: PrivateKey): [CardStr, number] {
-    // Same as function above, need to rethink how this fits in
-    let card = partialUnmask(card_, shuffleKey);
-    const cardStr = cardMapping[card.msg.toBase58()] as CardStr;
-    const cardPrime = cardMapping52[cardStr];
-    // Now use map back to card
-    return [cardStr, cardPrime]
 }
