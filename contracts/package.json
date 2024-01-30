@@ -42,7 +42,7 @@
     "o1js": "^0.13.*"
   },
   "dependencies": {
-    "o1js-elgamal": "^0.0.10",
+    "o1js-pack": "^0.5.0",
     "snarkyjs": "^0.12.1",
     "uint8arrays": "^4.0.6"
   }
