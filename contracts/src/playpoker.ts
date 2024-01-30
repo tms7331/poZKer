@@ -1,5 +1,5 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
-import { PoZKerApp, actionMapping, cardMapping52 } from './PoZKer.js';
+import { PoZKerApp, actionMapping, cardMapping52, Stacks } from './PoZKer.js';
 //import { readline } from 'readline';
 //const readline = require('readline');
 import readline from 'readline';
@@ -14,6 +14,7 @@ import {
     PrivateKey,
     PublicKey,
     AccountUpdate,
+    UInt32,
     UInt64,
     Poseidon,
     MerkleMap,
@@ -144,9 +145,14 @@ await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
 // ----------------------------------------------------
 
 
+// Same logic as function in ZK app except we don't need getAndAssertEquals
+function getStacks(): [UInt32, UInt32] {
+    const stacks = zkAppInstance.stacks.get();
+    const unpacked = Stacks.unpack(stacks.packed);
+    return [unpacked[0], unpacked[1]]
+}
 
 
-// TODO - move these to separate script...
 
 
 let txSend1 = await Mina.transaction(fundedPubKey1, () => {
@@ -184,7 +190,7 @@ const txn2 = await Mina.transaction(playerPubKey1, () => {
 });
 await txn2.prove();
 await txn2.sign([playerPrivKey1]).send();
-const bal1 = zkAppInstance.stack1.get();
+const bal1 = getStacks()[0];
 console.log("Player 1 Stack:", bal1.toString());
 
 console.log("Auto depositing for player 2...");
@@ -193,7 +199,7 @@ const txn3 = await Mina.transaction(playerPubKey2, () => {
 });
 await txn3.prove();
 await txn3.sign([playerPrivKey2]).send();
-const bal2 = zkAppInstance.stack2.get();
+const bal2 = getStacks()[1];
 console.log("Player 2 Stack:", bal2.toString());
 
 await sleep(SLEEP_TIME_LONG);
@@ -321,10 +327,6 @@ const boardPrimes: UInt64[] = []
 
 
 
-
-
-
-
 // Main game loop - keep accepting actions until hand ends
 while (true) {
     let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
@@ -340,7 +342,7 @@ while (true) {
             amount = await question("Player 1 - Choose amount\n") as number;
         }
         const actionField = UInt64.from(actionMap[actionStr]);
-        const betSize = UInt64.from(amount);
+        const betSize = UInt32.from(amount);
         const txn = await Mina.transaction(playerPubKey1, () => {
             zkAppInstance.takeAction(playerPrivKey1, actionField, betSize)
         });
@@ -357,7 +359,7 @@ while (true) {
             amount = await question("Player 2 - Choose amount\n") as number;
         }
         const actionField = UInt64.from(actionMap[actionStr]);
-        const betSize = UInt64.from(amount);
+        const betSize = UInt32.from(amount);
         const txn = await Mina.transaction(playerPubKey2, () => {
             zkAppInstance.takeAction(playerPrivKey2, actionField, betSize);
         });
@@ -536,10 +538,9 @@ if (gamestate != actionMapping["GameOver"]) {
     throw "Invalid game state!";
 }
 
-const bal3 = zkAppInstance.stack1.get().toString();
-const bal4 = zkAppInstance.stack2.get().toString();
+const [bal3, bal4] = getStacks()
 console.log("Hand Complete!")
-console.log("End Balances", bal3, bal4);
+console.log("End Balances", bal3.toString(), bal4.toString());
 if (bal3 == bal4) {
     console.log("Hand was a tie!")
 }
