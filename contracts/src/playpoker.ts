@@ -8,7 +8,6 @@ import { promisify } from 'util';
 import {
     isReady,
     shutdown,
-    Bool,
     Field,
     Mina,
     PrivateKey,
@@ -16,13 +15,11 @@ import {
     AccountUpdate,
     UInt32,
     UInt64,
-    Poseidon,
-    MerkleMap,
     MerkleMapWitness,
 } from 'o1js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
 import { CardStr, getMerkleMapWitness, getShowdownData, getPlayer, getStreet, shuffleCards } from './gameutils.js';
-import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY, cardPrimeToPublicKey, getCardAndPrimeHalf, getCardAndPrime, hashShuffledDeck } from './mentalpoker.js';
+import { Card, addPlayerToCardMask, mask, partialUnmask, createNewCard, cardPrimeToPublicKey, getCardAndPrimeHalf, getCardAndPrime, hashShuffledDeck } from './mentalpoker.js';
 
 await isReady;
 
@@ -78,7 +75,7 @@ const shuffleKeyP2 = PrivateKey.random()
 const cards: Card[] = []
 for (const [key, value] of Object.entries(cardMapping52)) {
     const cardPoint: PublicKey = cardPrimeToPublicKey(value)
-    let card: Card = new Card(EMPTYKEY, cardPoint, EMPTYKEY);
+    let card = createNewCard(cardPoint.toGroup())
     cards.push(card);
     // const publicKeyStr: string = publicKey.toBase58();
     //keyToCard[publicKeyStr]
@@ -239,7 +236,7 @@ const card4prime52 = cardMapping52[card4Str as CardStr]
 const txnC1 = await Mina.transaction(playerPubKey2, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(1);
-    zkAppInstance.commitCard(slotI, card1.msg)
+    zkAppInstance.commitCard(slotI, PublicKey.fromGroup(card1.msg))
 });
 await txnC1.prove();
 await txnC1.sign([playerPrivKey2]).send();
@@ -247,7 +244,7 @@ await txnC1.sign([playerPrivKey2]).send();
 const txnC2 = await Mina.transaction(playerPubKey2, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(2);
-    zkAppInstance.commitCard(slotI, card2.msg)
+    zkAppInstance.commitCard(slotI, PublicKey.fromGroup(card2.msg))
 });
 await txnC2.prove();
 await txnC2.sign([playerPrivKey2]).send();
@@ -256,7 +253,12 @@ await txnC2.sign([playerPrivKey2]).send();
 const txnC3 = await Mina.transaction(playerPubKey1, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(0);
-    zkAppInstance.storeCardHash(slotI, shuffleKeyP1, card1.epk, card2.epk, card1.msg, card2.msg);
+
+    const c1m = PublicKey.fromGroup(card1.msg);
+    const c1e = PublicKey.fromGroup(card1.epk);
+    const c2m = PublicKey.fromGroup(card2.msg);
+    const c2e = PublicKey.fromGroup(card2.epk);
+    zkAppInstance.storeCardHash(slotI, shuffleKeyP1, c1e, c2e, c1m, c2m);
 });
 await txnC3.prove();
 await txnC3.sign([playerPrivKey1]).send();
@@ -278,7 +280,7 @@ console.log("Screen will be cleared after 3 seconds...")
 const txnC4 = await Mina.transaction(playerPubKey1, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(1);
-    zkAppInstance.commitCard(slotI, card3.msg)
+    zkAppInstance.commitCard(slotI, PublicKey.fromGroup(card3.msg))
 });
 await txnC4.prove();
 await txnC4.sign([playerPrivKey1]).send();
@@ -286,7 +288,7 @@ await txnC4.sign([playerPrivKey1]).send();
 const txnC5 = await Mina.transaction(playerPubKey1, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(2);
-    zkAppInstance.commitCard(slotI, card4.msg)
+    zkAppInstance.commitCard(slotI, PublicKey.fromGroup(card4.msg))
 });
 await txnC5.prove();
 await txnC5.sign([playerPrivKey1]).send();
@@ -296,7 +298,12 @@ const txnC6 = await Mina.transaction(playerPubKey2, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(1);
     // const playerSecKey = playerPrivKey2;
-    zkAppInstance.storeCardHash(slotI, shuffleKeyP2, card3.epk, card4.epk, card3.msg, card4.msg);
+
+    const c3m = PublicKey.fromGroup(card3.msg);
+    const c3e = PublicKey.fromGroup(card3.epk);
+    const c4m = PublicKey.fromGroup(card4.msg);
+    const c4e = PublicKey.fromGroup(card4.epk);
+    zkAppInstance.storeCardHash(slotI, shuffleKeyP2, c3e, c4e, c3m, c4m);
 
 });
 await txnC6.prove();

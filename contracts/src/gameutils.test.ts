@@ -1,7 +1,7 @@
 import { cardMapping52 } from './PoZKer';
-import { PrivateKey, PublicKey, UInt64, } from 'o1js';
+import { PrivateKey, PublicKey, UInt64 } from 'o1js';
 import { getShowdownData, shuffleCards } from './gameutils.js';
-import { Card, addPlayerToCardMask, mask, partialUnmask, EMPTYKEY, cardPrimeToPublicKey, buildCardMapping, } from './mentalpoker.js';
+import { Card, addPlayerToCardMask, mask, partialUnmask, createNewCard, cardPrimeToPublicKey, buildCardMapping, } from './mentalpoker.js';
 
 
 describe('PoZKer', () => {
@@ -75,8 +75,7 @@ describe('PoZKer', () => {
         const cardPoint = cardPrimeToPublicKey(thPrime);
 
         // const cardPoint = PrivateKey.fromBigInt(BigInt(41)).toPublicKey();
-
-        let card: Card = new Card(EMPTYKEY, cardPoint, EMPTYKEY);
+        let card: Card = createNewCard(cardPoint.toGroup())
 
         // shuffleKey is a singular key for each player, unique key
         const shuffleKeyP1 = PrivateKey.fromBase58('EKEkAXjGJ6V3hYzKzAhMmL99457RH4NV8g9PuvkAYPZrySxxAjx3')
@@ -112,9 +111,10 @@ describe('PoZKer', () => {
         card = partialUnmask(card, cardSecretP1);
 
         // Card should be decoded at this point
-        expect(card.msg.toBase58()).toMatch(cardPoint.toBase58());
+        const cardB58 = PublicKey.fromGroup(card.msg).toBase58()
+        expect(cardB58).toMatch(cardPoint.toBase58());
         // And - we should be able to map back to the card string
-        const decodedCard = cardMapping[card.msg.toBase58()];
+        const decodedCard = cardMapping[cardB58];
         expect(decodedCard).toMatch(encodeCard);
     })
 
