@@ -97,8 +97,9 @@ for (let i = 0; i < shuffledCards.length; i++) {
     shuffledCards[i] = card;
 }
 
-// So each playeyr should be able to do this and get the same hash...
+// So each player should be able to do this and get the same hash...
 // Need to separate shuffles and then how can they exchange hashes?
+// Think this is actually impossible due to random nonce...
 const hash1 = hashShuffledDeck(shuffledCards)
 const hash2 = hashShuffledDeck(shuffledCards)
 if (hash1 != hash2) {
@@ -172,11 +173,19 @@ await txSend2.sign([fundedPrivKey1]).send();
 
 
 /////////////// Stage 0 - Set players
-const txn = await Mina.transaction(fundedPubKey1, () => {
-    zkAppInstance.initState(playerPubKey1, playerPubKey2)
+
+const txnJ1 = await Mina.transaction(fundedPubKey1, () => {
+    zkAppInstance.joinGame(playerPubKey1)
 });
-await txn.prove();
-await txn.sign([fundedPrivKey1]).send();
+await txnJ1.prove();
+await txnJ1.sign([fundedPrivKey1]).send();
+
+const txnJ2 = await Mina.transaction(fundedPubKey1, () => {
+    zkAppInstance.joinGame(playerPubKey2)
+});
+await txnJ2.prove();
+await txnJ2.sign([fundedPrivKey1]).send();
+
 console.log("Initialized players...");
 
 

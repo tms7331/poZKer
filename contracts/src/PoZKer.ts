@@ -207,11 +207,32 @@ export class PoZKerApp extends SmartContract {
         const currstate = this.P1.mul(this.Preflop).mul(this.Bet);
         this.gamestate.set(currstate);
         this.setStacks(UInt32.from(0), UInt32.from(0));
+        // Initialize with 0s so we can tell when two players have joined
+        this.player1Hash.set(Field(0));
+        this.player2Hash.set(Field(0));
     }
 
-    @method initState(player1: PublicKey, player2: PublicKey) {
-        const p1Hash = Poseidon.hash(player1.toFields());
-        const p2Hash = Poseidon.hash(player2.toFields());
+    @method joinGame(player: PublicKey) {
+        // Because we'll add player1 and then player 2, we only need
+        // to check if player 2 is initialized to know if game is full
+        const player1Hash = this.player1Hash.getAndAssertEquals();
+        const player2Hash = this.player2Hash.getAndAssertEquals();
+        player2Hash.assertEquals(Field(0), "Game is full!");
+
+        const pHash = Poseidon.hash(player.toFields());
+
+        // If p1 is uninitialized: p1 = pHash, p2 = Field(0)
+        // If p1 is initialized: p1 = p1, p2 = pHash
+        const p1Hash = Provable.if(
+            player1Hash.equals(Field(0)),
+            pHash,
+            player1Hash
+        );
+        const p2Hash = Provable.if(
+            player1Hash.equals(Field(0)),
+            Field(0),
+            pHash
+        );
         this.player1Hash.set(p1Hash);
         this.player2Hash.set(p2Hash);
     }

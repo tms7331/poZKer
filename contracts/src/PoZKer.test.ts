@@ -90,11 +90,17 @@ describe('PoZKer', () => {
   }
 
   async function setPlayers() {
-    const txn = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.initState(playerPubKey1, playerPubKey2)
+    const txnJ1 = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.joinGame(playerPubKey1)
     });
-    await txn.prove();
-    await txn.sign([playerPrivKey1]).send();
+    await txnJ1.prove();
+    await txnJ1.sign([playerPrivKey1]).send();
+
+    const txnJ2 = await Mina.transaction(playerPubKey2, () => {
+      zkAppInstance.joinGame(playerPubKey2)
+    });
+    await txnJ2.prove();
+    await txnJ2.sign([playerPrivKey2]).send();
   }
 
   function getStacks(): [UInt32, UInt32] {
