@@ -197,6 +197,9 @@ export class PoZKerApp extends SmartContract {
     @state(Field) slot1 = State<Field>();
     @state(Field) slot2 = State<Field>();
 
+    // For testing - want to be sure we can deploy the contract and set this
+    @state(Field) tempvar = State<Field>();
+
     init() {
         super.init();
         // Starting gamestate is always P1's turn preflop, with no previous action
@@ -215,8 +218,9 @@ export class PoZKerApp extends SmartContract {
 
     recordMove(player: PublicKey) {
         // TODO - how can we record this number?
-        const blockNumber = this.network.blockchainLength;
-        const bn: UInt32 = blockNumber.getAndAssertEquals();
+        const blockNumber: UInt32 = this.network.blockchainLength.get();
+        // this is in milliseconds
+        // this.network.timestamp.get(): UInt64;
     }
 
     getStacks(): [UInt32, UInt32] {
@@ -1167,5 +1171,13 @@ export class PoZKerApp extends SmartContract {
         );
         this.slot1.set(slot1New);
         this.slot2.set(slot2New);
+    }
+
+    @method setTempvar() {
+        this.tempvar.set(Field(1));
+    }
+
+    @method setTempvarValue(val: Field) {
+        this.tempvar.set(val);
     }
 }
