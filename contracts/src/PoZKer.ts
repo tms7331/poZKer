@@ -255,7 +255,7 @@ export class PoZKerApp extends SmartContract {
         this.stacks.set(stacksField);
     }
 
-    @method playerTimeout(playerSecKey: PrivateKey) {
+    @method playerTimeout() {
         // If the other player hasn't made a move in n blocks, we can
         // end the hand and claim the pot...
         // TODO - we need to be recording block numbers so we can verify timeout condition is met
@@ -269,7 +269,7 @@ export class PoZKerApp extends SmartContract {
 
         gamestate.equals(this.GameOver).not().assertTrue('Game has already finished!');
 
-        const player = PublicKey.fromPrivateKey(playerSecKey);
+        const player: PublicKey = this.sender;
         const playerHash = Poseidon.hash(player.toFields());
 
         const p1WinnerBal = stack1.add(this.GameBuyin.sub(stack2));
@@ -294,14 +294,15 @@ export class PoZKerApp extends SmartContract {
     }
 
 
-    @method withdraw(playerSecKey: PrivateKey) {
+    @method withdraw() {
         // Can ONLY withdraw when the hand is over!
         const isGameOver = this.gamestate.getAndAssertEquals();
         isGameOver.assertEquals(this.GameOver);
 
         const player1Hash = this.player1Hash.getAndAssertEquals();
         const player2Hash = this.player2Hash.getAndAssertEquals();
-        const player = PublicKey.fromPrivateKey(playerSecKey);
+
+        const player = this.sender;
         const playerHash = Poseidon.hash(player.toFields());
         const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
         cond0.assertTrue('Player is not part of this game!')
@@ -337,14 +338,14 @@ export class PoZKerApp extends SmartContract {
         // this.stack2.set(stack2New);
     }
 
-    @method deposit(playerSecKey: PrivateKey) {
+    @method deposit() {
         // Constraints:
         // Only player1 and player2 can deposit
         // They can only deposit once
         const player1Hash = this.player1Hash.getAndAssertEquals();
         const player2Hash = this.player2Hash.getAndAssertEquals();
 
-        const player = PublicKey.fromPrivateKey(playerSecKey);
+        const player = this.sender;
         const playerHash = Poseidon.hash(player.toFields());
 
         const [stack1, stack2] = this.getStacks();
@@ -402,7 +403,7 @@ export class PoZKerApp extends SmartContract {
         return valDiff;
     }
 
-    @method takeAction(playerSecKey: PrivateKey, action: UInt64, betSize: UInt32) {
+    @method takeAction(action: UInt64, betSize: UInt32) {
 
         // Need to check that it's the current player's turn, 
         // and the action is valid
@@ -416,8 +417,8 @@ export class PoZKerApp extends SmartContract {
         //const p2turn = p1turn.not();
         p1turn.or(p2turn).assertTrue('Invalid game state player');
 
-        //const player = this.sender;
-        const player = PublicKey.fromPrivateKey(playerSecKey);
+        const player = this.sender;
+
         // Logic modified from https://github.com/betterclever/zk-chess/blob/main/src/Chess.ts
         const player1Hash = this.player1Hash.getAndAssertEquals();
         const player2Hash = this.player2Hash.getAndAssertEquals();
@@ -970,7 +971,6 @@ export class PoZKerApp extends SmartContract {
         useBoardcards3: Bool,
         useBoardcards4: Bool,
         isFlush: Bool,
-        playerSecKey: PrivateKey,
         shuffleKey: PrivateKey,
         merkleMapKey: Field,
         merkleMapVal: Field,
@@ -998,7 +998,7 @@ export class PoZKerApp extends SmartContract {
 
 
         // CHECK 0. - make sure player is a part of the game...
-        const player = PublicKey.fromPrivateKey(playerSecKey);
+        const player = this.sender;
         const player1Hash = this.player1Hash.getAndAssertEquals();
         const player2Hash = this.player2Hash.getAndAssertEquals();
         const playerHash = Poseidon.hash(player.toFields());

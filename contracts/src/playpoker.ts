@@ -192,7 +192,7 @@ console.log("Initialized players...");
 /////////////// Stage 1 - Deposit
 console.log("Auto depositing for player 1...");
 const txn2 = await Mina.transaction(playerPubKey1, () => {
-    zkAppInstance.deposit(playerPrivKey1)
+    zkAppInstance.deposit()
 });
 await txn2.prove();
 await txn2.sign([playerPrivKey1]).send();
@@ -201,7 +201,7 @@ console.log("Player 1 Stack:", bal1.toString());
 
 console.log("Auto depositing for player 2...");
 const txn3 = await Mina.transaction(playerPubKey2, () => {
-    zkAppInstance.deposit(playerPrivKey2)
+    zkAppInstance.deposit()
 });
 await txn3.prove();
 await txn3.sign([playerPrivKey2]).send();
@@ -360,7 +360,7 @@ while (true) {
         const actionField = UInt64.from(actionMap[actionStr]);
         const betSize = UInt32.from(amount);
         const txn = await Mina.transaction(playerPubKey1, () => {
-            zkAppInstance.takeAction(playerPrivKey1, actionField, betSize)
+            zkAppInstance.takeAction(actionField, betSize)
         });
         await txn.prove();
         await txn.sign([playerPrivKey1]).send();
@@ -377,7 +377,7 @@ while (true) {
         const actionField = UInt64.from(actionMap[actionStr]);
         const betSize = UInt32.from(amount);
         const txn = await Mina.transaction(playerPubKey2, () => {
-            zkAppInstance.takeAction(playerPrivKey2, actionField, betSize);
+            zkAppInstance.takeAction(actionField, betSize);
         });
         await txn.prove();
         await txn.sign([playerPrivKey2]).send();
@@ -418,7 +418,6 @@ while (true) {
                 useCardsP1[5],
                 useCardsP1[6],
                 isFlushP1,
-                playerPrivKey1,
                 shuffleKeyP1,
                 merkleMapKeyP1,
                 merkleMapValP1,
@@ -445,7 +444,6 @@ while (true) {
                 useCardsP2[5],
                 useCardsP2[6],
                 isFlushP2,
-                playerPrivKey2,
                 shuffleKeyP2,
                 merkleMapKeyP2,
                 merkleMapValP2,
@@ -573,14 +571,14 @@ else {
 console.log("Withdrawing balances...")
 
 const txn11 = await Mina.transaction(playerPubKey2, () => {
-    zkAppInstance.withdraw(playerPrivKey2)
+    zkAppInstance.withdraw()
 });
 await txn11.prove();
 await txn11.sign([playerPrivKey2]).send();
 
 
 const txn12 = await Mina.transaction(playerPubKey1, () => {
-    zkAppInstance.withdraw(playerPrivKey1)
+    zkAppInstance.withdraw()
 });
 await txn12.prove();
 await txn12.sign([playerPrivKey1]).send();

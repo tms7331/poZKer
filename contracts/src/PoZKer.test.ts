@@ -113,7 +113,7 @@ describe('PoZKer', () => {
   async function localDeposit() {
     console.log("Auto depositing for player 1...");
     const txn2 = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.deposit(playerPrivKey1)
+      zkAppInstance.deposit()
     });
     await txn2.prove();
     await txn2.sign([playerPrivKey1]).send();
@@ -122,7 +122,7 @@ describe('PoZKer', () => {
 
     console.log("Auto depositing for player 2...");
     const txn3 = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.deposit(playerPrivKey2)
+      zkAppInstance.deposit()
     });
     await txn3.prove();
     await txn3.sign([playerPrivKey2]).send();
@@ -252,7 +252,7 @@ describe('PoZKer', () => {
     // Player 2 should not be able to act
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(playerPrivKey2, UInt64.from(BET), UInt32.from(10))
+        zkAppInstance.takeAction(UInt64.from(BET), UInt32.from(10))
       });
       await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -278,7 +278,7 @@ describe('PoZKer', () => {
     // Player 1 should not be able to check or bet
     try {
       const txnFail = await Mina.transaction(playerPubKey1, () => {
-        zkAppInstance.takeAction(playerPrivKey1, UInt64.from(BET), UInt32.from(10))
+        zkAppInstance.takeAction(UInt64.from(BET), UInt32.from(10))
       });
       await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -293,7 +293,7 @@ describe('PoZKer', () => {
 
     try {
       const txnFail = await Mina.transaction(playerPubKey1, () => {
-        zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CHECK), UInt32.from(0))
+        zkAppInstance.takeAction(UInt64.from(CHECK), UInt32.from(0))
       });
       await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -317,19 +317,19 @@ describe('PoZKer', () => {
     // Invalid actions are check, bet
 
     const txnSucc1 = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
     });
     // await txnSucc1.prove();
     // await txnSucc1.sign([playerPrivKey1]).send();
 
     const txnSucc2 = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(FOLD), UInt32.from(0))
+      zkAppInstance.takeAction(UInt64.from(FOLD), UInt32.from(0))
     });
     // await txnSucc2.prove();
     // await txnSucc2.sign([playerPrivKey1]).send();
 
     const txnSucc3 = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt32.from(2))
+      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(2))
     });
     await txnSucc3.prove();
     await txnSucc3.sign([playerPrivKey1]).send();
@@ -352,7 +352,7 @@ describe('PoZKer', () => {
 
     // Start facing a call
     const txn = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
     });
     await txn.prove();
     await txn.sign([playerPrivKey1]).send();
@@ -372,7 +372,7 @@ describe('PoZKer', () => {
     // Invalid actions are call, fold, bet
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CALL), UInt32.from(10))
+        zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(10))
       });
       await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -383,7 +383,7 @@ describe('PoZKer', () => {
 
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(playerPrivKey2, UInt64.from(FOLD), UInt32.from(10))
+        zkAppInstance.takeAction(UInt64.from(FOLD), UInt32.from(10))
       });
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
       await txnFail.prove();
@@ -394,7 +394,7 @@ describe('PoZKer', () => {
 
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(playerPrivKey2, UInt64.from(BET), UInt32.from(10))
+        zkAppInstance.takeAction(UInt64.from(BET), UInt32.from(10))
       });
       await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -411,7 +411,7 @@ describe('PoZKer', () => {
 
     // Again start facing a call
     const txn = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
     });
     await txn.prove();
     await txn.sign([playerPrivKey1]).send();
@@ -419,13 +419,13 @@ describe('PoZKer', () => {
     // Valid actions are check, raise
 
     const txnSucc1 = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(RAISE), UInt32.from(2))
+      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(2))
     });
     // await txnSucc1.prove();
     // await txnSucc1.sign([playerPrivKey2]).send();
 
     const txnSucc2 = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CHECK), UInt32.from(0))
+      zkAppInstance.takeAction(UInt64.from(CHECK), UInt32.from(0))
     });
     await txnSucc2.prove();
     await txnSucc2.sign([playerPrivKey2]).send();
@@ -448,7 +448,7 @@ describe('PoZKer', () => {
     // Raising to 100 should fail
     try {
       const txnFail = await Mina.transaction(playerPubKey1, () => {
-        zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt32.from(100))
+        zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(100))
       });
       // await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -459,7 +459,7 @@ describe('PoZKer', () => {
 
     // But raising to 99 should work!
     const txnSucc = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt32.from(99))
+      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(99))
     });
   })
 
@@ -470,7 +470,7 @@ describe('PoZKer', () => {
 
     // Raise to 90 and then p2's raise will be less than 2x
     const txn = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt32.from(90))
+      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(90))
     });
     await txn.prove();
     await txn.sign([playerPrivKey1]).send();
@@ -478,7 +478,7 @@ describe('PoZKer', () => {
     // P2 raising to 99, all-in except 1, should not work
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(playerPrivKey2, UInt64.from(RAISE), UInt32.from(97))
+        zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(97))
       });
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
       // await txnFail.prove();
@@ -489,14 +489,14 @@ describe('PoZKer', () => {
 
     // But raising all-in should work
     const txnSucc = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(RAISE), UInt32.from(98))
+      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(98))
     });
     await txnSucc.prove();
     await txnSucc.sign([playerPrivKey2]).send();
 
     // And if player 1 calls, we should have 'showdown' state
     const txnCall = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
     });
     await txnCall.prove();
     await txnCall.sign([playerPrivKey1]).send();
@@ -512,13 +512,13 @@ describe('PoZKer', () => {
     await localDeposit();
 
     const txnCall = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
     });
     await txnCall.prove();
     await txnCall.sign([playerPrivKey1]).send();
 
     const txnCheck = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CHECK), UInt32.from(0))
+      zkAppInstance.takeAction(UInt64.from(CHECK), UInt32.from(0))
     });
     await txnCheck.prove();
     await txnCheck.sign([playerPrivKey2]).send();
@@ -526,7 +526,7 @@ describe('PoZKer', () => {
     // Betting 0 should fail
     try {
       const txnFail = await Mina.transaction(playerPubKey1, () => {
-        zkAppInstance.takeAction(playerPrivKey1, UInt64.from(BET), UInt32.from(0))
+        zkAppInstance.takeAction(UInt64.from(BET), UInt32.from(0))
       });
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
       // await txnFail.prove();
@@ -544,13 +544,13 @@ describe('PoZKer', () => {
 
     // Just immediately go all-in to finish betting
     const txnRaise = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt32.from(99))
+      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(99))
     });
     await txnRaise.prove();
     await txnRaise.sign([playerPrivKey1]).send();
 
     const txnCall = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
     });
     await txnCall.prove();
     await txnCall.sign([playerPrivKey2]).send();
@@ -583,13 +583,13 @@ describe('PoZKer', () => {
 
     // Just immediately go all-in to finish betting
     const txnRaise = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(playerPrivKey1, UInt64.from(RAISE), UInt32.from(99))
+      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(99))
     });
     await txnRaise.prove();
     await txnRaise.sign([playerPrivKey1]).send();
 
     const txnCall = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(playerPrivKey2, UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
     });
     await txnCall.prove();
     await txnCall.sign([playerPrivKey2]).send();
@@ -665,7 +665,6 @@ describe('PoZKer', () => {
         useCardsP1[6],
         isFlushP1,
         playerPrivKey1,
-        playerPrivKey1,
         merkleMapKeyP1,
         merkleMapValP1,
         pathP1,
@@ -690,7 +689,6 @@ describe('PoZKer', () => {
         useCardsP2[5],
         useCardsP2[6],
         isFlushP2,
-        playerPrivKey2,
         playerPrivKey2,
         merkleMapKeyP2,
         merkleMapValP2,
@@ -719,7 +717,7 @@ describe('PoZKer', () => {
 
     // And finally - both players can claim their profits
     const txnWd = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.withdraw(playerPrivKey2)
+      zkAppInstance.withdraw()
     });
     await txnWd.prove();
     await txnWd.sign([playerPrivKey2]).send();
