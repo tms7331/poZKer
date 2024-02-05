@@ -1,4 +1,13 @@
 {
   "version": 1,
-  "deployAliases": {}
+  "deployAliases": {
+    "berk": {
+      "networkId": "testnet",
+      "url": "https://proxy.berkeley.minaexplorer.com/graphql",
+      "keyPath": "keys/berk.json",
+      "feepayerKeyPath": "/home/thomas/.cache/zkapp-cli/keys/pozkeracct.json",
+      "feepayerAlias": "pozkeracct",
+      "fee": "0.1"
+    }
+  }
 }
