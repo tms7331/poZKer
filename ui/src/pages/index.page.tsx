@@ -6,7 +6,9 @@ import GradientBG from '../components/GradientBG.js';
 import styles from '../styles/Home.module.css';
 
 let transactionFee = 0.1;
-const ZKAPP_ADDRESS = 'B62qknCphH8ikE9Bu46dFgamUeYRcE9FtKr5ahh5tcJDf7ibRXJdzWV';
+// const ZKAPP_ADDRESS = 'B62qknCphH8ikE9Bu46dFgamUeYRcE9FtKr5ahh5tcJDf7ibRXJdzWV';
+// Address we deployed to on berkeley
+const ZKAPP_ADDRESS = 'B62qnsShdbmgZqp5xWofEFfX9EJKzcSbVkFEb57vr2oxzwVRadYmgN5';
 
 export default function Home() {
   const [state, setState] = useState({
@@ -70,11 +72,14 @@ export default function Home() {
 
         await zkappWorkerClient.loadContract();
 
+        // Already deployed contract address, use that instead
+        /*
         console.log('Compiling zkApp...');
         setDisplayText('Compiling zkApp...');
         await zkappWorkerClient.compileContract();
         console.log('zkApp compiled');
         setDisplayText('zkApp compiled...');
+        */
 
         const zkappPublicKey = PublicKey.fromBase58(ZKAPP_ADDRESS);
 

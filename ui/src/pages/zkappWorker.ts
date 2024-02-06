@@ -39,6 +39,7 @@ const functions = {
     const publicKey = PublicKey.fromBase58(args.publicKey58);
     //state.zkapp = new state.Add!(publicKey);
     state.zkapp = new state.PoZKerApp!(publicKey);
+    console.log("COMPLETED initZkappInstance")
   },
   getNum: async (args: {}) => {
     const currentNum = await state.zkapp!.tempvar.get();
@@ -50,6 +51,15 @@ const functions = {
     });
     state.transaction = transaction;
   },
+
+  // createInitStateTransaction: async (args: { player1: PublicKey, player2: PublicKey }) => {
+  //   const transaction = await Mina.transaction(() => {
+  //     state.zkapp!.initState(args.player1, args.player2);
+  //   });
+  //   // Do we want to store full app state locally?  Don't think we can because other player
+  //   // is interacting with it too
+  //   // state.transaction = transaction;
+  // },
   proveUpdateTransaction: async (args: {}) => {
     await state.transaction!.prove();
   },

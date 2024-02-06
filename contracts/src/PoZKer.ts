@@ -210,6 +210,8 @@ export class PoZKerApp extends SmartContract {
         // Initialize with 0s so we can tell when two players have joined
         this.player1Hash.set(Field(0));
         this.player2Hash.set(Field(0));
+
+        this.tempvar.set(Field(42));
     }
 
     @method joinGame(player: PublicKey) {
