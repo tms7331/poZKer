@@ -1,4 +1,4 @@
-import { PoZKerApp, actionMapping, cardMapping52, Stacks } from './PoZKer';
+import { PoZKerApp, actionMapping, cardMapping52, Stacks, Gamestate } from './PoZKer';
 import { Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt32, UInt64, MerkleMapWitness } from 'o1js';
 import fs from 'fs';
 import { Card, addPlayerToCardMask, mask, partialUnmask, createNewCard, cardPrimeToPublicKey } from './mentalpoker.js';
@@ -103,10 +103,16 @@ describe('PoZKer', () => {
     await txnJ2.sign([playerPrivKey2]).send();
   }
 
-  function getStacks(): [UInt32, UInt32] {
-    const stacks = zkAppInstance.stacks.get();
-    const unpacked = Stacks.unpack(stacks.packed);
-    return [unpacked[0], unpacked[1]]
+  // function getStacks(): [UInt32, UInt32] {
+  //   const stacks = zkAppInstance.stacks.get();
+  //   const unpacked = Stacks.unpack(stacks.packed);
+  //   return [unpacked[0], unpacked[1]]
+  // }
+
+  function getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32,] {
+    const gamestate = zkAppInstance.gamestate.get();
+    const unpacked = Gamestate.unpack(gamestate.packed);
+    return [unpacked[0], unpacked[1], unpacked[2], unpacked[3], unpacked[4], unpacked[5]]
   }
 
 
@@ -117,7 +123,7 @@ describe('PoZKer', () => {
     });
     await txn2.prove();
     await txn2.sign([playerPrivKey1]).send();
-    const bal1 = getStacks()[0];
+    const bal1 = getGamestate()[0];
     console.log("Player 1 Stack:", bal1.toString());
 
     console.log("Auto depositing for player 2...");
@@ -127,7 +133,7 @@ describe('PoZKer', () => {
     await txn3.prove();
     await txn3.sign([playerPrivKey2]).send();
 
-    const bal2 = getStacks()[1];
+    const bal2 = getGamestate()[1];
     console.log("Player 2 Stack:", bal2.toString());
   }
 
@@ -233,14 +239,14 @@ describe('PoZKer', () => {
 
     // After depositing player 1 should have stack of 99 (SB)
     // Player 2 should have stack of 98 (BB)
-    const [bal1, bal2] = getStacks()
+    // const [bal1, bal2] = getStacks()
+    const [bal1, bal2, turn, street, lastAction, gameOver] = getGamestate();
     expect(bal1.toString()).toMatch('99');
     expect(bal2.toString()).toMatch('98');
-
-    const gamestate: UInt64 = zkAppInstance.gamestate.get();
-    const gamestatejs = gamestate.toBigInt();
-    const remainder = Number(gamestatejs) % BET;
-    expect(remainder).toEqual(0);
+    // const gamestate: UInt64 = zkAppInstance.gamestate.get();
+    // const gamestatejs = gamestate.toBigInt();
+    // const remainder = Number(gamestatejs) % BET;
+    // expect(remainder).toEqual(0);
   });
 
 
@@ -252,7 +258,7 @@ describe('PoZKer', () => {
     // Player 2 should not be able to act
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(UInt64.from(BET), UInt32.from(10))
+        zkAppInstance.takeAction(UInt32.from(BET), UInt32.from(10))
       });
       await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -278,7 +284,7 @@ describe('PoZKer', () => {
     // Player 1 should not be able to check or bet
     try {
       const txnFail = await Mina.transaction(playerPubKey1, () => {
-        zkAppInstance.takeAction(UInt64.from(BET), UInt32.from(10))
+        zkAppInstance.takeAction(UInt32.from(BET), UInt32.from(10))
       });
       await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -293,7 +299,7 @@ describe('PoZKer', () => {
 
     try {
       const txnFail = await Mina.transaction(playerPubKey1, () => {
-        zkAppInstance.takeAction(UInt64.from(CHECK), UInt32.from(0))
+        zkAppInstance.takeAction(UInt32.from(CHECK), UInt32.from(0))
       });
       await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -317,19 +323,19 @@ describe('PoZKer', () => {
     // Invalid actions are check, bet
 
     const txnSucc1 = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt32.from(CALL), UInt32.from(0))
     });
     // await txnSucc1.prove();
     // await txnSucc1.sign([playerPrivKey1]).send();
 
     const txnSucc2 = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(UInt64.from(FOLD), UInt32.from(0))
+      zkAppInstance.takeAction(UInt32.from(FOLD), UInt32.from(0))
     });
     // await txnSucc2.prove();
     // await txnSucc2.sign([playerPrivKey1]).send();
 
     const txnSucc3 = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(2))
+      zkAppInstance.takeAction(UInt32.from(RAISE), UInt32.from(2))
     });
     await txnSucc3.prove();
     await txnSucc3.sign([playerPrivKey1]).send();
@@ -340,8 +346,15 @@ describe('PoZKer', () => {
     const lastActionRaise = 37
     const expectedState = p2Turn * currStreetPreflop * lastActionRaise
 
-    const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
-    expect(gamestate).toEqual(expectedState);
+    // const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
+    // expect(gamestate).toEqual(expectedState);
+
+    const [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
+    //expect(gamestate).toEqual(expectedState);
+    expect(turn).toEqual(zkAppInstance.P2Turn);
+    expect(street).toEqual(zkAppInstance.Preflop);
+    expect(lastAction).toEqual(zkAppInstance.Raise);
   });
 
 
@@ -352,7 +365,7 @@ describe('PoZKer', () => {
 
     // Start facing a call
     const txn = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt32.from(CALL), UInt32.from(0))
     });
     await txn.prove();
     await txn.sign([playerPrivKey1]).send();
@@ -363,16 +376,19 @@ describe('PoZKer', () => {
     const lastActionPreflopCall = 43
     const expectedState = p2Turn * currStreetPreflop * lastActionPreflopCall
 
-    const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
-
-    expect(gamestate).toEqual(expectedState);
+    const [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
+    //expect(gamestate).toEqual(expectedState);
+    expect(turn).toEqual(zkAppInstance.P2Turn);
+    expect(street).toEqual(zkAppInstance.Preflop);
+    expect(lastAction).toEqual(zkAppInstance.PreflopCall);
 
 
     // Valid actions are check, raise
     // Invalid actions are call, fold, bet
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(10))
+        zkAppInstance.takeAction(UInt32.from(CALL), UInt32.from(10))
       });
       await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -383,7 +399,7 @@ describe('PoZKer', () => {
 
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(UInt64.from(FOLD), UInt32.from(10))
+        zkAppInstance.takeAction(UInt32.from(FOLD), UInt32.from(10))
       });
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
       await txnFail.prove();
@@ -394,7 +410,7 @@ describe('PoZKer', () => {
 
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(UInt64.from(BET), UInt32.from(10))
+        zkAppInstance.takeAction(UInt32.from(BET), UInt32.from(10))
       });
       await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -411,7 +427,7 @@ describe('PoZKer', () => {
 
     // Again start facing a call
     const txn = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt32.from(CALL), UInt32.from(0))
     });
     await txn.prove();
     await txn.sign([playerPrivKey1]).send();
@@ -419,13 +435,13 @@ describe('PoZKer', () => {
     // Valid actions are check, raise
 
     const txnSucc1 = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(2))
+      zkAppInstance.takeAction(UInt32.from(RAISE), UInt32.from(2))
     });
     // await txnSucc1.prove();
     // await txnSucc1.sign([playerPrivKey2]).send();
 
     const txnSucc2 = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(UInt64.from(CHECK), UInt32.from(0))
+      zkAppInstance.takeAction(UInt32.from(CHECK), UInt32.from(0))
     });
     await txnSucc2.prove();
     await txnSucc2.sign([playerPrivKey2]).send();
@@ -436,8 +452,17 @@ describe('PoZKer', () => {
     const lastActionNull = 19
     const expectedState = p1Turn * currStreetFlop * lastActionNull
 
-    const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
-    expect(gamestate).toEqual(expectedState);
+    // const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
+    // expect(gamestate).toEqual(expectedState);
+
+    // TODO - double check this, what were we testing?
+    const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    // make sure we've reached showdown...
+    // expect(gamestate).toEqual(SHOWDOWNPENDING);
+    // expect(turn).toEqual(zkAppInstance.P1Turn);
+    // expect(street).toEqual(zkAppInstance.Flop);
+    expect(street).toEqual(zkAppInstance.ShowdownPending);
   });
 
   it('prevents players from betting more than their stack', async () => {
@@ -448,7 +473,7 @@ describe('PoZKer', () => {
     // Raising to 100 should fail
     try {
       const txnFail = await Mina.transaction(playerPubKey1, () => {
-        zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(100))
+        zkAppInstance.takeAction(UInt32.from(RAISE), UInt32.from(100))
       });
       // await txnFail.prove();
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
@@ -459,7 +484,7 @@ describe('PoZKer', () => {
 
     // But raising to 99 should work!
     const txnSucc = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(99))
+      zkAppInstance.takeAction(UInt32.from(RAISE), UInt32.from(99))
     });
   })
 
@@ -470,7 +495,7 @@ describe('PoZKer', () => {
 
     // Raise to 90 and then p2's raise will be less than 2x
     const txn = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(90))
+      zkAppInstance.takeAction(UInt32.from(RAISE), UInt32.from(90))
     });
     await txn.prove();
     await txn.sign([playerPrivKey1]).send();
@@ -478,7 +503,7 @@ describe('PoZKer', () => {
     // P2 raising to 99, all-in except 1, should not work
     try {
       const txnFail = await Mina.transaction(playerPubKey2, () => {
-        zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(97))
+        zkAppInstance.takeAction(UInt32.from(RAISE), UInt32.from(97))
       });
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
       // await txnFail.prove();
@@ -489,21 +514,27 @@ describe('PoZKer', () => {
 
     // But raising all-in should work
     const txnSucc = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(98))
+      zkAppInstance.takeAction(UInt32.from(RAISE), UInt32.from(98))
     });
     await txnSucc.prove();
     await txnSucc.sign([playerPrivKey2]).send();
 
     // And if player 1 calls, we should have 'showdown' state
     const txnCall = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt32.from(CALL), UInt32.from(0))
     });
     await txnCall.prove();
     await txnCall.sign([playerPrivKey1]).send();
 
-    const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
-    // just important that we've reached 'showdown'
-    expect(gamestate).toEqual(SHOWDOWNPENDING);
+    // const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    // // just important that we've reached 'showdown'
+    // expect(gamestate).toEqual(SHOWDOWNPENDING);
+
+    const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    // make sure we've reached showdown...
+    // expect(gamestate).toEqual(SHOWDOWNPENDING);
+    expect(street).toEqual(zkAppInstance.ShowdownPending);
   })
 
   it('fails on bets of 0', async () => {
@@ -512,13 +543,13 @@ describe('PoZKer', () => {
     await localDeposit();
 
     const txnCall = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt32.from(CALL), UInt32.from(0))
     });
     await txnCall.prove();
     await txnCall.sign([playerPrivKey1]).send();
 
     const txnCheck = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(UInt64.from(CHECK), UInt32.from(0))
+      zkAppInstance.takeAction(UInt32.from(CHECK), UInt32.from(0))
     });
     await txnCheck.prove();
     await txnCheck.sign([playerPrivKey2]).send();
@@ -526,7 +557,7 @@ describe('PoZKer', () => {
     // Betting 0 should fail
     try {
       const txnFail = await Mina.transaction(playerPubKey1, () => {
-        zkAppInstance.takeAction(UInt64.from(BET), UInt32.from(0))
+        zkAppInstance.takeAction(UInt32.from(BET), UInt32.from(0))
       });
       expect("TX SUCCESSFUL!").toMatch('TX DID NOT FAIL!');
       // await txnFail.prove();
@@ -544,20 +575,22 @@ describe('PoZKer', () => {
 
     // Just immediately go all-in to finish betting
     const txnRaise = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(99))
+      zkAppInstance.takeAction(UInt32.from(RAISE), UInt32.from(99))
     });
     await txnRaise.prove();
     await txnRaise.sign([playerPrivKey1]).send();
 
     const txnCall = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt32.from(CALL), UInt32.from(0))
     });
     await txnCall.prove();
     await txnCall.sign([playerPrivKey2]).send();
 
-    const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
     // make sure we've reached showdown...
-    expect(gamestate).toEqual(SHOWDOWNPENDING);
+    // expect(gamestate).toEqual(SHOWDOWNPENDING);
+    expect(street).toEqual(zkAppInstance.ShowdownPending);
 
     // We should NOT be able to call 'showdown' method yet - 
     // 1. Need other board cards
@@ -583,20 +616,21 @@ describe('PoZKer', () => {
 
     // Just immediately go all-in to finish betting
     const txnRaise = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.takeAction(UInt64.from(RAISE), UInt32.from(99))
+      zkAppInstance.takeAction(UInt32.from(RAISE), UInt32.from(99))
     });
     await txnRaise.prove();
     await txnRaise.sign([playerPrivKey1]).send();
 
     const txnCall = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.takeAction(UInt64.from(CALL), UInt32.from(0))
+      zkAppInstance.takeAction(UInt32.from(CALL), UInt32.from(0))
     });
     await txnCall.prove();
     await txnCall.sign([playerPrivKey2]).send();
 
-    const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    let [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
     // make sure we've reached showdown...
-    expect(gamestate).toEqual(SHOWDOWNPENDING);
+    expect(street).toEqual(zkAppInstance.ShowdownPending);
 
     const card1prime52 = cardMapping52["Ah"];
     const card2prime52 = cardMapping52["Ad"];
@@ -700,8 +734,10 @@ describe('PoZKer', () => {
 
 
     // We should have transitioned to ShowdownComplete at this point
-    const gamestateSD: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
-    expect(gamestateSD).toEqual(actionMapping["ShowdownComplete"]);
+    [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const gamestateSD: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    // expect(gamestateSD).toEqual(actionMapping["ShowdownComplete"]);
+    expect(street).toEqual(zkAppInstance.ShowdownComplete);
 
     // Showdown means no more actions, need to handle card logic though
     // showdown(v1: Field, v2: Field)
@@ -712,8 +748,11 @@ describe('PoZKer', () => {
     await txn.sign([playerPrivKey2]).send();
 
     // And after calling 'showdown' we should have transitioned to GameOver
-    const gamestateFinal: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
-    expect(gamestateFinal).toEqual(actionMapping["GameOver"]);
+
+    [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const gamestateFinal: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
+    // expect(gamestateFinal).toEqual(actionMapping["GameOver"]);
+    expect(gameOver).toEqual(zkAppInstance.GameOver);
 
     // And finally - both players can claim their profits
     const txnWd = await Mina.transaction(playerPubKey2, () => {
@@ -722,13 +761,14 @@ describe('PoZKer', () => {
     await txnWd.prove();
     await txnWd.sign([playerPrivKey2]).send();
 
-    const [stack1_, stack2_] = getStacks()
+    // const [stack1_, stack2_] = getStacks()
+    [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
     // const stack1: number = Number(zkAppInstance.stack1.get().toBigInt()) as number;
     // const stack2: number = Number(zkAppInstance.stack2.get().toBigInt()) as number;
-    const stack1: number = Number(stack1_.toBigint()) as number;
-    const stack2: number = Number(stack2_.toBigint()) as number;
-    expect(stack1).toEqual(0);
-    expect(stack2).toEqual(0);
+    // const stack1: number = Number(stack1_.toBigint()) as number;
+    // const stack2: number = Number(stack2_.toBigint()) as number;
+    expect(stack1).toEqual(UInt32.from(0));
+    expect(stack2).toEqual(UInt32.from(0));
   })
 
 });

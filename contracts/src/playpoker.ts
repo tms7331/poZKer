@@ -1,5 +1,5 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
-import { PoZKerApp, actionMapping, cardMapping52, Stacks } from './PoZKer.js';
+import { PoZKerApp, actionMapping, cardMapping52, Stacks, Gamestate } from './PoZKer.js';
 //import { readline } from 'readline';
 //const readline = require('readline');
 import readline from 'readline';
@@ -142,16 +142,18 @@ const deployTxn = await Mina.transaction(deployerAccount, () => {
 await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
 // ----------------------------------------------------
 
-
 // Same logic as function in ZK app except we don't need getAndAssertEquals
-function getStacks(): [UInt32, UInt32] {
-    const stacks = zkAppInstance.stacks.get();
-    const unpacked = Stacks.unpack(stacks.packed);
-    return [unpacked[0], unpacked[1]]
+// function getStacks(): [UInt32, UInt32] {
+//     const stacks = zkAppInstance.stacks.get();
+//     const unpacked = Stacks.unpack(stacks.packed);
+//     return [unpacked[0], unpacked[1]]
+// }
+
+function getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32,] {
+    const gamestate = zkAppInstance.gamestate.get();
+    const unpacked = Gamestate.unpack(gamestate.packed);
+    return [unpacked[0], unpacked[1], unpacked[2], unpacked[3], unpacked[4], unpacked[5]]
 }
-
-
-
 
 let txSend1 = await Mina.transaction(fundedPubKey1, () => {
     AccountUpdate.fundNewAccount(fundedPubKey1).send({
@@ -196,7 +198,7 @@ const txn2 = await Mina.transaction(playerPubKey1, () => {
 });
 await txn2.prove();
 await txn2.sign([playerPrivKey1]).send();
-const bal1 = getStacks()[0];
+const bal1 = getGamestate()[0];
 console.log("Player 1 Stack:", bal1.toString());
 
 console.log("Auto depositing for player 2...");
@@ -205,7 +207,7 @@ const txn3 = await Mina.transaction(playerPubKey2, () => {
 });
 await txn3.prove();
 await txn3.sign([playerPrivKey2]).send();
-const bal2 = getStacks()[1];
+const bal2 = getGamestate()[1];
 console.log("Player 2 Stack:", bal2.toString());
 
 await sleep(SLEEP_TIME_LONG);
@@ -336,7 +338,8 @@ const actionMap: { [key: string]: number } = {
 
 
 // let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
-let currStreet = "Preflop";
+// let currStreet = "Preflop";
+let currStreet = zkAppInstance.Preflop;
 
 const boardStrs: CardStr[] = []
 const boardPrimes: UInt64[] = []
@@ -345,10 +348,11 @@ const boardPrimes: UInt64[] = []
 
 // Main game loop - keep accepting actions until hand ends
 while (true) {
-    let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
-
+    let [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
+    // TODO - have to fix this logic...
+    let player: string = "p1";
     // let player: string = lastAction < LastActions.Bet_P1 ? "0" : "1";
-    let player: string = getPlayer(gamestate);
 
     if (player === "p1") {
         const actionStr: string = await question("Player 1 - Choose your action\n") as string;
@@ -357,7 +361,7 @@ while (true) {
         if (actionStr == "bet" || actionStr == "raise") {
             amount = await question("Player 1 - Choose amount\n") as number;
         }
-        const actionField = UInt64.from(actionMap[actionStr]);
+        const actionField = UInt32.from(actionMap[actionStr]);
         const betSize = UInt32.from(amount);
         const txn = await Mina.transaction(playerPubKey1, () => {
             zkAppInstance.takeAction(actionField, betSize)
@@ -374,7 +378,7 @@ while (true) {
         if (actionStr == "bet" || actionStr == "raise") {
             amount = await question("Player 2 - Choose amount\n") as number;
         }
-        const actionField = UInt64.from(actionMap[actionStr]);
+        const actionField = UInt32.from(actionMap[actionStr]);
         const betSize = UInt32.from(amount);
         const txn = await Mina.transaction(playerPubKey2, () => {
             zkAppInstance.takeAction(actionField, betSize);
@@ -388,10 +392,13 @@ while (true) {
         break
     }
 
-    gamestate = parseInt(zkAppInstance.gamestate.get().toString());
-    let street = getStreet(gamestate);
+    // gamestate = parseInt(zkAppInstance.gamestate.get().toString());
+    //const [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // let street = getStreet(gamestate);
     // const street = zkAppInstance.street.get().toString()
-    if (street == "ShowdownPending") {
+    //if (street == "ShowdownPending") {
+    if (street == zkAppInstance.ShowdownPending) {
         // BOTH players must show cards before we can do showdown...
 
         const allCardsP1: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card1prime52), UInt64.from(card2prime52), boardPrimes[0], boardPrimes[1], boardPrimes[2], boardPrimes[3], boardPrimes[4]]
@@ -465,7 +472,8 @@ while (true) {
     }
     // If it was a street transition, need to get board cards
     else if (currStreet != street) {
-        if (street == "Flop") {
+        //if (street == "Flop") {
+        if (street == zkAppInstance.Flop) {
             console.log("DEALING FLOP...")
 
             const flop1 = getCardAndPrime(shuffledCards[4], shuffleKeyP1, shuffleKeyP2)
@@ -504,7 +512,8 @@ while (true) {
             await txnC.sign([playerPrivKey2]).send();
 
         }
-        else if (street == "Turn") {
+        // else if (street == "Turn") {
+        else if (street == zkAppInstance.Turn) {
             console.log("DEALING TURN...")
             // let turn = await getTakeFromOracle(GAME_ID.toString());
             // let turnHand: Card = turn.hand[0]
@@ -524,7 +533,8 @@ while (true) {
             await txnA.sign([playerPrivKey2]).send();
 
         }
-        else if (street == "River") {
+        // else if (street == "River") {
+        else if (street == zkAppInstance.River) {
             console.log("DEALING RIVER...")
 
             const river = getCardAndPrime(shuffledCards[8], shuffleKeyP1, shuffleKeyP2)
@@ -546,13 +556,15 @@ while (true) {
 }
 
 // Sanity check - should always be in GameOver state here...
-const gamestate = parseInt(zkAppInstance.gamestate.get().toString());
-console.log("gamestate", gamestate)
-if (gamestate != actionMapping["GameOver"]) {
+// const gamestate = parseInt(zkAppInstance.gamestate.get().toString());
+const [bal3, bal4, turn, street, lastAction, gameOver] = getGamestate();
+console.log("gamestate", bal3, bal4, turn, street, lastAction, gameOver)
+// if (gameOver != actionMapping["GameOver"]) {
+if (gameOver != zkAppInstance.GameOver) {
     throw "Invalid game state!";
 }
 
-const [bal3, bal4] = getStacks()
+// const [bal3, bal4] = getGamestate()
 console.log("Hand Complete!")
 console.log("End Balances", bal3.toString(), bal4.toString());
 if (bal3 == bal4) {
