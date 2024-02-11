@@ -217,8 +217,8 @@ export class PoZKerApp extends SmartContract {
     @method joinGame(player: PublicKey) {
         // Because we'll add player1 and then player 2, we only need
         // to check if player 2 is initialized to know if game is full
-        const player1Hash = this.player1Hash.getAndAssertEquals();
-        const player2Hash = this.player2Hash.getAndAssertEquals();
+        const player1Hash = this.player1Hash.getAndRequireEquals();
+        const player2Hash = this.player2Hash.getAndRequireEquals();
         player2Hash.assertEquals(Field(0), "Game is full!");
 
         const pHash = Poseidon.hash(player.toFields());
@@ -247,7 +247,7 @@ export class PoZKerApp extends SmartContract {
     }
 
     getStacks(): [UInt32, UInt32] {
-        const stacks = this.stacks.getAndAssertEquals();
+        const stacks = this.stacks.getAndRequireEquals();
         const unpacked = Stacks.unpack(stacks.packed);
         return [unpacked[0], unpacked[1]]
     }
@@ -262,12 +262,12 @@ export class PoZKerApp extends SmartContract {
         // end the hand and claim the pot...
         // TODO - we need to be recording block numbers so we can verify timeout condition is met
 
-        const gamestate = this.gamestate.getAndAssertEquals();
-        const player1Hash = this.player1Hash.getAndAssertEquals();
-        const player2Hash = this.player2Hash.getAndAssertEquals();
+        const gamestate = this.gamestate.getAndRequireEquals();
+        const player1Hash = this.player1Hash.getAndRequireEquals();
+        const player2Hash = this.player2Hash.getAndRequireEquals();
         const [stack1, stack2] = this.getStacks();
-        // const stack1 = this.stack1.getAndAssertEquals();
-        // const stack2 = this.stack2.getAndAssertEquals();
+        // const stack1 = this.stack1.getAndRequireEquals();
+        // const stack2 = this.stack2.getAndRequireEquals();
 
         gamestate.equals(this.GameOver).not().assertTrue('Game has already finished!');
 
@@ -298,11 +298,11 @@ export class PoZKerApp extends SmartContract {
 
     @method withdraw() {
         // Can ONLY withdraw when the hand is over!
-        const isGameOver = this.gamestate.getAndAssertEquals();
+        const isGameOver = this.gamestate.getAndRequireEquals();
         isGameOver.assertEquals(this.GameOver);
 
-        const player1Hash = this.player1Hash.getAndAssertEquals();
-        const player2Hash = this.player2Hash.getAndAssertEquals();
+        const player1Hash = this.player1Hash.getAndRequireEquals();
+        const player2Hash = this.player2Hash.getAndRequireEquals();
 
         const player = this.sender;
         const playerHash = Poseidon.hash(player.toFields());
@@ -312,8 +312,8 @@ export class PoZKerApp extends SmartContract {
         // We'll have tallied up the players winnings into their stack, 
         // so both players can withdraw whatever is in their stack when hand ends
         const [stack1, stack2] = this.getStacks();
-        // const stack1 = this.stack1.getAndAssertEquals();
-        // const stack2 = this.stack2.getAndAssertEquals();
+        // const stack1 = this.stack1.getAndRequireEquals();
+        // const stack2 = this.stack2.getAndRequireEquals();
 
         const sendAmount = Provable.if(
             playerHash.equals(player1Hash),
@@ -344,15 +344,15 @@ export class PoZKerApp extends SmartContract {
         // Constraints:
         // Only player1 and player2 can deposit
         // They can only deposit once
-        const player1Hash = this.player1Hash.getAndAssertEquals();
-        const player2Hash = this.player2Hash.getAndAssertEquals();
+        const player1Hash = this.player1Hash.getAndRequireEquals();
+        const player2Hash = this.player2Hash.getAndRequireEquals();
 
         const player = this.sender;
         const playerHash = Poseidon.hash(player.toFields());
 
         const [stack1, stack2] = this.getStacks();
-        // const stack1 = this.stack1.getAndAssertEquals();
-        // const stack2 = this.stack2.getAndAssertEquals();
+        // const stack1 = this.stack1.getAndRequireEquals();
+        // const stack2 = this.stack2.getAndRequireEquals();
 
         const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
         cond0.assertTrue('Player is not part of this game!')
@@ -409,7 +409,7 @@ export class PoZKerApp extends SmartContract {
 
         // Need to check that it's the current player's turn, 
         // and the action is valid
-        const gamestate = this.gamestate.getAndAssertEquals();
+        const gamestate = this.gamestate.getAndRequireEquals();
 
         gamestate.equals(this.GameOver).not().assertTrue('Game has already finished!');
 
@@ -422,8 +422,8 @@ export class PoZKerApp extends SmartContract {
         const player = this.sender;
 
         // Logic modified from https://github.com/betterclever/zk-chess/blob/main/src/Chess.ts
-        const player1Hash = this.player1Hash.getAndAssertEquals();
-        const player2Hash = this.player2Hash.getAndAssertEquals();
+        const player1Hash = this.player1Hash.getAndRequireEquals();
+        const player2Hash = this.player2Hash.getAndRequireEquals();
         const playerHash = Poseidon.hash(player.toFields());
 
         playerHash
@@ -434,8 +434,8 @@ export class PoZKerApp extends SmartContract {
 
 
         const [stack1, stack2] = this.getStacks();
-        // const stack1 = this.stack1.getAndAssertEquals();
-        // const stack2 = this.stack2.getAndAssertEquals();
+        // const stack1 = this.stack1.getAndRequireEquals();
+        // const stack2 = this.stack2.getAndRequireEquals();
 
         const isPreflop = gamestate.divMod(this.Preflop).rest.equals(UInt64.from(0));
         const isFlop = gamestate.divMod(this.Flop).rest.equals(UInt64.from(0));
@@ -630,12 +630,12 @@ export class PoZKerApp extends SmartContract {
         // 1 = ShowdownPending
         // 2 = P1 (meaning P1 has shown their cards)
         // 3 = P3 (meaning P1 has shown their cards)
-        const gamestate = this.gamestate.getAndAssertEquals();
+        const gamestate = this.gamestate.getAndRequireEquals();
         gamestate.equals(this.ShowdownComplete).assertTrue("Invalid showdown gamestate!");
 
         const [stack1, stack2] = this.getStacks();
-        // const stack1 = this.stack1.getAndAssertEquals();
-        // const stack2 = this.stack2.getAndAssertEquals();
+        // const stack1 = this.stack1.getAndRequireEquals();
+        // const stack2 = this.stack2.getAndRequireEquals();
         // Sanity check - if it's a showdown both stacks must be equal
         stack1.assertEquals(stack2);
 
@@ -644,8 +644,8 @@ export class PoZKerApp extends SmartContract {
 
         // Convention is we'll have stored player1's lookup value for their hand 
         // in slot0, and player2's lookup value in slot1
-        const slot0 = this.slot0.getAndAssertEquals();
-        const slot1 = this.slot1.getAndAssertEquals();
+        const slot0 = this.slot0.getAndRequireEquals();
+        const slot1 = this.slot1.getAndRequireEquals();
 
         // If we get a tie - split the pot
         const tieAdj = Provable.if(
@@ -797,7 +797,7 @@ export class PoZKerApp extends SmartContract {
     @method tallyBoardCards(cardPrime52: Field) {
         // Remember - cardPrime52 should be in the 52 format
         // We'll always store the board card product in slot2
-        const slot2 = this.slot2.getAndAssertEquals();
+        const slot2 = this.slot2.getAndRequireEquals();
 
         // Remember - we start out having the board card be Null*5
         // Need to do this so we can ensure at showdown that player submitted all cards
@@ -989,20 +989,20 @@ export class PoZKerApp extends SmartContract {
         3. re-hash the cards and confirm it matches their stored hash
         4. check that board cards are the real board cards
         */
-        const gamestate = this.gamestate.getAndAssertEquals();
+        const gamestate = this.gamestate.getAndRequireEquals();
         gamestate.assertLessThanOrEqual(UInt64.from(3));
 
         // Player card hash will be stored in slot1 or slot1
-        const slot0 = this.slot0.getAndAssertEquals();
-        const slot1 = this.slot1.getAndAssertEquals();
+        const slot0 = this.slot0.getAndRequireEquals();
+        const slot1 = this.slot1.getAndRequireEquals();
         // We are going to be storing the product of all the board card primes here!
-        const slot2 = this.slot2.getAndAssertEquals();
+        const slot2 = this.slot2.getAndRequireEquals();
 
 
         // CHECK 0. - make sure player is a part of the game...
         const player = this.sender;
-        const player1Hash = this.player1Hash.getAndAssertEquals();
-        const player2Hash = this.player2Hash.getAndAssertEquals();
+        const player1Hash = this.player1Hash.getAndRequireEquals();
+        const player2Hash = this.player2Hash.getAndRequireEquals();
         const playerHash = Poseidon.hash(player.toFields());
         playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)).assertTrue('Player is not part of this game!');
 
@@ -1129,11 +1129,11 @@ export class PoZKerApp extends SmartContract {
         // 3. and store the hash in a slot
 
         // For both players their encrypted card will be stored here
-        const slot0 = this.slot0.getAndAssertEquals();
+        const slot0 = this.slot0.getAndRequireEquals();
         // these are the cards - should be the same as 'msg' that we passed in
         // but have to pass in 'msg' because we need the secon field
-        const msg1F = this.slot1.getAndAssertEquals();
-        const msg2F = this.slot2.getAndAssertEquals();
+        const msg1F = this.slot1.getAndRequireEquals();
+        const msg2F = this.slot2.getAndRequireEquals();
 
         msg1F.assertEquals(msg1.toFields()[0]);
         msg2F.assertEquals(msg2.toFields()[0]);
@@ -1180,8 +1180,8 @@ export class PoZKerApp extends SmartContract {
 
         const msgF = msg.toFields()[0];
 
-        const slot1 = this.slot1.getAndAssertEquals();
-        const slot2 = this.slot2.getAndAssertEquals();
+        const slot1 = this.slot1.getAndRequireEquals();
+        const slot2 = this.slot2.getAndRequireEquals();
         const slot1New = Provable.if(
             slotI.equals(1),
             msgF,
