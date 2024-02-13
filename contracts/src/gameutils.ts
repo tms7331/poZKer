@@ -5,7 +5,7 @@ import {
     UInt64,
 } from 'o1js';
 import fs from 'fs';
-import { cardMapping52, actionMapping } from './PoZKer.js';
+import { cardMapping52 } from './PoZKer.js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
 
 
@@ -190,46 +190,6 @@ export function getShowdownData(allCardsUint: [UInt64, UInt64, UInt64, UInt64, U
     return [useCardsRet, isFlushRet, merkleMapKeyRet, merkleMapValRet];
 
 }
-
-const P1 = actionMapping["P1"];
-const P2 = actionMapping["P2"];
-const PREFLOP = actionMapping["Preflop"];
-const FLOP = actionMapping["Flop"];
-const TURN = actionMapping["Turn"];
-const RIVER = actionMapping["River"];
-const SHOWDOWNPENDING = actionMapping["ShowdownPending"];
-// const GAMEOVER = actionMapping["GameOver"]
-
-
-export function getStreet(gamestate: number) {
-    if (gamestate % PREFLOP == 0) {
-        return "Preflop";
-    }
-    else if (gamestate % FLOP == 0) {
-        return "Flop";
-    }
-    else if (gamestate % TURN == 0) {
-        return "Turn";
-    }
-    else if (gamestate % RIVER == 0) {
-        return "River";
-    }
-    else if (gamestate % SHOWDOWNPENDING == 0) {
-        return "ShowdownPending";
-    }
-    throw "Invalid street!";
-}
-
-export function getPlayer(gamestate: number) {
-    if (gamestate % P1 == 0) {
-        return "p1";
-    }
-    else if (gamestate % P2 == 0) {
-        return "p2";
-    }
-    throw "Invalid player!";
-}
-
 
 
 // fisher-yates shuffle, from chatgpt

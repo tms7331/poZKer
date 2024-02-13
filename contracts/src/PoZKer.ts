@@ -1,74 +1,8 @@
 import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, UInt32, AccountUpdate, Poseidon, MerkleMapWitness, Scalar, } from 'o1js';
 import { PackedUInt32Factory } from 'o1js-pack';
 
-/*
-Creating a mapping of prime numbers in order to combine:
-1. Player
-2. Street
-3. LastAction
-Into a single variable representing game state.  
-The values can be multiplied together in order to create a unique value 
-representing the current game state, and divMod can be used in order to
-extract the individual values
-
-Mapping is as follows:
-GameOver 1
-
-P1 2
-P2 3
-
-Preflop 5
-Flop 7
-Turn 11
-River 13
-Showdown 17
-
-Null 19
-Bet 23
-Call 29
-Fold 31
-Raise 37
-Check 41
-*/
-
-
-export const actionMapping = {
-    // Showdown logic: when players need to show their cards we'll set this to
-    // be gamestate.  Then as each player shows their cards, we'll multiply by
-    // 2, and then by 3.  This will result in gamestate of 6, 'ShowdownComplete'
-    // and this is the unique way we can achieve a gamestate of 6
-    // From there either player can call the 'showdown' method, which will transition
-    // to GameOver and allow the players to collect their winnings
-    "ShowdownPending": 1,
-    // Players 
-    "P1": 2,
-    "P2": 3,
-    "ShowdownComplete": 6,
-    // Streets
-    "Preflop": 5,
-    "Flop": 7,
-    "Turn": 11,
-    "River": 13,
-    // "Showdown": 17,  // doesn't exist anymore, we have PendingShowdown and ShowdownComplete
-    // Actions
-    "Null": 19,
-    "Bet": 23,
-    "Call": 29,
-    "Fold": 31,
-    "Raise": 37,
-    "Check": 41,
-    // Specifically for player 1 calling player2's blind
-    // The action proceeds differently in this case, easier to have it separate
-    // Note - action does not need to be specified externally, it's easier to have 
-    // action transformed into this inside of our takeAction logic
-    "PreflopCall": 43,
-    // This will override others - we'll set this to be gamestate, no multiplying
-    "GameOver": 47,
-    "GameNotOver": 48
-}
-
-
-// Want an additional mapping for cards, using same prime idea 
+// Want a mapping for cards, each represented as a prime so we can multiply
+// them together and get a unique value
 export const cardMapping13 = {
     "2": 2,
     "3": 3,
@@ -148,31 +82,30 @@ export const cardMapping52 = {
     "": 241,
 }
 
-export class Stacks extends PackedUInt32Factory() { }
-
 export class Gamestate extends PackedUInt32Factory() { }
 
 export class PoZKerApp extends SmartContract {
-    GameOver = UInt32.from(actionMapping["GameOver"]);
-    GameNotOver = UInt32.from(actionMapping["GameNotOver"]);
+    GameNotOver = UInt32.from(0);
+    GameOver = UInt32.from(1);
 
-    P1Turn = UInt32.from(actionMapping["P1"]);
-    P2Turn = UInt32.from(actionMapping["P2"]);
+    // we need P1Turn*P2Turn*ShowdownPending = ShowdownComplete
+    P1Turn = UInt32.from(2);
+    P2Turn = UInt32.from(3);
 
-    Preflop = UInt32.from(actionMapping["Preflop"]);
-    Flop = UInt32.from(actionMapping["Flop"]);
-    Turn = UInt32.from(actionMapping["Turn"]);
-    River = UInt32.from(actionMapping["River"]);
-    ShowdownPending = UInt32.from(actionMapping["ShowdownPending"]);
-    ShowdownComplete = UInt32.from(actionMapping["ShowdownComplete"]);
+    ShowdownPending = UInt32.from(1);
+    ShowdownComplete = UInt32.from(6);
+    Preflop = UInt32.from(2);
+    Flop = UInt32.from(3);
+    Turn = UInt32.from(4);
+    River = UInt32.from(5);
 
-    Null = UInt32.from(actionMapping["Null"]);
-    Bet = UInt32.from(actionMapping["Bet"]);
-    Call = UInt32.from(actionMapping["Call"]);
-    Fold = UInt32.from(actionMapping["Fold"]);
-    Raise = UInt32.from(actionMapping["Raise"]);
-    Check = UInt32.from(actionMapping["Check"]);
-    PreflopCall = UInt32.from(actionMapping["PreflopCall"]);
+    Null = UInt32.from(0);
+    Bet = UInt32.from(1);
+    Call = UInt32.from(2);
+    Fold = UInt32.from(3);
+    Raise = UInt32.from(4);
+    Check = UInt32.from(5);
+    PreflopCall = UInt32.from(6);
 
     NullBoardcard = Field(cardMapping52[""]);
 
@@ -206,12 +139,9 @@ export class PoZKerApp extends SmartContract {
         const turn: UInt32 = this.P1Turn;
         const street: UInt32 = this.Preflop;
         const lastAction: UInt32 = this.Bet;
-        const gameOver: UInt32 = UInt32.from(0);
-
-        // const currstate = this.P1.mul(this.Preflop).mul(this.Bet);
-        // this.gamestate.set(currstate);
-        // this.setStacks(UInt32.from(0), UInt32.from(0));
+        const gameOver: UInt32 = this.GameNotOver;
         this.setGamestate(stack1, stack2, turn, street, lastAction, gameOver);
+
         // Initialize with 0s so we can tell when two players have joined
         this.player1Hash.set(Field(0));
         this.player2Hash.set(Field(0));
@@ -271,7 +201,7 @@ export class PoZKerApp extends SmartContract {
         const player2Hash = this.player2Hash.getAndRequireEquals();
         const [stack1, stack2, turn, street, lastAction, gameOver] = this.getGamestate();
 
-        gameOver.equals(UInt32.from(0)).assertTrue('Game has already finished!');
+        gameOver.equals(this.GameNotOver).assertTrue('Game has already finished!');
 
         const player: PublicKey = this.sender;
         const playerHash = Poseidon.hash(player.toFields());
@@ -398,7 +328,7 @@ export class PoZKerApp extends SmartContract {
         // Need to check that it's the current player's turn, 
         // and the action is valid
         const [stack1, stack2, turn, street, lastAction, gameOver] = this.getGamestate();
-        gameOver.equals(UInt32.from(0)).assertTrue('Game has already finished!');
+        gameOver.equals(this.GameNotOver).assertTrue('Game has already finished!');
 
         // Want these as bools to simplify checks
         const p1turn: Bool = turn.equals(this.P1Turn);
@@ -559,22 +489,21 @@ export class PoZKerApp extends SmartContract {
 
         const gameOverNow: UInt32 = Provable.if(
             actionReal.equals(this.Fold),
-            UInt32.from(1),
-            UInt32.from(0)
+            this.GameOver,
+            this.GameNotOver
         )
-        const gameOverBool: Bool = gameOverNow.equals(UInt32.from(1));
 
         // If game is over from a fold - need to send funds to winner
         const p1WinnerBal = stack1.add(this.GameBuyin.sub(stack2New));
         const p2WinnerBal = stack2.add(this.GameBuyin.sub(stack1New));
 
         const stack1Final = Provable.if(
-            gameOverBool.and(playerHash.equals(player2Hash)),
+            gameOverNow.equals(this.GameOver).and(playerHash.equals(player2Hash)),
             p1WinnerBal,
             stack1New
         );
         const stack2Final = Provable.if(
-            gameOverBool.and(playerHash.equals(player1Hash)),
+            gameOverNow.equals(this.GameOver).and(playerHash.equals(player1Hash)),
             p2WinnerBal,
             stack2New
         );

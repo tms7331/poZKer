@@ -1,5 +1,5 @@
 // Modified from Hello World tutorial at https://docs.minaprotocol.com/zkapps/tutorials/hello-world
-import { PoZKerApp, actionMapping, cardMapping52, Stacks, Gamestate } from './PoZKer.js';
+import { PoZKerApp, cardMapping52, Gamestate } from './PoZKer.js';
 //import { readline } from 'readline';
 //const readline = require('readline');
 import readline from 'readline';
@@ -18,7 +18,7 @@ import {
     MerkleMapWitness,
 } from 'o1js';
 import { MerkleMapSerializable, deserialize } from './merkle_map_serializable.js';
-import { CardStr, getMerkleMapWitness, getShowdownData, getPlayer, getStreet, shuffleCards } from './gameutils.js';
+import { CardStr, getMerkleMapWitness, getShowdownData, shuffleCards } from './gameutils.js';
 import { Card, addPlayerToCardMask, mask, partialUnmask, createNewCard, cardPrimeToPublicKey, getCardAndPrimeHalf, getCardAndPrime, hashShuffledDeck } from './mentalpoker.js';
 
 await isReady;
@@ -320,12 +320,13 @@ await sleep(SLEEP_TIME_LONG);
 console.log("POSSIBLE ACTIONS: bet, call, fold, raise, check")
 
 // user will enter string of their action but we need the corresponding prime
-const actionMap: { [key: string]: number } = {
-    "bet": actionMapping["Bet"],
-    "call": actionMapping["Call"],
-    "fold": actionMapping["Fold"],
-    "raise": actionMapping["Raise"],
-    "check": actionMapping["Check"],
+const actionMap: { [key: string]: UInt32 } = {
+    // Have to copy the values from PoZKerApp
+    "bet": UInt32.from(1),
+    "call": UInt32.from(2),
+    "fold": UInt32.from(3),
+    "raise": UInt32.from(4),
+    "check": UInt32.from(5)
 };
 
 
