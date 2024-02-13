@@ -63,8 +63,6 @@ const merkleMapFlush: MerkleMapSerializable = deserialize(jsonDataFlush);
 const shuffleKeyP1 = PrivateKey.random()
 const shuffleKeyP2 = PrivateKey.random()
 
-
-
 // This is a mapping from the publicKey.toBase58() of the cards
 // to their string value, B62abcdefg... -> 5h
 // const cardMapping = buildCardMapping(cardMapping52)
@@ -143,12 +141,6 @@ await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
 // ----------------------------------------------------
 
 // Same logic as function in ZK app except we don't need getAndAssertEquals
-// function getStacks(): [UInt32, UInt32] {
-//     const stacks = zkAppInstance.stacks.get();
-//     const unpacked = Stacks.unpack(stacks.packed);
-//     return [unpacked[0], unpacked[1]]
-// }
-
 function getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32,] {
     const gamestate = zkAppInstance.gamestate.get();
     const unpacked = Gamestate.unpack(gamestate.packed);

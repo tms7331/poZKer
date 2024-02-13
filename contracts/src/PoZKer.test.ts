@@ -1,5 +1,5 @@
 import { PoZKerApp, actionMapping, cardMapping52, Stacks, Gamestate } from './PoZKer';
-import { Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt32, UInt64, MerkleMapWitness } from 'o1js';
+import { Field, Mina, PrivateKey, PublicKey, AccountUpdate, UInt32, UInt64, MerkleMapWitness, Provable } from 'o1js';
 import fs from 'fs';
 import { Card, addPlayerToCardMask, mask, partialUnmask, createNewCard, cardPrimeToPublicKey } from './mentalpoker.js';
 import { getMerkleMapWitness, getShowdownData } from './gameutils.js';
@@ -15,15 +15,6 @@ const FOLD = actionMapping["Fold"];
 const RAISE = actionMapping["Raise"];
 const CHECK = actionMapping["Check"];
 
-const SHOWDOWNPENDING = actionMapping["ShowdownPending"];
-
-
-
-// describe('PoZKer.js', () => {
-//   describe('PoZKer()', () => {
-//     it.todo('should be correct');
-//   });
-// });
 
 describe('PoZKer', () => {
   let deployerAccount: PublicKey,
@@ -103,11 +94,6 @@ describe('PoZKer', () => {
     await txnJ2.sign([playerPrivKey2]).send();
   }
 
-  // function getStacks(): [UInt32, UInt32] {
-  //   const stacks = zkAppInstance.stacks.get();
-  //   const unpacked = Stacks.unpack(stacks.packed);
-  //   return [unpacked[0], unpacked[1]]
-  // }
 
   function getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32,] {
     const gamestate = zkAppInstance.gamestate.get();
@@ -239,14 +225,9 @@ describe('PoZKer', () => {
 
     // After depositing player 1 should have stack of 99 (SB)
     // Player 2 should have stack of 98 (BB)
-    // const [bal1, bal2] = getStacks()
     const [bal1, bal2, turn, street, lastAction, gameOver] = getGamestate();
     expect(bal1.toString()).toMatch('99');
     expect(bal2.toString()).toMatch('98');
-    // const gamestate: UInt64 = zkAppInstance.gamestate.get();
-    // const gamestatejs = gamestate.toBigInt();
-    // const remainder = Number(gamestatejs) % BET;
-    // expect(remainder).toEqual(0);
   });
 
 
@@ -340,18 +321,7 @@ describe('PoZKer', () => {
     await txnSucc3.prove();
     await txnSucc3.sign([playerPrivKey1]).send();
 
-    // state is turn * street * lastAction
-    const p2Turn = 3
-    const currStreetPreflop = 5
-    const lastActionRaise = 37
-    const expectedState = p2Turn * currStreetPreflop * lastActionRaise
-
-    // const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
-    // expect(gamestate).toEqual(expectedState);
-
     const [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
-    // const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
-    //expect(gamestate).toEqual(expectedState);
     expect(turn).toEqual(zkAppInstance.P2Turn);
     expect(street).toEqual(zkAppInstance.Preflop);
     expect(lastAction).toEqual(zkAppInstance.Raise);
@@ -377,8 +347,6 @@ describe('PoZKer', () => {
     const expectedState = p2Turn * currStreetPreflop * lastActionPreflopCall
 
     const [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
-    // const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
-    //expect(gamestate).toEqual(expectedState);
     expect(turn).toEqual(zkAppInstance.P2Turn);
     expect(street).toEqual(zkAppInstance.Preflop);
     expect(lastAction).toEqual(zkAppInstance.PreflopCall);
@@ -446,23 +414,11 @@ describe('PoZKer', () => {
     await txnSucc2.prove();
     await txnSucc2.sign([playerPrivKey2]).send();
 
-    // state is turn * street * lastAction
-    const p1Turn = 2
-    const currStreetFlop = 7
-    const lastActionNull = 19
-    const expectedState = p1Turn * currStreetFlop * lastActionNull
-
-    // const gamestate: Number = Number(zkAppInstance.gamestate.get().toBigInt());
-    // expect(gamestate).toEqual(expectedState);
-
-    // TODO - double check this, what were we testing?
+    // We actually committed the check, so should be p1's turn on flop
     const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
-    // const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
-    // make sure we've reached showdown...
-    // expect(gamestate).toEqual(SHOWDOWNPENDING);
-    // expect(turn).toEqual(zkAppInstance.P1Turn);
-    // expect(street).toEqual(zkAppInstance.Flop);
-    expect(street).toEqual(zkAppInstance.ShowdownPending);
+    expect(turn).toEqual(zkAppInstance.P1Turn);
+    expect(street).toEqual(zkAppInstance.Flop);
+    expect(lastAction).toEqual(zkAppInstance.Null);
   });
 
   it('prevents players from betting more than their stack', async () => {
@@ -526,14 +482,7 @@ describe('PoZKer', () => {
     await txnCall.prove();
     await txnCall.sign([playerPrivKey1]).send();
 
-    // const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
-    // // just important that we've reached 'showdown'
-    // expect(gamestate).toEqual(SHOWDOWNPENDING);
-
     const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
-    // const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
-    // make sure we've reached showdown...
-    // expect(gamestate).toEqual(SHOWDOWNPENDING);
     expect(street).toEqual(zkAppInstance.ShowdownPending);
   })
 
@@ -587,9 +536,7 @@ describe('PoZKer', () => {
     await txnCall.sign([playerPrivKey2]).send();
 
     const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
-    // const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
     // make sure we've reached showdown...
-    // expect(gamestate).toEqual(SHOWDOWNPENDING);
     expect(street).toEqual(zkAppInstance.ShowdownPending);
 
     // We should NOT be able to call 'showdown' method yet - 
@@ -732,11 +679,8 @@ describe('PoZKer', () => {
     await txnB.prove();
     await txnB.sign([playerPrivKey2]).send();
 
-
     // We should have transitioned to ShowdownComplete at this point
     [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
-    // const gamestateSD: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
-    // expect(gamestateSD).toEqual(actionMapping["ShowdownComplete"]);
     expect(street).toEqual(zkAppInstance.ShowdownComplete);
 
     // Showdown means no more actions, need to handle card logic though
@@ -750,8 +694,6 @@ describe('PoZKer', () => {
     // And after calling 'showdown' we should have transitioned to GameOver
 
     [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
-    // const gamestateFinal: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
-    // expect(gamestateFinal).toEqual(actionMapping["GameOver"]);
     expect(gameOver).toEqual(zkAppInstance.GameOver);
 
     // And finally - both players can claim their profits
@@ -761,12 +703,7 @@ describe('PoZKer', () => {
     await txnWd.prove();
     await txnWd.sign([playerPrivKey2]).send();
 
-    // const [stack1_, stack2_] = getStacks()
     [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
-    // const stack1: number = Number(zkAppInstance.stack1.get().toBigInt()) as number;
-    // const stack2: number = Number(zkAppInstance.stack2.get().toBigInt()) as number;
-    // const stack1: number = Number(stack1_.toBigint()) as number;
-    // const stack2: number = Number(stack2_.toBigint()) as number;
     expect(stack1).toEqual(UInt32.from(0));
     expect(stack2).toEqual(UInt32.from(0));
   })
