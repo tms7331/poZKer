@@ -313,8 +313,7 @@ await txnC6.prove();
 await txnC6.sign([playerPrivKey2]).send();
 
 await sleep(SLEEP_TIME_LONG);
-// clear();
-
+clear();
 
 // now start game loop...
 console.log("POSSIBLE ACTIONS: bet, call, fold, raise, check")
@@ -329,23 +328,15 @@ const actionMap: { [key: string]: UInt32 } = {
     "check": UInt32.from(5)
 };
 
-
-// let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
-// let currStreet = "Preflop";
 let currStreet = zkAppInstance.Preflop;
 
 const boardStrs: CardStr[] = []
 const boardPrimes: UInt64[] = []
 
-
-
 // Main game loop - keep accepting actions until hand ends
 while (true) {
     let [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
-    // let gamestate = parseInt(zkAppInstance.gamestate.get().toString());
-    // TODO - have to fix this logic...
-    let player: string = "p1";
-    // let player: string = lastAction < LastActions.Bet_P1 ? "0" : "1";
+    let player: string = turn == zkAppInstance.P1Turn ? "p1" : "p2";
 
     if (player === "p1") {
         const actionStr: string = await question("Player 1 - Choose your action\n") as string;
@@ -385,12 +376,7 @@ while (true) {
         break
     }
 
-    // gamestate = parseInt(zkAppInstance.gamestate.get().toString());
-    //const [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
     [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
-    // let street = getStreet(gamestate);
-    // const street = zkAppInstance.street.get().toString()
-    //if (street == "ShowdownPending") {
     if (street == zkAppInstance.ShowdownPending) {
         // BOTH players must show cards before we can do showdown...
 
@@ -505,12 +491,8 @@ while (true) {
             await txnC.sign([playerPrivKey2]).send();
 
         }
-        // else if (street == "Turn") {
         else if (street == zkAppInstance.Turn) {
             console.log("DEALING TURN...")
-            // let turn = await getTakeFromOracle(GAME_ID.toString());
-            // let turnHand: Card = turn.hand[0]
-            //boardStrs.push(parseCardInt(parseInt(turnHand)));
             const turn = getCardAndPrime(shuffledCards[7], shuffleKeyP1, shuffleKeyP2)
             const cardPrime1 = cardMapping52[turn as CardStr]
 
@@ -526,7 +508,6 @@ while (true) {
             await txnA.sign([playerPrivKey2]).send();
 
         }
-        // else if (street == "River") {
         else if (street == zkAppInstance.River) {
             console.log("DEALING RIVER...")
 
@@ -549,15 +530,12 @@ while (true) {
 }
 
 // Sanity check - should always be in GameOver state here...
-// const gamestate = parseInt(zkAppInstance.gamestate.get().toString());
 const [bal3, bal4, turn, street, lastAction, gameOver] = getGamestate();
 console.log("gamestate", bal3, bal4, turn, street, lastAction, gameOver)
-// if (gameOver != actionMapping["GameOver"]) {
 if (gameOver != zkAppInstance.GameOver) {
     throw "Invalid game state!";
 }
 
-// const [bal3, bal4] = getGamestate()
 console.log("Hand Complete!")
 console.log("End Balances", bal3.toString(), bal4.toString());
 if (bal3 == bal4) {
