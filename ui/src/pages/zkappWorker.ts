@@ -53,7 +53,7 @@ const functions = {
     console.log("COMPLETED initZkappInstance")
   },
   getNum: async (args: {}) => {
-    const currentNum = await state.zkapp!.tempvar.get();
+    const currentNum = await state.zkapp!.slot4.get();
     return JSON.stringify(currentNum.toJSON());
   },
   getGamestate: async (args: {}) => {
