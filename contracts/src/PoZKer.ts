@@ -127,9 +127,8 @@ export class PoZKerApp extends SmartContract {
     @state(Field) slot0 = State<Field>();
     @state(Field) slot1 = State<Field>();
     @state(Field) slot2 = State<Field>();
-
-    // For testing - want to be sure we can deploy the contract and set this
-    @state(Field) tempvar = State<Field>();
+    @state(Field) slot3 = State<Field>();
+    @state(Field) slot4 = State<Field>();
 
     init() {
         super.init();
@@ -146,7 +145,8 @@ export class PoZKerApp extends SmartContract {
         this.player1Hash.set(Field(0));
         this.player2Hash.set(Field(0));
 
-        this.tempvar.set(Field(42));
+        // Temp - just want to use this to experiment with pulling data
+        this.slot4.set(Field(42));
     }
 
     @method joinGame(player: PublicKey) {
@@ -1000,7 +1000,7 @@ export class PoZKerApp extends SmartContract {
         return pubKey
     }
 
-    @method storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey, msg1: PublicKey, msg2: PublicKey) {
+    @method storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey) {
         // Used to store a hash of the player's cards
         // 1. decrypt both cards
         // 2. double hash the resulting value
@@ -1008,13 +1008,16 @@ export class PoZKerApp extends SmartContract {
 
         // For both players their encrypted card will be stored here
         const slot0 = this.slot0.getAndRequireEquals();
-        // these are the cards - should be the same as 'msg' that we passed in
-        // but have to pass in 'msg' because we need the secon field
-        const msg1F = this.slot1.getAndRequireEquals();
-        const msg2F = this.slot2.getAndRequireEquals();
 
-        msg1F.assertEquals(msg1.toFields()[0]);
-        msg2F.assertEquals(msg2.toFields()[0]);
+        const msg1F0 = this.slot1.getAndRequireEquals();
+        const msg2F0 = this.slot2.getAndRequireEquals();
+        const msg1F1 = this.slot3.getAndRequireEquals();
+        const msg2F1 = this.slot4.getAndRequireEquals();
+
+        //msg1F.assertEquals(msg1.toFields()[0]);
+        //msg2F.assertEquals(msg2.toFields()[0]);
+        const msg1: PublicKey = PublicKey.fromFields([msg1F0, msg1F1]);
+        const msg2: PublicKey = PublicKey.fromFields([msg2F0, msg2F1]);
 
         // We are ALWAYS storing the encrypted cards in slots1 and 2
 
@@ -1055,29 +1058,44 @@ export class PoZKerApp extends SmartContract {
         // Players can then decrypt their cards, preserving the secrecy of the
         // cards and avoiding the need for a trusted dealer
 
-        const msgF = msg.toFields()[0];
+        const [msgF0, msgF1] = msg.toFields()
 
         const slot1 = this.slot1.getAndRequireEquals();
         const slot2 = this.slot2.getAndRequireEquals();
+        const slot3 = this.slot3.getAndRequireEquals();
+        const slot4 = this.slot4.getAndRequireEquals();
         const slot1New = Provable.if(
             slotI.equals(1),
-            msgF,
+            msgF0,
             slot1,
         );
         const slot2New = Provable.if(
             slotI.equals(2),
-            msgF,
+            msgF0,
             slot2,
+        );
+        // And now store the second value too
+        const slot3New = Provable.if(
+            slotI.equals(1),
+            msgF1,
+            slot3,
+        );
+        const slot4New = Provable.if(
+            slotI.equals(2),
+            msgF1,
+            slot4,
         );
         this.slot1.set(slot1New);
         this.slot2.set(slot2New);
+        this.slot3.set(slot3New);
+        this.slot4.set(slot4New);
     }
 
     @method setTempvar() {
-        this.tempvar.set(Field(1));
+        this.slot4.set(Field(123));
     }
 
     @method setTempvarValue(val: Field) {
-        this.tempvar.set(val);
+        this.slot4.set(val);
     }
 }

@@ -257,11 +257,11 @@ const txnC3 = await Mina.transaction(playerPubKey1, () => {
     // Have to put it in slots 1 and 2
     const slotI = Field(0);
 
-    const c1m = PublicKey.fromGroup(card1.msg);
+    // const c1m = PublicKey.fromGroup(card1.msg);
     const c1e = PublicKey.fromGroup(card1.epk);
-    const c2m = PublicKey.fromGroup(card2.msg);
+    // const c2m = PublicKey.fromGroup(card2.msg);
     const c2e = PublicKey.fromGroup(card2.epk);
-    zkAppInstance.storeCardHash(slotI, shuffleKeyP1, c1e, c2e, c1m, c2m);
+    zkAppInstance.storeCardHash(slotI, shuffleKeyP1, c1e, c2e);
 });
 await txnC3.prove();
 await txnC3.sign([playerPrivKey1]).send();
@@ -302,11 +302,11 @@ const txnC6 = await Mina.transaction(playerPubKey2, () => {
     const slotI = Field(1);
     // const playerSecKey = playerPrivKey2;
 
-    const c3m = PublicKey.fromGroup(card3.msg);
+    // const c3m = PublicKey.fromGroup(card3.msg);
     const c3e = PublicKey.fromGroup(card3.epk);
-    const c4m = PublicKey.fromGroup(card4.msg);
+    // const c4m = PublicKey.fromGroup(card4.msg);
     const c4e = PublicKey.fromGroup(card4.epk);
-    zkAppInstance.storeCardHash(slotI, shuffleKeyP2, c3e, c4e, c3m, c4m);
+    zkAppInstance.storeCardHash(slotI, shuffleKeyP2, c3e, c4e);
 
 });
 await txnC6.prove();
