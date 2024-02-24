@@ -1,5 +1,5 @@
 import { Mina, fetchAccount, Field, PublicKey, PrivateKey, Bool, UInt64, UInt32, MerkleMapWitness } from 'o1js';
-import { Gamestate } from '../../../contracts/src/PoZKer';
+// import { Gamestate } from '../../../contracts/src/PoZKer';
 
 type Transaction = Awaited<ReturnType<typeof Mina.transaction>>;
 
@@ -17,10 +17,13 @@ const state = {
 
 const functions = {
   setActiveInstanceToBerkeley: async (args: {}) => {
-    const Berkeley = Mina.Network(
-      // 'https://api.minascan.io/node/berkeley/v1/graphql'
-      'https://proxy.berkeley.minaexplorer.com/graphql'
-    );
+    const Berkeley = Mina.Network({
+      mina: [
+        'https://proxy.berkeley.minaexplorer.com/graphql',
+        'https://berkeley.minascan.io/graphql',
+        'https://api.minascan.io/node/berkeley/v1/graphql'
+      ],
+    });
     console.log('Berkeley Instance Created');
     Mina.setActiveInstance(Berkeley);
   },
@@ -57,11 +60,11 @@ const functions = {
     return JSON.stringify(currentNum.toJSON());
   },
   getGamestate: async (args: {}) => {
-    const gamestate = await state.zkapp!.gamestate.get();
-    const unpacked = Gamestate.unpack(gamestate.packed);
-    // All UInt32s, representing:
-    // stack1, stack2, turn, street, lastAction, gameOver
-    return JSON.stringify([unpacked[0].toJSON(), unpacked[1].toJSON(), unpacked[2].toJSON(), unpacked[3].toJSON(), unpacked[4].toJSON(), unpacked[5].toJSON()])
+    // const gamestate = await state.zkapp!.gamestate.get();
+    // const unpacked = Gamestate.unpack(gamestate.packed);
+    // // All UInt32s, representing:
+    // // stack1, stack2, turn, street, lastAction, gameOver
+    // return JSON.stringify([unpacked[0].toJSON(), unpacked[1].toJSON(), unpacked[2].toJSON(), unpacked[3].toJSON(), unpacked[4].toJSON(), unpacked[5].toJSON()])
   },
   createSetTempvarTx: async (args: { val: Field }) => {
     // setTempvarValue(val: Field)
@@ -120,10 +123,10 @@ const functions = {
     state.transaction = transaction;
   },
 
-  createStoreCardHashTx: async (args: { slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey, msg1: PublicKey, msg2: PublicKey }) => {
+  createStoreCardHashTx: async (args: { slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey }) => {
     // storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey, msg1: PublicKey, msg2: PublicKey)
     const transaction = await Mina.transaction(() => {
-      state.zkapp!.storeCardHash(args.slotI, args.shuffleSecret, args.epk1, args.epk2, args.msg1, args.msg2);
+      state.zkapp!.storeCardHash(args.slotI, args.shuffleSecret, args.epk1, args.epk2);
     });
     state.transaction = transaction;
   },
