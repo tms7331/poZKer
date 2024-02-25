@@ -149,6 +149,7 @@ export class PoZKerApp extends SmartContract {
         this.slot4.set(Field(42));
     }
 
+
     @method joinGame(player: PublicKey) {
         // Because we'll add player1 and then player 2, we only need
         // to check if player 2 is initialized to know if game is full
@@ -260,7 +261,33 @@ export class PoZKerApp extends SmartContract {
             UInt32.from(0),
             stack2
         );
-        this.setGamestate(stack1New, stack2New, turn, street, lastAction, gameOver);
+
+        // We want to reset the gamestate once both players have withdrawn,
+        // so we can use the contract for another hand
+        const player1HashNew = Provable.if(
+            playerHash.equals(player1Hash),
+            Field(0),
+            player1Hash
+        );
+        const player2HashNew = Provable.if(
+            playerHash.equals(player2Hash),
+            Field(0),
+            player2Hash
+        );
+
+        // Initialize with 0s so we can tell when two players have joined
+        this.player1Hash.set(player1HashNew);
+        this.player2Hash.set(player2HashNew);
+
+        const turnReset: UInt32 = this.P1Turn;
+        const streetReset: UInt32 = this.Preflop;
+        const lastActionReset: UInt32 = this.Bet;
+
+        // Once both stacks are 0 - game is complete, set gameOver to false!
+        const gameShouldReset: Bool = stack1New.equals(UInt32.from(0)).and(stack2New.equals(UInt32.from(0)));
+        const gameOverNew = Provable.if(gameShouldReset, this.GameNotOver, this.GameOver);
+
+        this.setGamestate(stack1New, stack2New, turnReset, streetReset, lastActionReset, gameOverNew);
     }
 
     @method deposit() {
