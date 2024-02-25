@@ -245,7 +245,8 @@ export class PoZKerApp extends SmartContract {
             stack2
         );
 
-        this.send({ to: player, amount: sendAmount.toUInt64() });
+        // TEMP - disabling this so we can test game without needing to send funds
+        // this.send({ to: player, amount: sendAmount.toUInt64() });
 
         // We have to update the stacks so they cannot withdraw multiple times!
         const stack1New = Provable.if(
@@ -284,7 +285,9 @@ export class PoZKerApp extends SmartContract {
         const payerUpdate = AccountUpdate.createSigned(player);
         // Hardcoded 100 mina as game size
         const gameBuyin64 = this.GameBuyin.toUInt64()
-        payerUpdate.send({ to: this.address, amount: gameBuyin64 });
+
+        // TEMP - disabling this so we can test game without needing to send funds
+        // payerUpdate.send({ to: this.address, amount: gameBuyin64 });
 
         // Also include blinds!
         // 1/2, where player1 always posts small blind
@@ -1093,6 +1096,10 @@ export class PoZKerApp extends SmartContract {
 
     @method setTempvar() {
         this.slot4.set(Field(123));
+    }
+
+    @method setTempvar2() {
+        this.slot4.set(Field(456));
     }
 
     @method setTempvarValue(val: Field) {
