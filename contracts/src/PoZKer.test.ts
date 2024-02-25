@@ -510,13 +510,9 @@ describe('PoZKer', () => {
   })
 
   it('prevents transition to gameover before showdown is complete', async () => {
-    console.log("STEP 0");
     await localDeploy();
-    console.log("STEP 1");
     await setPlayers();
-    console.log("STEP 2");
     await localDeposit();
-    console.log("STEP 3");
 
     // Just immediately go all-in to finish betting
     const txnRaise = await Mina.transaction(playerPubKey1, () => {
@@ -692,16 +688,36 @@ describe('PoZKer', () => {
     [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
     expect(gameOver).toEqual(zkAppInstance.GameOver);
 
+
     // And finally - both players can claim their profits
-    const txnWd = await Mina.transaction(playerPubKey2, () => {
+    const txnWd2 = await Mina.transaction(playerPubKey2, () => {
       zkAppInstance.withdraw()
     });
-    await txnWd.prove();
-    await txnWd.sign([playerPrivKey2]).send();
+    await txnWd2.prove();
+    await txnWd2.sign([playerPrivKey2]).send();
 
     [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
     expect(stack1).toEqual(UInt32.from(0));
     expect(stack2).toEqual(UInt32.from(0));
+
+    // At this point - gameOver should NOT be reset
+    expect(gameOver).toEqual(zkAppInstance.GameOver)
+
+    const txnWd1 = await Mina.transaction(playerPubKey1, () => {
+      zkAppInstance.withdraw()
+    });
+    await txnWd1.prove();
+    await txnWd1.sign([playerPrivKey1]).send();
+
+    [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+
+    // Full reset should be done at this point
+    const player1Hash = zkAppInstance.player1Hash.get();
+    const player2Hash = zkAppInstance.player2Hash.get();
+    expect(player1Hash).toEqual(Field(0));
+    expect(player2Hash).toEqual(Field(0));
+
+    expect(gameOver).toEqual(zkAppInstance.GameNotOver);
   })
 
 });

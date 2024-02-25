@@ -274,8 +274,6 @@ export class PoZKerApp extends SmartContract {
             Field(0),
             player2Hash
         );
-
-        // Initialize with 0s so we can tell when two players have joined
         this.player1Hash.set(player1HashNew);
         this.player2Hash.set(player2HashNew);
 
@@ -283,8 +281,10 @@ export class PoZKerApp extends SmartContract {
         const streetReset: UInt32 = this.Preflop;
         const lastActionReset: UInt32 = this.Bet;
 
-        // Once both stacks are 0 - game is complete, set gameOver to false!
-        const gameShouldReset: Bool = stack1New.equals(UInt32.from(0)).and(stack2New.equals(UInt32.from(0)));
+        // Check that both players have been reset to reset game
+        // We can't check stack sizes because if one player goes bust, 
+        // both stacks will be 0 after the winner calls
+        const gameShouldReset: Bool = player1HashNew.equals(Field(0)).and(player2HashNew.equals(Field(0)));
         const gameOverNew = Provable.if(gameShouldReset, this.GameNotOver, this.GameOver);
 
         this.setGamestate(stack1New, stack2New, turnReset, streetReset, lastActionReset, gameOverNew);
