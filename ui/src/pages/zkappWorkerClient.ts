@@ -1,4 +1,4 @@
-import { fetchAccount, PublicKey, Field } from 'o1js';
+import { fetchAccount, PublicKey, PrivateKey, UInt32, UInt64, Field, Bool, MerkleMapWitness } from 'o1js';
 
 import type {
   ZkappWorkerRequest,
@@ -46,6 +46,48 @@ export default class ZkappWorkerClient {
   createUpdateTransaction() {
     return this._call('createUpdateTransaction', {});
   }
+
+
+  createJoinGameTx(player: PublicKey) {
+    return this._call('createJoinGameTx', { player: PublicKey });
+  }
+
+  createWithdrawTx() {
+    return this._call('createWithdrawTx', {});
+  }
+
+  createDepositTx() {
+    return this._call('createDepositTx', {});
+  }
+
+  createTakeActionTx(action: UInt32, betSize: UInt32) {
+    return this._call('createTakeActionTx', { action: action, betSize: betSize });
+  }
+
+  createShowdownTx() {
+    return this._call('createShowdownTx', {});
+  }
+
+  createPlayerTimeoutTx() {
+    return this._call('createPlayerTimeoutTx', {});
+  }
+
+  createTallyBoardCardsTx(cardPrime52: Field) {
+    return this._call('createTallyBoardCardsTx', { cardPrime52: cardPrime52 });
+  }
+
+  createStoreCardHashTx(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey) {
+    return this._call('createStoreCardHashTx', { slotI: slotI, shuffleSecret: shuffleSecret, epk1: epk1, epk2: epk2 });
+  }
+
+  createCommitCardTx(slotI: Field, msg: PublicKey) {
+    return this._call('createCommitCardTx', { slotI: slotI, msg: msg });
+  }
+
+  createShowCardsTx(holecard0: UInt64, holecard1: UInt64, boardcard0: UInt64, boardcard1: UInt64, boardcard2: UInt64, boardcard3: UInt64, boardcard4: UInt64, useHolecard0: Bool, useHolecard1: Bool, useBoardcards0: Bool, useBoardcards1: Bool, useBoardcards2: Bool, useBoardcards3: Bool, useBoardcards4: Bool, isFlush: Bool, shuffleKey: PrivateKey, merkleMapKey: Field, merkleMapVal: Field, path: MerkleMapWitness) {
+    return this._call('createShowCardsTx', { holecard0: holecard0, holecard1: holecard1, boardcard0: boardcard0, boardcard1: boardcard1, boardcard2: boardcard2, boardcard3: boardcard3, boardcard4: boardcard4, useHolecard0: useHolecard0, useHolecard1: useHolecard1, useBoardcards0: useBoardcards0, useBoardcards1: useBoardcards1, useBoardcards2: useBoardcards2, useBoardcards3: useBoardcards3, useBoardcards4: useBoardcards4, isFlush: isFlush, shuffleKey: shuffleKey, merkleMapKey: merkleMapKey, merkleMapVal: merkleMapVal, path: path });
+  }
+
 
   proveUpdateTransaction() {
     return this._call('proveUpdateTransaction', {});

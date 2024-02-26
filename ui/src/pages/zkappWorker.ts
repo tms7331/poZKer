@@ -1,11 +1,11 @@
 import { Mina, fetchAccount, Field, PublicKey, PrivateKey, Bool, UInt64, UInt32, MerkleMapWitness } from 'o1js';
-// import { Gamestate } from '../../../contracts/src/PoZKer';
 
 type Transaction = Awaited<ReturnType<typeof Mina.transaction>>;
 
 // ---------------------------------------------------------------------------------------
 
 import type { PoZKerApp } from '../../../contracts/src/PoZKer';
+// import { Gamestate } from '../../../contracts/src/PoZKer';
 
 const state = {
   PoZKerApp: null as null | typeof PoZKerApp,
@@ -34,16 +34,6 @@ const functions = {
   compileContract: async (args: {}) => {
     await state.PoZKerApp!.compile();
   },
-
-  // fetchAccountZk: async (args: { publicKey58: string }) => {
-  //   console.log("Fetching account:", args.publicKey58);
-  //   const publicKey = PublicKey.fromBase58(args.publicKey58);
-  //   console.log("Public key:", publicKey);
-  //   return await fetchAccount({ publicKey });
-  //   // const res = await fetchAccount({ publicKey });
-  //   // console.log("Fetched...");
-  //   // return res
-  // },
 
   fetchAccount: async (args: { publicKey58: string }) => {
     const publicKey = PublicKey.fromBase58(args.publicKey58);
@@ -75,10 +65,10 @@ const functions = {
   },
 
   // Real app functions
-  createJoinGameTx: async (args: {}) => {
+  createJoinGameTx: async (args: { player: PublicKey }) => {
     // joinGame(player: PublicKey)
     const transaction = await Mina.transaction(() => {
-      state.zkapp!.setTempvar();
+      state.zkapp!.joinGame(args.player);
     });
     state.transaction = transaction;
   },
@@ -115,6 +105,13 @@ const functions = {
     state.transaction = transaction;
   },
 
+  createPlayerTimeoutTx: async (args: {}) => {
+    const transaction = await Mina.transaction(() => {
+      state.zkapp!.playerTimeout();
+    });
+    state.transaction = transaction;
+  },
+
   createTallyBoardCardsTx: async (args: { cardPrime52: Field }) => {
     // tallyBoardCards(cardPrime52: Field)
     const transaction = await Mina.transaction(() => {
@@ -145,6 +142,7 @@ const functions = {
       // const test: UInt64 = UInt64.from(33);
       state.zkapp!.showCards(args.holecard0, args.holecard1, args.boardcard0, args.boardcard1, args.boardcard2, args.boardcard3, args.boardcard4, args.useHolecard0, args.useHolecard1, args.useBoardcards0, args.useBoardcards1, args.useBoardcards2, args.useBoardcards3, args.useBoardcards4, args.isFlush, args.shuffleKey, args.merkleMapKey, args.merkleMapVal, args.path);
     });
+    state.transaction = transaction;
   },
 
   createUpdateTransaction: async (args: {}) => {

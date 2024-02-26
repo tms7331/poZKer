@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import './reactCOIServiceWorker';
 import ZkappWorkerClient from './zkappWorkerClient';
-import { PublicKey, Field } from 'o1js';
+import { Field, PublicKey, PrivateKey, Bool, UInt64, UInt32, MerkleMapWitness } from 'o1js';
 import GradientBG from '../components/GradientBG.js';
 import styles from '../styles/Home.module.css';
 
 let transactionFee = 0.1;
-// const ZKAPP_ADDRESS = 'B62qknCphH8ikE9Bu46dFgamUeYRcE9FtKr5ahh5tcJDf7ibRXJdzWV';
 // Address we deployed to on berkeley
-const ZKAPP_ADDRESS = 'B62qnsShdbmgZqp5xWofEFfX9EJKzcSbVkFEb57vr2oxzwVRadYmgN5';
+const ZKAPP_ADDRESS = 'B62qpGqTpNvxMNjh1msVt1Dy6KTSZo2Q9XYR3dcc8Ld1LpcuDm4VUhW';
+
 
 export default function Home() {
   const [state, setState] = useState({
@@ -17,6 +17,8 @@ export default function Home() {
     hasBeenSetup: false,
     accountExists: false,
     currentNum: null as null | Field,
+    player1Hash: null as null | Field,
+    player2Hash: null as null | Field,
     publicKey: null as null | PublicKey,
     zkappPublicKey: null as null | PublicKey,
     creatingTransaction: false
@@ -57,6 +59,7 @@ export default function Home() {
         }
 
         const publicKeyBase58: string = (await mina.requestAccounts())[0];
+        console.log("index: publicKeyBase58", publicKeyBase58)
         const publicKey = PublicKey.fromBase58(publicKeyBase58);
 
         console.log(`Using key:${publicKey.toBase58()}`);
@@ -68,18 +71,17 @@ export default function Home() {
         const res = await zkappWorkerClient.fetchAccount({
           publicKey: publicKey!
         });
+        console.log("Res was...", res)
         const accountExists = res.error == null;
 
         await zkappWorkerClient.loadContract();
 
         // Already deployed contract address, use that instead
-        /*
         console.log('Compiling zkApp...');
         setDisplayText('Compiling zkApp...');
         await zkappWorkerClient.compileContract();
         console.log('zkApp compiled');
         setDisplayText('zkApp compiled...');
-        */
 
         const zkappPublicKey = PublicKey.fromBase58(ZKAPP_ADDRESS);
 
@@ -132,7 +134,7 @@ export default function Home() {
   // -------------------------------------------------------
   // Send a transaction
 
-  const onSendTransaction = async () => {
+  const onSendTransaction = async (methodStr: string) => {
     setState({ ...state, creatingTransaction: true });
 
     setDisplayText('Creating a transaction...');
@@ -142,7 +144,69 @@ export default function Home() {
       publicKey: state.publicKey!
     });
 
-    await state.zkappWorkerClient!.createUpdateTransaction();
+    switch (methodStr) {
+      case "joinGame":
+        const player: PublicKey = state.publicKey!;
+        await state.zkappWorkerClient!.createJoinGameTx(player);
+        break;
+      case "playerTimeout":
+        await state.zkappWorkerClient!.createPlayerTimeoutTx();
+        break;
+      case "withdraw":
+        await state.zkappWorkerClient!.createWithdrawTx();
+        break;
+      case 'deposit':
+        await state.zkappWorkerClient!.createDepositTx();
+        break;
+      case 'takeAction':
+        const action: UInt32 = UInt32.from(0);
+        const betSize: UInt32 = UInt32.from(0);
+        await state.zkappWorkerClient!.createTakeActionTx(action, betSize);
+        break;
+      case 'showdown':
+        await state.zkappWorkerClient!.createShowdownTx();
+        break;
+      case 'tallyBoardCards':
+        const cardPrime52: Field = Field(0);
+        await state.zkappWorkerClient!.createTallyBoardCardsTx(cardPrime52);
+        break;
+      case 'showCards':
+        const holecard0: UInt64 = UInt64.from(0);
+        const holecard1: UInt64 = UInt64.from(0);
+        const boardcard0: UInt64 = UInt64.from(0);
+        const boardcard1: UInt64 = UInt64.from(0);
+        const boardcard2: UInt64 = UInt64.from(0);
+        const boardcard3: UInt64 = UInt64.from(0);
+        const boardcard4: UInt64 = UInt64.from(0);
+        const useHolecard0: Bool = Bool(false);
+        const useHolecard1: Bool = Bool(false);
+        const useBoardcards0: Bool = Bool(false);
+        const useBoardcards1: Bool = Bool(false);
+        const useBoardcards2: Bool = Bool(false);
+        const useBoardcards3: Bool = Bool(false);
+        const useBoardcards4: Bool = Bool(false);
+        const isFlush: Bool = Bool(false);
+        const shuffleKey: PrivateKey = PrivateKey.random();
+        const merkleMapKey: Field = Field(0);
+        const merkleMapVal: Field = Field(0);
+        const isLefts: Bool[] = [];
+        const siblings: Field[] = [];
+        const path: MerkleMapWitness = new MerkleMapWitness(isLefts, siblings);
+        await state.zkappWorkerClient!.createShowCardsTx(holecard0, holecard1, boardcard0, boardcard1, boardcard2, boardcard3, boardcard4, useHolecard0, useHolecard1, useBoardcards0, useBoardcards1, useBoardcards2, useBoardcards3, useBoardcards4, isFlush, shuffleKey, merkleMapKey, merkleMapVal, path);
+        break;
+      case 'storeCardHash':
+        const slotIsc: Field = Field(0);
+        const shuffleSecret: PrivateKey = PrivateKey.random();
+        const epk1: PublicKey = shuffleSecret.toPublicKey();
+        const epk2: PublicKey = shuffleSecret.toPublicKey();
+        await state.zkappWorkerClient!.createStoreCardHashTx(slotIsc, shuffleSecret, epk1, epk2);
+        break;
+      case 'commitCard':
+        const slotIcc: Field = Field(0);
+        const msg: PublicKey = PrivateKey.random().toPublicKey();
+        await state.zkappWorkerClient!.createCommitCardTx(slotIcc, msg);
+        break;
+    }
 
     setDisplayText('Creating proof...');
     console.log('Creating proof...');
@@ -162,7 +226,8 @@ export default function Home() {
       }
     });
 
-    const transactionLink = `https://berkeley.minaexplorer.com/transaction/${hash}`;
+    //const transactionLink = `https://berkeley.minaexplorer.com/transaction/${hash}`;
+    const transactionLink = `minascan.io/berkeley/tx/${hash}`;
     console.log(`View transaction at ${transactionLink}`);
 
     setTransactionLink(transactionLink);
@@ -233,23 +298,64 @@ export default function Home() {
     );
   }
 
+
+
   let mainContent;
   if (state.hasBeenSetup && state.accountExists) {
     mainContent = (
       <div style={{ justifyContent: 'center', alignItems: 'center' }}>
+
         <div className={styles.center} style={{ padding: 0 }}>
           Current state in zkApp: {state.currentNum!.toString()}{' '}
+          player1hash: {state.player1Hash!.toString()}{' '}
+          player2hash: {state.player2Hash!.toString()}{' '}
         </div>
-        <button
-          className={styles.card}
-          onClick={onSendTransaction}
-          disabled={state.creatingTransaction}
-        >
-          Send Transaction
+
+        <button className={styles.card} onClick={() => onSendTransaction('joinGame')} disabled={state.creatingTransaction}>
+          joinGame
         </button>
+
+        <button className={styles.card} onClick={() => onSendTransaction('playerTimeout')} disabled={state.creatingTransaction}>
+          playerTimeout
+        </button>
+
+        <button className={styles.card} onClick={() => onSendTransaction('withdraw')} disabled={state.creatingTransaction}>
+          withdraw
+        </button>
+
+        <button className={styles.card} onClick={() => onSendTransaction('deposit')} disabled={state.creatingTransaction}>
+          deposit
+        </button>
+
+        <button className={styles.card} onClick={() => onSendTransaction('takeAction')} disabled={state.creatingTransaction}>
+          takeAction
+        </button>
+
+        <button className={styles.card} onClick={() => onSendTransaction('showdown')} disabled={state.creatingTransaction}>
+          showdown
+        </button>
+
+        <button className={styles.card} onClick={() => onSendTransaction('tallyBoardCards')} disabled={state.creatingTransaction}>
+          tallyBoardCards
+        </button>
+
+        <button className={styles.card} onClick={() => onSendTransaction('showCards')} disabled={state.creatingTransaction}>
+          showCards
+        </button>
+
+        <button className={styles.card} onClick={() => onSendTransaction('storeCardHash')} disabled={state.creatingTransaction}>
+          storeCardHash
+        </button>
+
+        <button className={styles.card} onClick={() => onSendTransaction('commitCard')} disabled={state.creatingTransaction}>
+          commitCard
+        </button>
+
+
         <button className={styles.card} onClick={onRefreshCurrentNum}>
           Get Latest State
         </button>
+
       </div>
     );
   }
