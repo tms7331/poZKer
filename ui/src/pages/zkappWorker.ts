@@ -4,7 +4,8 @@ type Transaction = Awaited<ReturnType<typeof Mina.transaction>>;
 
 // ---------------------------------------------------------------------------------------
 
-import type { PoZKerApp } from '../../../contracts/src/PoZKer';
+//import type { PoZKerApp } from '../../../contracts/src/PoZKer';
+import type { PoZKerApp } from './contracts_copy/PoZKer';
 // import { Gamestate } from '../../../contracts/src/PoZKer';
 
 const state = {
@@ -28,7 +29,8 @@ const functions = {
     Mina.setActiveInstance(Berkeley);
   },
   loadContract: async (args: {}) => {
-    const { PoZKerApp } = await import('../../../contracts/build/src/PoZKer.js');
+    //const { PoZKerApp } = await import('../../../contracts/build/src/PoZKer.js');
+    const { PoZKerApp } = await import('./contracts_copy/PoZKer.js');
     state.PoZKerApp = PoZKerApp;
   },
   compileContract: async (args: {}) => {
@@ -49,6 +51,15 @@ const functions = {
     const currentNum = await state.zkapp!.slot4.get();
     return JSON.stringify(currentNum.toJSON());
   },
+  getPlayer1Hash: async (args: {}) => {
+    const player1Hash = await state.zkapp!.player1Hash.get();
+    return JSON.stringify(player1Hash.toJSON());
+  },
+  getPlayer2Hash: async (args: {}) => {
+    const player2Hash = await state.zkapp!.player2Hash.get();
+    return JSON.stringify(player2Hash.toJSON());
+  },
+
   getGamestate: async (args: {}) => {
     // const gamestate = await state.zkapp!.gamestate.get();
     // const unpacked = Gamestate.unpack(gamestate.packed);

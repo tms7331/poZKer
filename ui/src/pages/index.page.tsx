@@ -91,6 +91,8 @@ export default function Home() {
         setDisplayText('Getting zkApp state...');
         await zkappWorkerClient.fetchAccount({ publicKey: zkappPublicKey });
         const currentNum = await zkappWorkerClient.getNum();
+        const player1Hash = await zkappWorkerClient.getPlayer1Hash();
+        const player2Hash = await zkappWorkerClient.getPlayer2Hash();
         console.log(`Current state in zkApp: ${currentNum.toString()}`);
         setDisplayText('');
 
@@ -102,7 +104,9 @@ export default function Home() {
           publicKey,
           zkappPublicKey,
           accountExists,
-          currentNum
+          currentNum,
+          player1Hash,
+          player2Hash
         });
       }
     })();
@@ -350,7 +354,6 @@ export default function Home() {
         <button className={styles.card} onClick={() => onSendTransaction('commitCard')} disabled={state.creatingTransaction}>
           commitCard
         </button>
-
 
         <button className={styles.card} onClick={onRefreshCurrentNum}>
           Get Latest State

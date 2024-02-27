@@ -42,6 +42,14 @@ export default class ZkappWorkerClient {
     const result = await this._call('getNum', {});
     return Field.fromJSON(JSON.parse(result as string));
   }
+  async getPlayer1Hash(): Promise<Field> {
+    const result = await this._call('getPlayer1Hash', {});
+    return Field.fromJSON(JSON.parse(result as string));
+  }
+  async getPlayer2Hash(): Promise<Field> {
+    const result = await this._call('getPlayer2Hash', {});
+    return Field.fromJSON(JSON.parse(result as string));
+  }
 
   createUpdateTransaction() {
     return this._call('createUpdateTransaction', {});
