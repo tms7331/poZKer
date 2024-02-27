@@ -9,6 +9,33 @@
       "feepayerAlias": "pozkeracct",
       "fee": "0.1",
       "smartContract": "PoZKerApp"
+    },
+    "berkp": {
+      "networkId": "testnet",
+      "url": "https://proxy.berkeley.minaexplorer.com/graphql",
+      "keyPath": "keys/berkp.json",
+      "feepayerKeyPath": "/home/thomas/.cache/zkapp-cli/keys/pozkeracct.json",
+      "feepayerAlias": "pozkeracct",
+      "fee": "0.1",
+      "smartContract": "PoZKerApp"
+    },
+    "berkp2": {
+      "networkId": "testnet",
+      "url": "https://proxy.berkeley.minaexplorer.com/graphql",
+      "keyPath": "keys/berkp2.json",
+      "feepayerKeyPath": "/home/thomas/.cache/zkapp-cli/keys/pozkeracct.json",
+      "feepayerAlias": "pozkeracct",
+      "fee": "0.1",
+      "smartContract": "PoZKerApp"
+    },
+    "berkp3": {
+      "networkId": "testnet",
+      "url": "https://proxy.berkeley.minaexplorer.com/graphql",
+      "keyPath": "keys/berkp3.json",
+      "feepayerKeyPath": "/home/thomas/.cache/zkapp-cli/keys/pozkeracct.json",
+      "feepayerAlias": "pozkeracct",
+      "fee": "0.1",
+      "smartContract": "PoZKerApp"
     }
   }
 }
