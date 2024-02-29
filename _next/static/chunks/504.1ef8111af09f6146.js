@@ -82,8 +82,9 @@ const functions = {
     },
     createSetTempvarTx: async (args)=>{
         // setTempvarValue(val: Field)
+        const value = (0,o1js__WEBPACK_IMPORTED_MODULE_0__/* .Field */ .gN)(args.num);
         const transaction = await o1js__WEBPACK_IMPORTED_MODULE_0__/* .Mina */ .No.transaction(()=>{
-            state.zkapp.setTempvarValue(args.val);
+            state.zkapp.setTempvarValue(value);
         });
         state.transaction = transaction;
     },

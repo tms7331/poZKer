@@ -218,8 +218,13 @@ function Home() {
         zkappPublicKey: null,
         creatingTransaction: false
     });
+    // For setting a specific value
+    const [inputValue, setInputValue] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)("");
     const [displayText, setDisplayText] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)("");
     const [transactionlink, setTransactionLink] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)("");
+    const handleInputChange = (event)=>{
+        setInputValue(event.target.value);
+    };
     // -------------------------------------------------------
     // Do Setup
     (0,react__WEBPACK_IMPORTED_MODULE_1__.useEffect)(()=>{
@@ -332,6 +337,13 @@ function Home() {
             publicKey: state.publicKey
         });
         switch(methodStr){
+            case "createUpdateTransaction":
+                await state.zkappWorkerClient.createUpdateTransaction();
+                break;
+            case "createSetTempvarTx":
+                const num = Number(inputValue);
+                await state.zkappWorkerClient.createSetTempvarTx(num);
+                break;
             case "joinGame":
                 const player = state.publicKey;
                 await state.zkappWorkerClient.createJoinGameTx(player);
@@ -518,6 +530,24 @@ function Home() {
                 }),
                 /*#__PURE__*/ (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", {
                     className: (_styles_Home_module_css__WEBPACK_IMPORTED_MODULE_6___default().card),
+                    onClick: ()=>onSendTransaction("createUpdateTransaction"),
+                    disabled: state.creatingTransaction,
+                    children: "testFunc1"
+                }),
+                /*#__PURE__*/ (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", {
+                    type: "text",
+                    value: inputValue,
+                    onChange: handleInputChange,
+                    placeholder: "Set field value"
+                }),
+                /*#__PURE__*/ (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", {
+                    className: (_styles_Home_module_css__WEBPACK_IMPORTED_MODULE_6___default().card),
+                    onClick: ()=>onSendTransaction("createSetTempvarTx"),
+                    disabled: state.creatingTransaction,
+                    children: "testFunc2"
+                }),
+                /*#__PURE__*/ (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", {
+                    className: (_styles_Home_module_css__WEBPACK_IMPORTED_MODULE_6___default().card),
                     onClick: ()=>onSendTransaction("joinGame"),
                     disabled: state.creatingTransaction,
                     children: "joinGame"
@@ -661,9 +691,14 @@ ZkappWorkerClient = class ZkappWorkerClient {
     createUpdateTransaction() {
         return this._call("createUpdateTransaction", {});
     }
+    createSetTempvarTx(num) {
+        return this._call("createSetTempvarTx", {
+            num: num
+        });
+    }
     createJoinGameTx(player) {
         return this._call("createJoinGameTx", {
-            player: o1js__WEBPACK_IMPORTED_MODULE_0__/* .PublicKey */ .nh
+            player: player
         });
     }
     createWithdrawTx() {
