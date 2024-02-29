@@ -67,10 +67,11 @@ const functions = {
     // // stack1, stack2, turn, street, lastAction, gameOver
     // return JSON.stringify([unpacked[0].toJSON(), unpacked[1].toJSON(), unpacked[2].toJSON(), unpacked[3].toJSON(), unpacked[4].toJSON(), unpacked[5].toJSON()])
   },
-  createSetTempvarTx: async (args: { val: Field }) => {
+  createSetTempvarTx: async (args: { num: number }) => {
     // setTempvarValue(val: Field)
+    const value: Field = Field(args.num);
     const transaction = await Mina.transaction(() => {
-      state.zkapp!.setTempvarValue(args.val);
+      state.zkapp!.setTempvarValue(value);
     })
     state.transaction = transaction;
   },

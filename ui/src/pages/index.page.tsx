@@ -24,8 +24,15 @@ export default function Home() {
     creatingTransaction: false
   });
 
+  // For setting a specific value
+  const [inputValue, setInputValue] = useState('');
+
   const [displayText, setDisplayText] = useState('');
   const [transactionlink, setTransactionLink] = useState('');
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(event.target.value);
+  };
 
   // -------------------------------------------------------
   // Do Setup
@@ -138,6 +145,7 @@ export default function Home() {
   // -------------------------------------------------------
   // Send a transaction
 
+
   const onSendTransaction = async (methodStr: string) => {
     setState({ ...state, creatingTransaction: true });
 
@@ -149,6 +157,13 @@ export default function Home() {
     });
 
     switch (methodStr) {
+      case 'createUpdateTransaction':
+        await state.zkappWorkerClient!.createUpdateTransaction();
+        break;
+      case 'createSetTempvarTx':
+        const num = Number(inputValue);
+        await state.zkappWorkerClient!.createSetTempvarTx(num);
+        break;
       case "joinGame":
         const player: PublicKey = state.publicKey!;
         await state.zkappWorkerClient!.createJoinGameTx(player);
@@ -303,7 +318,6 @@ export default function Home() {
   }
 
 
-
   let mainContent;
   if (state.hasBeenSetup && state.accountExists) {
     mainContent = (
@@ -314,6 +328,21 @@ export default function Home() {
           player1hash: {state.player1Hash!.toString()}{' '}
           player2hash: {state.player2Hash!.toString()}{' '}
         </div>
+
+        <button className={styles.card} onClick={() => onSendTransaction('createUpdateTransaction')} disabled={state.creatingTransaction}>
+          testFunc1
+        </button>
+
+        <input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          placeholder="Set field value"
+        />
+
+        <button className={styles.card} onClick={() => onSendTransaction('createSetTempvarTx')} disabled={state.creatingTransaction}>
+          testFunc2
+        </button>
 
         <button className={styles.card} onClick={() => onSendTransaction('joinGame')} disabled={state.creatingTransaction}>
           joinGame

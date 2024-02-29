@@ -55,9 +55,12 @@ export default class ZkappWorkerClient {
     return this._call('createUpdateTransaction', {});
   }
 
+  createSetTempvarTx(num: number) {
+    return this._call('createSetTempvarTx', { num: num });
+  }
 
   createJoinGameTx(player: PublicKey) {
-    return this._call('createJoinGameTx', { player: PublicKey });
+    return this._call('createJoinGameTx', { player: player });
   }
 
   createWithdrawTx() {
