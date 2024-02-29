@@ -35,6 +35,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  output: 'export',
 
   /* Used to serve the Next.js app from a subdirectory (the GitHub repo name) and 
    * assetPrefix is used to serve assets (JS, CSS, images, etc.) from that subdirectory 
