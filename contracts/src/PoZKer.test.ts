@@ -87,17 +87,20 @@ describe('PoZKer', () => {
   }
 
 
-  function getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32,] {
+  function getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32] {
     const gamestate = zkAppInstance.gamestate.get();
     const unpacked = Gamestate.unpack(gamestate.packed);
-    return [unpacked[0], unpacked[1], unpacked[2], unpacked[3], unpacked[4], unpacked[5]]
+    const gameOverLastBetSize: UInt32 = unpacked[5];
+    const lastBetSize = gameOverLastBetSize;
+    const gameOver = Provable.if(gameOverLastBetSize.greaterThanOrEqual(UInt32.from(1000)), zkAppInstance.GameOver, zkAppInstance.GameNotOver);
+    return [unpacked[0], unpacked[1], unpacked[2], unpacked[3], unpacked[4], lastBetSize, gameOver, unpacked[6]]
   }
 
 
   async function localDeposit() {
     console.log("Auto depositing for player 1...");
     const txn2 = await Mina.transaction(playerPubKey1, () => {
-      zkAppInstance.deposit()
+      zkAppInstance.deposit(UInt32.from(100))
     });
     await txn2.prove();
     await txn2.sign([playerPrivKey1]).send();
@@ -106,7 +109,7 @@ describe('PoZKer', () => {
 
     console.log("Auto depositing for player 2...");
     const txn3 = await Mina.transaction(playerPubKey2, () => {
-      zkAppInstance.deposit()
+      zkAppInstance.deposit(UInt32.from(100))
     });
     await txn3.prove();
     await txn3.sign([playerPrivKey2]).send();
@@ -217,7 +220,7 @@ describe('PoZKer', () => {
 
     // After depositing player 1 should have stack of 99 (SB)
     // Player 2 should have stack of 98 (BB)
-    const [bal1, bal2, turn, street, lastAction, gameOver] = getGamestate();
+    const [bal1, bal2, turn, street, lastAction, lastBetSize, gameOver, pot] = getGamestate();
     expect(bal1.toString()).toMatch('99');
     expect(bal2.toString()).toMatch('98');
   });
@@ -313,7 +316,8 @@ describe('PoZKer', () => {
     await txnSucc3.prove();
     await txnSucc3.sign([playerPrivKey1]).send();
 
-    const [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = getGamestate();
     expect(turn).toEqual(zkAppInstance.P2Turn);
     expect(street).toEqual(zkAppInstance.Preflop);
     expect(lastAction).toEqual(zkAppInstance.Raise);
@@ -338,7 +342,8 @@ describe('PoZKer', () => {
     const lastActionPreflopCall = 43
     const expectedState = p2Turn * currStreetPreflop * lastActionPreflopCall
 
-    const [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = getGamestate();
     expect(turn).toEqual(zkAppInstance.P2Turn);
     expect(street).toEqual(zkAppInstance.Preflop);
     expect(lastAction).toEqual(zkAppInstance.PreflopCall);
@@ -407,7 +412,8 @@ describe('PoZKer', () => {
     await txnSucc2.sign([playerPrivKey2]).send();
 
     // We actually committed the check, so should be p1's turn on flop
-    const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
+    const [_stack1, _stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = getGamestate();
     expect(turn).toEqual(zkAppInstance.P1Turn);
     expect(street).toEqual(zkAppInstance.Flop);
     expect(lastAction).toEqual(zkAppInstance.Null);
@@ -474,7 +480,8 @@ describe('PoZKer', () => {
     await txnCall.prove();
     await txnCall.sign([playerPrivKey1]).send();
 
-    const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
+    const [_stack1, _stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = getGamestate();
     expect(street).toEqual(zkAppInstance.ShowdownPending);
   })
 
@@ -527,7 +534,8 @@ describe('PoZKer', () => {
     await txnCall.prove();
     await txnCall.sign([playerPrivKey2]).send();
 
-    const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // const [_stack1, _stack2, turn, street, lastAction, gameOver] = getGamestate();
+    const [_stack1, _stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = getGamestate();
     // make sure we've reached showdown...
     expect(street).toEqual(zkAppInstance.ShowdownPending);
 
@@ -566,7 +574,8 @@ describe('PoZKer', () => {
     await txnCall.prove();
     await txnCall.sign([playerPrivKey2]).send();
 
-    let [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // let [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    let [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = getGamestate();
     // const gamestate: number = Number(zkAppInstance.gamestate.get().toBigInt()) as number;
     // make sure we've reached showdown...
     expect(street).toEqual(zkAppInstance.ShowdownPending);
@@ -672,7 +681,8 @@ describe('PoZKer', () => {
     await txnB.sign([playerPrivKey2]).send();
 
     // We should have transitioned to ShowdownComplete at this point
-    [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = getGamestate();
     expect(street).toEqual(zkAppInstance.ShowdownComplete);
 
     // Showdown means no more actions, need to handle card logic though
@@ -685,7 +695,8 @@ describe('PoZKer', () => {
 
     // And after calling 'showdown' we should have transitioned to GameOver
 
-    [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    //[stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = getGamestate();
     expect(gameOver).toEqual(zkAppInstance.GameOver);
 
 
@@ -696,7 +707,8 @@ describe('PoZKer', () => {
     await txnWd2.prove();
     await txnWd2.sign([playerPrivKey2]).send();
 
-    [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = getGamestate();
     expect(stack1).toEqual(UInt32.from(0));
     expect(stack2).toEqual(UInt32.from(0));
 
@@ -709,7 +721,8 @@ describe('PoZKer', () => {
     await txnWd1.prove();
     await txnWd1.sign([playerPrivKey1]).send();
 
-    [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    // [stack1, stack2, turn, street, lastAction, gameOver] = getGamestate();
+    [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = getGamestate();
 
     // Full reset should be done at this point
     const player1Hash = zkAppInstance.player1Hash.get();
