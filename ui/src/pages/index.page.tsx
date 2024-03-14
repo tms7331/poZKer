@@ -6,13 +6,13 @@ export default function Component() {
       <header className="px-4 lg:px-6">
         <div className="container flex items-center justify-center h-14 px-4 md:px-6">
           <nav className="hidden gap-4 lg:flex">
-            <Link className="text-sm font-medium hover:underline underline-offset-4" href="#">
+            <Link className="text-sm font-medium hover:underline underline-offset-4" href="create">
               Create
             </Link>
             <Link className="text-sm font-medium hover:underline underline-offset-4" href="join">
               Join
             </Link>
-            <Link className="text-sm font-medium hover:underline underline-offset-4" href="#">
+            <Link className="text-sm font-medium hover:underline underline-offset-4" href="gettokens">
               Get Tokens
             </Link>
           </nav>
