@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 export default function Component() {
     // stack, facing bet, action history,  board_cards, hole_cards, pot
+    const [amount, setAmount] = useState<number>(0);
 
     const [stack, setStack] = useState(3000);
     const [facingBet, setFacingBet] = useState(1000);
@@ -10,12 +11,52 @@ export default function Component() {
     const actions = [{ "action": "Call", "player": "player1" },
     { "action": "Bet", "player": "player2" },
     { "action": "Raise", "player": "player1" },
-    { "action": "Fold", "player": "player2" },
     ]
     const [actionHistory, setActionHistory] = useState(actions);
+    const possibleActionsInit = [{ "action": "Call", "needsAmount": true },]
+    const [possibleActions, setPossibleActions] = useState(possibleActionsInit);
     const [boardCards, setBoardCards] = useState(["Ad", "2h", "3c", "4s", "5d"]);
     const [holeCards, setHoleCards] = useState(["Ad", "2h"]);
     const [pot, setPot] = useState(9000);
+
+    function getPossibleActions(facingAction: string): any[] {
+        const BET = { "action": "Bet", "needsAmount": true };
+        const CHECK = { "action": "Check", "needsAmount": false };
+        const CALL = { "action": "Call", "needsAmount": false };
+        const FOLD = { "action": "Fold", "needsAmount": false };
+        const RAISE = { "action": "Raise", "needsAmount": true };
+        // Given game state we should specify the subset of actions that are available to the player
+        if (facingAction === "Null" || facingAction === "Check") {
+            return [BET, CHECK, FOLD];
+        } else if (facingAction === "Bet" || facingAction === "Raise" || facingAction === "Call") {
+            return [CALL, FOLD, RAISE];
+        } else if (facingAction === "PreflopCall") {
+            return [RAISE, CHECK];
+        }
+        else {
+            console.error("Unexpected facing action:", facingAction);
+            return [];
+        }
+    }
+
+    const handleActionClick = (action: string) => {
+        console.log(`Action "${action}" clicked with amount ${amount}`);
+        // Perform action here with the given amount if needed
+    };
+    const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = parseInt(event.target.value);
+        setAmount(isNaN(value) ? 0 : value);
+    };
+
+    useEffect(() => {
+        if (actionHistory.length == 0) {
+            return;
+        }
+        console.log("ACTION HISTORY", actionHistory);
+        const facingAction = actionHistory[actionHistory.length - 1]["action"]
+        const possibleActions = getPossibleActions(facingAction);
+        setPossibleActions(possibleActions);
+    }, [actionHistory]);
 
     return (
         <div>
@@ -44,7 +85,7 @@ export default function Component() {
                                 {actionHistory
                                     .map((row, index) => {
                                         return (
-                                            <li className="px-4 py-2 flex items-center space-x-2">
+                                            <li key={index} className="px-4 py-2 flex items-center space-x-2">
                                                 <span>{row.action}</span>
                                                 <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">{row.player}</span>
                                             </li>)
@@ -76,6 +117,27 @@ export default function Component() {
                         </CardContent>
                     </Card>
                 </div>
+
+                <div>
+                    {possibleActions.map((action, index) => (
+                        <div key={index}>
+                            <button onClick={() => handleActionClick(action.action)}>
+                                {action.action}
+                            </button>
+                            {action.needsAmount && (
+                                <input
+                                    type="number"
+                                    value={amount}
+                                    onChange={handleAmountChange}
+                                    min={0}
+                                />
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+
+
             </div>
         </div>
     )
