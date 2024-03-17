@@ -123,7 +123,9 @@ export class PoZKerApp extends SmartContract {
     @state(Field) player2Hash = State<Field>();
     // Coded game state, contains packed data:
     // stack1, stack2, turn, street, lastAction, gameOver
-    @state(Gamestate) gamestate = State<Gamestate>();
+    // Store gamestate as a FIELD instead, to address challenges calling .get from frontend
+    // @state(Gamestate) gamestate = State<Gamestate>();
+    @state(Field) gamestate = State<Field>();
 
     // Free memory slots for storing data
     @state(Field) slot0 = State<Field>();
@@ -188,7 +190,7 @@ export class PoZKerApp extends SmartContract {
 
     getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32] {
         const gamestate = this.gamestate.getAndRequireEquals();
-        const unpacked = Gamestate.unpack(gamestate.packed);
+        const unpacked = Gamestate.unpack(gamestate);
         // Need to further unpack gameOver and lastBetSize
         const gameOverLastBetSize: UInt32 = unpacked[5];
         const gameOver = Provable.if(gameOverLastBetSize.greaterThanOrEqual(UInt32.from(1000)), this.GameOver, this.GameNotOver);
@@ -208,7 +210,7 @@ export class PoZKerApp extends SmartContract {
             lastBetSize.add(UInt32.from(1000)),
         );
         const gamestateField = Gamestate.fromUInt32s([stack1, stack2, turn, street, lastAction, gameOverLastBetSize, pot]);
-        this.gamestate.set(gamestateField);
+        this.gamestate.set(gamestateField.packed);
     }
 
     @method playerTimeout() {

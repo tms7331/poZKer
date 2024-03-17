@@ -89,7 +89,7 @@ describe('PoZKer', () => {
 
   function getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32] {
     const gamestate = zkAppInstance.gamestate.get();
-    const unpacked = Gamestate.unpack(gamestate.packed);
+    const unpacked = Gamestate.unpack(gamestate);
     const gameOverLastBetSize: UInt32 = unpacked[5];
     const lastBetSize = gameOverLastBetSize;
     const gameOver = Provable.if(gameOverLastBetSize.greaterThanOrEqual(UInt32.from(1000)), zkAppInstance.GameOver, zkAppInstance.GameNotOver);
