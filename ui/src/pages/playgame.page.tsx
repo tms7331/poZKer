@@ -1,5 +1,6 @@
 import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { useEffect, useState } from 'react';
+import { Button } from "@/components/ui/button"
 
 export default function Component() {
     // stack, facing bet, action history,  board_cards, hole_cards, pot
@@ -101,7 +102,7 @@ export default function Component() {
                         </CardHeader>
                         <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
                             {boardCards
-                                .map((row, index) => { return (<span>{row}</span>) })}
+                                .map((row, index) => { return (<span key={index}>{row}</span>) })}
                         </CardContent>
                     </Card>
                 </div>
@@ -121,9 +122,7 @@ export default function Component() {
                 <div>
                     {possibleActions.map((action, index) => (
                         <div key={index}>
-                            <button onClick={() => handleActionClick(action.action)}>
-                                {action.action}
-                            </button>
+                            <Button variant="primary" onClick={() => handleActionClick(action.action)}>{action.action}</Button>
                             {action.needsAmount && (
                                 <input
                                     type="number"
