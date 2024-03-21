@@ -10,15 +10,19 @@ type GlobalState = {
     testStr: string;
     zkappWorkerClient: null | ZkappWorkerClient;
     hasWallet: null | boolean;
-    hasBeenSetup: false;
-    accountExists: false;
+    hasBeenSetup: boolean;
+    accountExists: boolean;
     currentNum: null | Field;
     player1Hash: null | Field;
     player2Hash: null | Field;
     publicKey: null | PublicKey;
     zkappPublicKey: null | PublicKey;
-    creatingTransaction: false;
+    creatingTransaction: boolean;
+    transactionFee: Number,
+    // Address we deployed to on berkeley
+    zkappAddress: string,
 }
+
 
 type GlobalContext = {
     globalState: GlobalState;
@@ -40,7 +44,10 @@ export default function GlobalContextProvider({ children }: GlobalContextProvide
             player2Hash: null,
             publicKey: null,
             zkappPublicKey: null,
-            creatingTransaction: false
+            creatingTransaction: false,
+            // These are constants
+            transactionFee: 0.1,
+            zkappAddress: 'B62qpGqTpNvxMNjh1msVt1Dy6KTSZo2Q9XYR3dcc8Ld1LpcuDm4VUhW',
         }
     );
 
