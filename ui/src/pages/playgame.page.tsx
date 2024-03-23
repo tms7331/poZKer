@@ -1,13 +1,42 @@
 import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button"
+import { useGlobalContext } from "./global-context";
+import { UInt32 } from 'o1js';
+import { PackedUInt32Factory } from 'o1js-pack';
+
+class Gamestate extends PackedUInt32Factory() { }
 
 export default function Component() {
-    // stack, facing bet, action history,  board_cards, hole_cards, pot
-    const [amount, setAmount] = useState<number>(0);
+    const { globalState, setGlobalState } = useGlobalContext();
 
-    const [stack, setStack] = useState(3000);
-    const [facingBet, setFacingBet] = useState(1000);
+    // Corresponds directly to data pulled from packed 'gamestate'
+    const [stack1, setStack1] = useState<number>(0);
+    const [stack2, setStack2] = useState<number>(0);
+    const [turn, setTurn] = useState<number>(0);
+    const [street, setStreet] = useState<number>(0);
+    const [lastAction, setLastAction] = useState<number>(0);
+    const [lastBetSize, setLastBetSize] = useState<number>(0);
+    const [gameOver, setGameOver] = useState<number>(0);
+    const [pot, setPot] = useState<number>(0);
+
+    useEffect(() => {
+        const unpacked = Gamestate.unpack(globalState.gamestate!);
+        // console.log(unpacked[0].toJSON(), unpacked[1].toJSON(), unpacked[2].toJSON());
+        const [stack1_, stack2_, turn_, street_, lastAction_, lastBetSize_, gameOver_, pot_] = unpacked;
+        setStack1(stack1_.toJSON());
+        setStack2(stack2_.toJSON());
+        setTurn(turn_.toJSON());
+        setStreet(street_.toJSON());
+        setLastAction(lastAction_.toJSON());
+        setLastBetSize(lastBetSize_.toJSON());
+        setGameOver(gameOver_.toJSON());
+        setPot(pot_.toJSON());
+    }, [globalState.gamestate]);
+
+    // stack, facing bet, action history,  board_cards, hole_cards, pot
+    // This is our bet amount
+    const [betAmount, setBetAmount] = useState<number>(0);
 
     const actions = [{ "action": "Call", "player": "player1" },
     { "action": "Bet", "player": "player2" },
@@ -18,7 +47,6 @@ export default function Component() {
     const [possibleActions, setPossibleActions] = useState(possibleActionsInit);
     const [boardCards, setBoardCards] = useState(["Ad", "2h", "3c", "4s", "5d"]);
     const [holeCards, setHoleCards] = useState(["Ad", "2h"]);
-    const [pot, setPot] = useState(9000);
 
     function getPossibleActions(facingAction: string): any[] {
         const BET = { "action": "Bet", "needsAmount": true };
@@ -41,12 +69,12 @@ export default function Component() {
     }
 
     const handleActionClick = (action: string) => {
-        console.log(`Action "${action}" clicked with amount ${amount}`);
+        console.log(`Action "${action}" clicked with amount ${betAmount}`);
         // Perform action here with the given amount if needed
     };
     const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseInt(event.target.value);
-        setAmount(isNaN(value) ? 0 : value);
+        setBetAmount(isNaN(value) ? 0 : value);
     };
 
     useEffect(() => {
@@ -59,6 +87,8 @@ export default function Component() {
         setPossibleActions(possibleActions);
     }, [actionHistory]);
 
+
+
     return (
         <div>
             <div>
@@ -68,12 +98,32 @@ export default function Component() {
             <div className="grid gap-4">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="flex items-center">
-                        <div>Stack</div>
-                        <span className="ml-auto font-semibold">${stack}</span>
+                        <div>Stack 1</div>
+                        <span className="ml-auto font-semibold">${stack1}</span>
+                    </div>
+                    <div className="flex items-center">
+                        <div>Stack 2</div>
+                        <span className="ml-auto font-semibold">${stack2}</span>
+                    </div>
+                    <div className="flex items-center">
+                        <div>Turn</div>
+                        <span className="ml-auto font-semibold">{turn}</span>
+                    </div>
+                    <div className="flex items-center">
+                        <div>Turn</div>
+                        <span className="ml-auto font-semibold">{street}</span>
+                    </div>
+                    <div className="flex items-center">
+                        <div>Facing Action</div>
+                        <span className="ml-auto font-semibold">{lastAction}</span>
                     </div>
                     <div className="flex items-center">
                         <div>Facing Bet</div>
-                        <span className="ml-auto font-semibold">${facingBet}</span>
+                        <span className="ml-auto font-semibold">{lastBetSize}</span>
+                    </div>
+                    <div className="flex items-center">
+                        <div>Pot</div>
+                        <span className="ml-auto font-semibold">{pot}</span>
                     </div>
                 </div>
                 <div>
@@ -126,7 +176,7 @@ export default function Component() {
                             {action.needsAmount && (
                                 <input
                                     type="number"
-                                    value={amount}
+                                    value={betAmount}
                                     onChange={handleAmountChange}
                                     min={0}
                                 />
