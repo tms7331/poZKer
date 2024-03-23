@@ -2,7 +2,7 @@ import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button"
 import { useGlobalContext } from "./global-context";
-import { UInt32 } from 'o1js';
+import { Field, PrivateKey, Bool, UInt64, UInt32, MerkleMapWitness } from 'o1js';
 import { PackedUInt32Factory } from 'o1js-pack';
 
 class Gamestate extends PackedUInt32Factory() { }
@@ -19,6 +19,90 @@ export default function Component() {
     const [lastBetSize, setLastBetSize] = useState<number>(0);
     const [gameOver, setGameOver] = useState<number>(0);
     const [pot, setPot] = useState<number>(0);
+
+    const onSendTransaction = async (methodStr: string, actionStr: string) => {
+        setGlobalState({ ...globalState, creatingTransaction: true });
+
+        console.log('Creating a transaction...');
+
+        await globalState.zkappWorkerClient!.fetchAccount({
+            publicKey: globalState.publicKey!
+        });
+
+        switch (methodStr) {
+            case 'takeAction':
+                const actionMapping = {
+                    "Null": UInt32.from(0),
+                    "Bet": UInt32.from(1),
+                    "Call": UInt32.from(2),
+                    "Fold": UInt32.from(3),
+                    "Raise": UInt32.from(4),
+                    "Check": UInt32.from(5),
+                    "PreflopCall": UInt32.from(6),
+                }
+                // TODO - fix types for this...
+                const action: UInt32 = actionMapping[actionStr];
+                // Need to have external constraints to ensure we don't cheat here
+                // Although if they do manage to get a bad betsize here the transaction will just fail
+                const betSize: UInt32 = UInt32.from(betAmount);
+                await globalState.zkappWorkerClient!.createTakeActionTx(action, betSize);
+                break;
+            case 'showdown':
+                await globalState.zkappWorkerClient!.createShowdownTx();
+                break;
+            case 'tallyBoardCards':
+                const cardPrime52: Field = Field(0);
+                await globalState.zkappWorkerClient!.createTallyBoardCardsTx(cardPrime52);
+                break;
+            case 'showCards':
+                // TODO - where do we get the real values?
+                const holecard0: UInt64 = UInt64.from(0);
+                const holecard1: UInt64 = UInt64.from(0);
+                const boardcard0: UInt64 = UInt64.from(0);
+                const boardcard1: UInt64 = UInt64.from(0);
+                const boardcard2: UInt64 = UInt64.from(0);
+                const boardcard3: UInt64 = UInt64.from(0);
+                const boardcard4: UInt64 = UInt64.from(0);
+                const useHolecard0: Bool = Bool(false);
+                const useHolecard1: Bool = Bool(false);
+                const useBoardcards0: Bool = Bool(false);
+                const useBoardcards1: Bool = Bool(false);
+                const useBoardcards2: Bool = Bool(false);
+                const useBoardcards3: Bool = Bool(false);
+                const useBoardcards4: Bool = Bool(false);
+                const isFlush: Bool = Bool(false);
+                const shuffleKey: PrivateKey = PrivateKey.random();
+                const merkleMapKey: Field = Field(0);
+                const merkleMapVal: Field = Field(0);
+                const isLefts: Bool[] = [];
+                const siblings: Field[] = [];
+                const path: MerkleMapWitness = new MerkleMapWitness(isLefts, siblings);
+                await globalState.zkappWorkerClient!.createShowCardsTx(holecard0, holecard1, boardcard0, boardcard1, boardcard2, boardcard3, boardcard4, useHolecard0, useHolecard1, useBoardcards0, useBoardcards1, useBoardcards2, useBoardcards3, useBoardcards4, isFlush, shuffleKey, merkleMapKey, merkleMapVal, path);
+                break;
+        }
+
+        console.log('Creating proof...');
+        await globalState.zkappWorkerClient!.proveUpdateTransaction();
+
+        console.log('Requesting send transaction...');
+        const transactionJSON = await globalState.zkappWorkerClient!.getTransactionJSON();
+
+        console.log('Getting transaction JSON...');
+        const { hash } = await (window as any).mina.sendTransaction({
+            transaction: transactionJSON,
+            feePayer: {
+                fee: globalState.transactionFee,
+                memo: ''
+            }
+        });
+
+        //const transactionLink = `https://berkeley.minaexplorer.com/transaction/${hash}`;
+        const transactionLink = `minascan.io/berkeley/tx/${hash}`;
+        console.log(`View transaction at ${transactionLink}`);
+
+        setGlobalState({ ...globalState, creatingTransaction: false });
+    }
+
 
     useEffect(() => {
         const unpacked = Gamestate.unpack(globalState.gamestate!);
@@ -68,10 +152,6 @@ export default function Component() {
         }
     }
 
-    const handleActionClick = (action: string) => {
-        console.log(`Action "${action}" clicked with amount ${betAmount}`);
-        // Perform action here with the given amount if needed
-    };
     const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseInt(event.target.value);
         setBetAmount(isNaN(value) ? 0 : value);
@@ -172,7 +252,7 @@ export default function Component() {
                 <div>
                     {possibleActions.map((action, index) => (
                         <div key={index}>
-                            <Button variant="primary" onClick={() => handleActionClick(action.action)}>{action.action}</Button>
+                            <Button variant="primary" onClick={() => onSendTransaction('takeAction', action.action)} disabled={globalState.creatingTransaction}>{action.action}</Button>
                             {action.needsAmount && (
                                 <input
                                     type="number"
@@ -184,9 +264,6 @@ export default function Component() {
                         </div>
                     ))}
                 </div>
-
-
-
             </div>
         </div>
     )
