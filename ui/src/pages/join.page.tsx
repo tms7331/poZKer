@@ -1,6 +1,55 @@
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { useGlobalContext } from "./global-context";
+import { PublicKey } from 'o1js';
 
 export default function Component() {
+
+    const { globalState, setGlobalState } = useGlobalContext();
+
+    const onSendTransaction = async (methodStr: string) => {
+        setGlobalState({ ...globalState, creatingTransaction: true });
+
+        console.log('Creating a transaction...');
+
+        await globalState.zkappWorkerClient!.fetchAccount({
+            publicKey: globalState.publicKey!
+        });
+
+        switch (methodStr) {
+            case "joinGame":
+                const player: PublicKey = globalState.publicKey!;
+                await globalState.zkappWorkerClient!.createJoinGameTx(player);
+                break;
+            case 'deposit':
+                await globalState.zkappWorkerClient!.createDepositTx();
+                break;
+        }
+
+        console.log('Creating proof...');
+        await globalState.zkappWorkerClient!.proveUpdateTransaction();
+
+        console.log('Requesting send transaction...');
+        const transactionJSON = await globalState.zkappWorkerClient!.getTransactionJSON();
+
+        console.log('Getting transaction JSON...');
+        const { hash } = await (window as any).mina.sendTransaction({
+            transaction: transactionJSON,
+            feePayer: {
+                fee: globalState.transactionFee,
+                memo: ''
+            }
+        });
+
+        //const transactionLink = `https://berkeley.minaexplorer.com/transaction/${hash}`;
+        const transactionLink = `minascan.io/berkeley/tx/${hash}`;
+        console.log(`View transaction at ${transactionLink}`);
+
+        setGlobalState({ ...globalState, creatingTransaction: false });
+    };
+
+
+
     return (
         <div className="flex flex-col h-screen">
             <header className="sticky top-0 z-10 bg-white border-b border-gray-100 backdrop-blur-smooth dark:bg-gray-950 dark:border-gray-850">
@@ -19,6 +68,15 @@ export default function Component() {
             <main className="flex-1 overflow-y-auto py-6">
                 <div className="container px-4 md:px-6">
                     <div className="grid gap-4">
+
+                        <div className="flex-1 flex items-center justify-center">
+                            <Button variant="primary" onClick={() => onSendTransaction('joinGame')} disabled={globalState.creatingTransaction}>Join Game</Button>
+                        </div>
+
+                        <div className="flex-1 flex items-center justify-center">
+                            <Button variant="primary" onClick={() => onSendTransaction('deposit')} disabled={globalState.creatingTransaction}>Deposit</Button>
+                        </div>
+
                         <div className="grid grid-cols-[1fr_200px] items-center">
                             <h2 className="text-2xl font-bold">Available Games</h2>
                         </div>
