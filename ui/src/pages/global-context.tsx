@@ -15,8 +15,8 @@ type GlobalState = {
     currentNum: null | Field;
     // This should have the o1js-pack encoded game state
     gamestate: null | Field;
-    player1Hash: null | Field;
-    player2Hash: null | Field;
+    player1Hash: Field;
+    player2Hash: Field;
     publicKey: null | PublicKey;
     zkappPublicKey: null | PublicKey;
     creatingTransaction: boolean;
@@ -43,8 +43,8 @@ export default function GlobalContextProvider({ children }: GlobalContextProvide
             accountExists: false,
             currentNum: null,
             gamestate: null,
-            player1Hash: null,
-            player2Hash: null,
+            player1Hash: Field(0),
+            player2Hash: Field(0),
             publicKey: null,
             zkappPublicKey: null,
             creatingTransaction: false,

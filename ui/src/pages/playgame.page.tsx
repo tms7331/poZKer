@@ -2,7 +2,7 @@ import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button"
 import { useGlobalContext } from "./global-context";
-import { Field, PrivateKey, Bool, UInt64, UInt32, MerkleMapWitness } from 'o1js';
+import { Field, PublicKey, Poseidon, PrivateKey, Bool, UInt64, UInt32, MerkleMapWitness } from 'o1js';
 import { PackedUInt32Factory } from 'o1js-pack';
 
 class Gamestate extends PackedUInt32Factory() { }
@@ -19,6 +19,38 @@ export default function Component() {
     const [lastBetSize, setLastBetSize] = useState<number>(0);
     const [gameOver, setGameOver] = useState<number>(0);
     const [pot, setPot] = useState<number>(0);
+
+    // Which player we are...
+    type Player = "player1" | "player2" | "notInGame";
+    const [player, setPlayer] = useState<Player>("notInGame");
+
+    // On page load - we SHOULD be one of the players in the game...
+    useEffect(() => {
+        (async () => {
+            const mina = (window as any).mina;
+
+            if (mina == null) {
+                // This should never happen?  If we make it to this page we
+                // should have joined a game...
+                // setGlobalState({ ...globalState, hasWallet: false });
+                return;
+            }
+
+            const publicKeyBase58: string = (await mina.requestAccounts())[0];
+            console.log("index: publicKeyBase58", publicKeyBase58)
+            const publicKey = PublicKey.fromBase58(publicKeyBase58);
+            const pHash = Poseidon.hash(publicKey.toFields());
+
+            // Figure out which player we are...
+            if (pHash === globalState.player1Hash) {
+                setPlayer("player1");
+            }
+            else if (pHash === globalState.player2Hash) {
+                setPlayer("player2");
+            }
+        })
+    }, []);
+
 
     const onSendTransaction = async (methodStr: string, actionStr: string) => {
         setGlobalState({ ...globalState, creatingTransaction: true });
