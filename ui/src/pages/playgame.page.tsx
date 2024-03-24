@@ -31,19 +31,16 @@ export default function Component() {
 
         switch (methodStr) {
             case 'takeAction':
-                const actionMapping = {
-                    "Null": UInt32.from(0),
+                const actionMapping: { [key: string]: UInt32 } = {
+                    // "Null": UInt32.from(0),
                     "Bet": UInt32.from(1),
                     "Call": UInt32.from(2),
                     "Fold": UInt32.from(3),
                     "Raise": UInt32.from(4),
                     "Check": UInt32.from(5),
                     "PreflopCall": UInt32.from(6),
-                }
-                // TODO - fix types for this...
+                };
                 const action: UInt32 = actionMapping[actionStr];
-                // Need to have external constraints to ensure we don't cheat here
-                // Although if they do manage to get a bad betsize here the transaction will just fail
                 const betSize: UInt32 = UInt32.from(betAmount);
                 await globalState.zkappWorkerClient!.createTakeActionTx(action, betSize);
                 break;
