@@ -1,11 +1,36 @@
+import { useEffect, useState } from 'react';
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useGlobalContext } from "./global-context";
-import { PublicKey } from 'o1js';
+import { Field, PublicKey } from 'o1js';
 
 export default function Component() {
 
     const { globalState, setGlobalState } = useGlobalContext();
+
+    const [numPlayers, setNumPlayers] = useState<number>(0);
+
+    // On load - see what the state of our game is
+    useEffect(() => {
+        (async () => {
+            const mina = (window as any).mina;
+
+            if (mina == null) {
+                return;
+            }
+
+            // Hashes will be overwritten when we have players, so track it here
+            if (globalState.player1Hash === Field(0)) {
+                setNumPlayers(0);
+            }
+            else if (globalState.player2Hash === Field(0)) {
+                setNumPlayers(1);
+            }
+            else {
+                setNumPlayers(2);
+            }
+        })
+    }, []);
 
     const onSendTransaction = async (methodStr: string) => {
         setGlobalState({ ...globalState, creatingTransaction: true });
@@ -68,15 +93,6 @@ export default function Component() {
             <main className="flex-1 overflow-y-auto py-6">
                 <div className="container px-4 md:px-6">
                     <div className="grid gap-4">
-
-                        <div className="flex-1 flex items-center justify-center">
-                            <Button variant="primary" onClick={() => onSendTransaction('joinGame')} disabled={globalState.creatingTransaction}>Join Game</Button>
-                        </div>
-
-                        <div className="flex-1 flex items-center justify-center">
-                            <Button variant="primary" onClick={() => onSendTransaction('deposit')} disabled={globalState.creatingTransaction}>Deposit</Button>
-                        </div>
-
                         <div className="grid grid-cols-[1fr_200px] items-center">
                             <h2 className="text-2xl font-bold">Available Games</h2>
                         </div>
@@ -84,18 +100,15 @@ export default function Component() {
                             <div className="flex items-center justify-between p-4">
                                 <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Game ID</div>
                                 <div className="text-sm font-medium">Players</div>
+                                <div className="text-sm font-medium">Join</div>
+                                <div className="text-sm font-medium">Deposit</div>
                             </div>
                             <div className="flex items-center justify-between p-4">
-                                <div className="text-sm font-medium">ABC123</div>
-                                <div className="text-sm font-medium">2/4</div>
-                            </div>
-                            <div className="flex items-center justify-between p-4">
-                                <div className="text-sm font-medium">DEF456</div>
-                                <div className="text-sm font-medium">3/4</div>
-                            </div>
-                            <div className="flex items-center justify-between p-4">
-                                <div className="text-sm font-medium">GHI789</div>
-                                <div className="text-sm font-medium">1/4</div>
+                                <div className="text-sm font-medium">Game01</div>
+                                <div className="text-sm font-medium">{numPlayers} / 2</div>
+                                <div className="text-sm font-medium"><Button variant="primary" onClick={() => onSendTransaction('joinGame')} disabled={globalState.creatingTransaction}>Join Game</Button></div>
+                                <div className="text-sm font-medium"><Button variant="primary" onClick={() => onSendTransaction('deposit')} disabled={globalState.creatingTransaction}>Deposit</Button></div>
+
                             </div>
                         </div>
                     </div>
