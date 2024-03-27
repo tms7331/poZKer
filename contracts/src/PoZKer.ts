@@ -1007,14 +1007,15 @@ export class PoZKerApp extends SmartContract {
         // CHECK 1. confirm the card lookup key and value are valid entries in the merkle map
         // MerkleMapRootBasic
         // MerkleMapRootFlush
-        const root = Provable.if(
-            isFlush,
-            this.MerkleMapRootFlush,
-            this.MerkleMapRootBasic,
-        );
-        const pathValid = path.computeRootAndKey(merkleMapVal);
-        pathValid[0].assertEquals(root);
-        pathValid[1].assertEquals(merkleMapKey);
+        // TEMP - disabling since we don't currently have access to merkle map on front end
+        // const root = Provable.if(
+        //     isFlush,
+        //     this.MerkleMapRootFlush,
+        //     this.MerkleMapRootBasic,
+        // );
+        // const pathValid = path.computeRootAndKey(merkleMapVal);
+        // pathValid[0].assertEquals(root);
+        // pathValid[1].assertEquals(merkleMapKey);
 
         // CHECK 3. re-hash the cards and confirm it matches their stored hash
         const cardPoint1 = this.cardPrimeToCardPoint(holecard0);
@@ -1088,7 +1089,7 @@ export class PoZKerApp extends SmartContract {
         const cardPoint2F = PublicKey.fromBase58("B62qiuLMUJ9xPCYGqAzJY2C8JTwgAFhfgZFTnVRsq3EBksHKAE1G3mX").toFields()[0];
         // Ks
         const cardPoint3F = PublicKey.fromBase58("B62qnp98SGKe6dQ2cTMUKJeWGhECfj57vZGS5D5MA9hr5bXFYMo3wDM").toFields()[0];
-        // T2
+        // Ts
         const cardPoint4F = PublicKey.fromBase58("B62qrdxHXHyuQjDSyYPsWYTEgtZBSEqF5bpTktk5RqSwbdojebLVZLH").toFields()[0];
 
         const cardHash1 = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
