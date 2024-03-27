@@ -7,6 +7,7 @@ import { PackedUInt32Factory } from 'o1js-pack';
 
 class Gamestate extends PackedUInt32Factory() { }
 
+
 export default function Component() {
     const { globalState, setGlobalState } = useGlobalContext();
 
@@ -70,14 +71,19 @@ export default function Component() {
                     "Fold": UInt32.from(3),
                     "Raise": UInt32.from(4),
                     "Check": UInt32.from(5),
-                    "PreflopCall": UInt32.from(6),
+                    // We'll infer this one
+                    // "PreflopCall": UInt32.from(6),
                 };
+
                 const action: UInt32 = actionMapping[actionStr];
                 const betSize: UInt32 = UInt32.from(betAmount);
                 await globalState.zkappWorkerClient!.createTakeActionTx(action, betSize);
                 break;
             case 'showdown':
                 await globalState.zkappWorkerClient!.createShowdownTx();
+                break;
+            case "withdraw":
+                await globalState.zkappWorkerClient!.createWithdrawTx();
                 break;
             case 'tallyBoardCards':
                 const cardPrime52: Field = Field(0);
@@ -293,6 +299,21 @@ export default function Component() {
                         </div>
                     ))}
                 </div>
+
+                <div>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Showdown</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
+                            <Button variant="primary" onClick={() => onSendTransaction('showCards', "")} disabled={globalState.creatingTransaction}>Show Cards</Button>
+                            <Button variant="primary" onClick={() => onSendTransaction('showdown', "")} disabled={globalState.creatingTransaction}>Showdown</Button>
+                            <Button variant="primary" onClick={() => onSendTransaction('withdraw', "")} disabled={globalState.creatingTransaction}>Withdraw</Button>
+                        </CardContent>
+                    </Card>
+                </div>
+
+
             </div>
         </div>
     )
