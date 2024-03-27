@@ -143,7 +143,7 @@ await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
 // Same logic as function in ZK app except we don't need getAndAssertEquals
 function getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32,] {
     const gamestate = zkAppInstance.gamestate.get();
-    const unpacked = Gamestate.unpack(gamestate.packed);
+    const unpacked = Gamestate.unpack(gamestate);
     return [unpacked[0], unpacked[1], unpacked[2], unpacked[3], unpacked[4], unpacked[5]]
 }
 
@@ -186,7 +186,7 @@ console.log("Initialized players...");
 /////////////// Stage 1 - Deposit
 console.log("Auto depositing for player 1...");
 const txn2 = await Mina.transaction(playerPubKey1, () => {
-    zkAppInstance.deposit()
+    zkAppInstance.deposit(UInt32.from(100))
 });
 await txn2.prove();
 await txn2.sign([playerPrivKey1]).send();
@@ -195,7 +195,7 @@ console.log("Player 1 Stack:", bal1.toString());
 
 console.log("Auto depositing for player 2...");
 const txn3 = await Mina.transaction(playerPubKey2, () => {
-    zkAppInstance.deposit()
+    zkAppInstance.deposit(UInt32.from(100))
 });
 await txn3.prove();
 await txn3.sign([playerPrivKey2]).send();

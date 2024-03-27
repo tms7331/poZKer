@@ -153,6 +153,8 @@ export class PoZKerApp extends SmartContract {
 
         // Temp - just want to use this to experiment with pulling data
         this.slot4.set(Field(42));
+        // Temp - hardcode cards for each player
+        this.storeHardcodedCards();
     }
 
 
@@ -316,6 +318,9 @@ export class PoZKerApp extends SmartContract {
 
         const newLastBetSize = UInt32.from(0);
         this.setGamestate(stack1New, stack2New, turnReset, streetReset, lastActionReset, newLastBetSize, gameOverNew, pot);
+
+        // TEMP - when game is over, reset player cards for next hand
+        this.storeHardcodedCards();
     }
 
     @method deposit(depositAmount: UInt32) {
@@ -388,7 +393,6 @@ export class PoZKerApp extends SmartContract {
     }
 
     @method takeAction(action: UInt32, betSize: UInt32) {
-
         // Need to check that it's the current player's turn, 
         // and the action is valid
         const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
@@ -1073,6 +1077,29 @@ export class PoZKerApp extends SmartContract {
         const d1 = PublicKey.fromGroup(epk.toGroup().scale(Scalar.fromFields(shuffleSecret.toFields())));
         const pubKey = PublicKey.fromGroup(msg.toGroup().sub(d1.toGroup()));
         return pubKey
+    }
+
+    storeHardcodedCards() {
+        // Just for live testing - store cards directly rather than doing decryption to simplify front end teesting
+        const shuffleSecret = PrivateKey.empty();
+        // Ah
+        const cardPoint1F = PublicKey.fromBase58("B62qoa5ohnNnFEXfbPshXCzkBkgWSzXk3auy2yS9hyjLma4EkH7xWbs").toFields()[0];
+        // Ad
+        const cardPoint2F = PublicKey.fromBase58("B62qiuLMUJ9xPCYGqAzJY2C8JTwgAFhfgZFTnVRsq3EBksHKAE1G3mX").toFields()[0];
+        // Ks
+        const cardPoint3F = PublicKey.fromBase58("B62qnp98SGKe6dQ2cTMUKJeWGhECfj57vZGS5D5MA9hr5bXFYMo3wDM").toFields()[0];
+        // T2
+        const cardPoint4F = PublicKey.fromBase58("B62qrdxHXHyuQjDSyYPsWYTEgtZBSEqF5bpTktk5RqSwbdojebLVZLH").toFields()[0];
+
+        const cardHash1 = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
+        const cardHash2 = this.generateHash(cardPoint3F, cardPoint4F, shuffleSecret);
+
+        this.slot0.set(cardHash1);
+        this.slot1.set(cardHash2);
+
+        // We'll store board cards in slot2, initialize with all nul values
+        const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
+        this.slot2.set(noBoardcards);
     }
 
     @method storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey) {
