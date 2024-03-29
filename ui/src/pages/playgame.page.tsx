@@ -21,6 +21,13 @@ export default function Component() {
     const [gameOver, setGameOver] = useState<number>(0);
     const [pot, setPot] = useState<number>(0);
 
+
+    const [holeCards, setHoleCards] = useState<string[]>(["", ""]);
+    const [boardCards, setBoardCards] = useState<string[]>([]);
+    // We'll always use these board cards for now - pull them to 'boardCards'
+    // based on street
+    const boardCardsHardcoded = ["Kc", "Ac", "Qs", "8s", "6s"]
+
     // Which player we are...
     type Player = "player1" | "player2" | "notInGame";
     const [player, setPlayer] = useState<Player>("notInGame");
@@ -45,9 +52,12 @@ export default function Component() {
             // Figure out which player we are...
             if (pHash === globalState.player1Hash) {
                 setPlayer("player1");
+                // Hardcoding player's cards
+                setHoleCards(["Ah", "Ad"]);
             }
             else if (pHash === globalState.player2Hash) {
                 setPlayer("player2");
+                setHoleCards(["Ks", "Ts"]);
             }
         })
     }, []);
@@ -201,6 +211,29 @@ export default function Component() {
         setLastBetSize(lastBetSize_.toJSON());
         setGameOver(gameOver_.toJSON());
         setPot(pot_.toJSON());
+
+        // Set board based on current street...
+        const boardStr = street_.toJSON()
+        // Street encoding
+        // Preflop = UInt32.from(2);
+        // Flop = UInt32.from(3);
+        // Turn = UInt32.from(4);
+        // River = UInt32.from(5);
+        if (boardStr === "3") {
+            const board = boardCardsHardcoded.slice(0, 3);
+            setBoardCards(board);
+        }
+        else if (boardStr === "4") {
+            const board = boardCardsHardcoded.slice(0, 4);
+            setBoardCards(board);
+        }
+        else if (boardStr === "5") {
+            setBoardCards(boardCardsHardcoded);
+        }
+        else {
+            setBoardCards([]);
+        }
+
     }, [globalState.gamestate]);
 
     // stack, facing bet, action history,  board_cards, hole_cards, pot
@@ -214,8 +247,6 @@ export default function Component() {
     const [actionHistory, setActionHistory] = useState(actions);
     const possibleActionsInit = [{ "action": "Call", "needsAmount": true },]
     const [possibleActions, setPossibleActions] = useState(possibleActionsInit);
-    const [boardCards, setBoardCards] = useState(["Ad", "2h", "3c", "4s", "5d"]);
-    const [holeCards, setHoleCards] = useState(["Ad", "2h"]);
 
     function getPossibleActions(facingAction: string): any[] {
         const BET = { "action": "Bet", "needsAmount": true };
@@ -289,6 +320,10 @@ export default function Component() {
                     <div className="flex items-center">
                         <div>Pot</div>
                         <span className="ml-auto font-semibold">{pot}</span>
+                    </div>
+                    <div className="flex items-center">
+                        <div>Game Over?</div>
+                        <span className="ml-auto font-semibold">{gameOver}</span>
                     </div>
                 </div>
                 <div>
