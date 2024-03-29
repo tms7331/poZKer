@@ -113,7 +113,9 @@ export class PoZKerApp extends SmartContract {
     MerkleMapRootBasic = Field("27699641125309939543225716816460043210743676221173039607853127025430840122106");
     MerkleMapRootFlush = Field("12839577190240250171319696533609974348200540625786415982151412596597428662991");
     // Hardcode 100 as game size
-    GameBuyin = UInt32.from(100);
+    // Say game is 1/2, players can buy in from 20 to 200
+    MinBuyin = UInt32.from(20);
+    MaxBuyin = UInt32.from(200);
     SmallBlind = UInt32.from(1);
     BigBlind = UInt32.from(2);
 
@@ -121,7 +123,9 @@ export class PoZKerApp extends SmartContract {
     @state(Field) player2Hash = State<Field>();
     // Coded game state, contains packed data:
     // stack1, stack2, turn, street, lastAction, gameOver
-    @state(Gamestate) gamestate = State<Gamestate>();
+    // Store gamestate as a FIELD instead, to address challenges calling .get from frontend
+    // @state(Gamestate) gamestate = State<Gamestate>();
+    @state(Field) gamestate = State<Field>();
 
     // Free memory slots for storing data
     @state(Field) slot0 = State<Field>();
@@ -139,7 +143,9 @@ export class PoZKerApp extends SmartContract {
         const street: UInt32 = this.Preflop;
         const lastAction: UInt32 = this.Bet;
         const gameOver: UInt32 = this.GameNotOver;
-        this.setGamestate(stack1, stack2, turn, street, lastAction, gameOver);
+        const pot: UInt32 = UInt32.from(0);
+        const lastBetSize = UInt32.from(0);
+        this.setGamestate(stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot);
 
         // Initialize with 0s so we can tell when two players have joined
         this.player1Hash.set(Field(0));
@@ -147,6 +153,16 @@ export class PoZKerApp extends SmartContract {
 
         // Temp - just want to use this to experiment with pulling data
         this.slot4.set(Field(42));
+        // Temp - hardcode cards for each player
+        this.storeHardcodedCards();
+        // Temp - hardcoding board cards
+        // "Kc": 163,
+        // "Ac": 167,
+        // "Qs": 229,
+        // "8s": 199,
+        // "6s": 193,
+        // 163*167*229*199*193 = 239414220863
+        this.slot2.set(Field(239414220863))
     }
 
 
@@ -182,15 +198,29 @@ export class PoZKerApp extends SmartContract {
         // this.network.timestamp.get(): UInt64;
     }
 
-    getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32,] {
+    getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32] {
         const gamestate = this.gamestate.getAndRequireEquals();
-        const unpacked = Gamestate.unpack(gamestate.packed);
-        return [unpacked[0], unpacked[1], unpacked[2], unpacked[3], unpacked[4], unpacked[5]]
+        const unpacked = Gamestate.unpack(gamestate);
+        // Need to further unpack gameOver and lastBetSize
+        const gameOverLastBetSize: UInt32 = unpacked[5];
+        const gameOver = Provable.if(gameOverLastBetSize.greaterThanOrEqual(UInt32.from(1000)), this.GameOver, this.GameNotOver);
+
+        // If game is over, lastBetSize is meaningless, so it's ok to return 1000+lastBetSize
+        const lastBetSize = gameOverLastBetSize;
+
+        return [unpacked[0], unpacked[1], unpacked[2], unpacked[3], unpacked[4], lastBetSize, gameOver, unpacked[6]]
     }
 
-    setGamestate(stack1: UInt32, stack2: UInt32, turn: UInt32, street: UInt32, lastAction: UInt32, gameOver: UInt32) {
-        const gamestateField = Gamestate.fromUInt32s([stack1, stack2, turn, street, lastAction, gameOver]);
-        this.gamestate.set(gamestateField);
+    setGamestate(stack1: UInt32, stack2: UInt32, turn: UInt32, street: UInt32, lastAction: UInt32, lastBetSize: UInt32, gameOver: UInt32, pot: UInt32) {
+        // Can only store 7 UInt32s, but 'gameOver' is a bool so we can pack gameOver and lastBetSize into one field
+        // Add 1000 to lastBetSize to indicate gameOver
+        const gameOverLastBetSize = Provable.if(
+            gameOver.equals(this.GameNotOver),
+            lastBetSize,
+            lastBetSize.add(UInt32.from(1000)),
+        );
+        const gamestateField = Gamestate.fromUInt32s([stack1, stack2, turn, street, lastAction, gameOverLastBetSize, pot]);
+        this.gamestate.set(gamestateField.packed);
     }
 
     @method playerTimeout() {
@@ -200,15 +230,15 @@ export class PoZKerApp extends SmartContract {
 
         const player1Hash = this.player1Hash.getAndRequireEquals();
         const player2Hash = this.player2Hash.getAndRequireEquals();
-        const [stack1, stack2, turn, street, lastAction, gameOver] = this.getGamestate();
+        const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
 
         gameOver.equals(this.GameNotOver).assertTrue('Game has already finished!');
 
         const player: PublicKey = this.sender;
         const playerHash = Poseidon.hash(player.toFields());
 
-        const p1WinnerBal = stack1.add(this.GameBuyin.sub(stack2));
-        const p2WinnerBal = stack2.add(this.GameBuyin.sub(stack1));
+        const p1WinnerBal = stack1.add(pot);
+        const p2WinnerBal = stack2.add(pot);
 
         // We must  check that that the OTHER player has timed out for this to be valid
         const stack1Final = Provable.if(
@@ -221,14 +251,21 @@ export class PoZKerApp extends SmartContract {
             p2WinnerBal,
             stack2
         );
-        this.setGamestate(stack1Final, stack2Final, turn, street, lastAction, gameOver);
+        // Calling this method should always result in one player taking the pot, so we can set pot to 0
+        const newPot = UInt32.from(0);
+        // TODO - fix this!
+        const newLastBetSize = UInt32.from(0);
+        this.setGamestate(stack1Final, stack2Final, turn, street, lastAction, newLastBetSize, gameOver, newPot);
     }
 
 
     @method withdraw() {
         // Can ONLY withdraw when the hand is over!
-        const [stack1, stack2, turn, street, lastAction, gameOver] = this.getGamestate();
+        const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
         gameOver.equals(this.GameOver).assertTrue('Game is not over!');
+
+        // Sanity check - pot should have been awarded by this time...
+        pot.equals(UInt32.from(0)).assertTrue("Pot has not been awarded!");
 
         const player1Hash = this.player1Hash.getAndRequireEquals();
         const player2Hash = this.player2Hash.getAndRequireEquals();
@@ -287,10 +324,14 @@ export class PoZKerApp extends SmartContract {
         const gameShouldReset: Bool = player1HashNew.equals(Field(0)).and(player2HashNew.equals(Field(0)));
         const gameOverNew = Provable.if(gameShouldReset, this.GameNotOver, this.GameOver);
 
-        this.setGamestate(stack1New, stack2New, turnReset, streetReset, lastActionReset, gameOverNew);
+        const newLastBetSize = UInt32.from(0);
+        this.setGamestate(stack1New, stack2New, turnReset, streetReset, lastActionReset, newLastBetSize, gameOverNew, pot);
+
+        // TEMP - when game is over, reset player cards for next hand
+        this.storeHardcodedCards();
     }
 
-    @method deposit() {
+    @method deposit(depositAmount: UInt32) {
         // Constraints:
         // Only player1 and player2 can deposit
         // They can only deposit once
@@ -300,7 +341,7 @@ export class PoZKerApp extends SmartContract {
         const player = this.sender;
         const playerHash = Poseidon.hash(player.toFields());
 
-        const [stack1, stack2, turn, street, lastAction, gameOver] = this.getGamestate();
+        const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
 
         const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
         cond0.assertTrue('Player is not part of this game!')
@@ -310,8 +351,6 @@ export class PoZKerApp extends SmartContract {
 
         // From https://github.com/o1-labs/o1js/blob/5ca43684e98af3e4f348f7b035a0ad7320d88f3d/src/examples/zkapps/escrow/escrow.ts
         const payerUpdate = AccountUpdate.createSigned(player);
-        // Hardcoded 100 mina as game size
-        const gameBuyin64 = this.GameBuyin.toUInt64()
 
         // TEMP - disabling this so we can test game without needing to send funds
         // payerUpdate.send({ to: this.address, amount: gameBuyin64 });
@@ -320,16 +359,24 @@ export class PoZKerApp extends SmartContract {
         // 1/2, where player1 always posts small blind
         const stack1New = Provable.if(
             playerHash.equals(player1Hash),
-            this.GameBuyin.sub(this.SmallBlind),
+            depositAmount.sub(this.SmallBlind),
             stack1
         );
-
         const stack2New = Provable.if(
             playerHash.equals(player2Hash),
-            this.GameBuyin.sub(this.BigBlind),
+            depositAmount.sub(this.BigBlind),
             stack2
         );
-        this.setGamestate(stack1New, stack2New, turn, street, lastAction, gameOver);
+
+        const potNew = Provable.if(
+            playerHash.equals(player1Hash),
+            pot.add(this.SmallBlind),
+            pot.add(this.BigBlind),
+        );
+
+        // Set last bet to be 1 to make the math work out?
+        const newLastBetSize = UInt32.from(1);
+        this.setGamestate(stack1New, stack2New, turn, street, lastAction, newLastBetSize, gameOver, potNew);
     }
 
     uint_subtraction(cond: Bool, val1: UInt32, val1sub: UInt32, val2: UInt32, val2sub: UInt32): UInt32 {
@@ -354,10 +401,10 @@ export class PoZKerApp extends SmartContract {
     }
 
     @method takeAction(action: UInt32, betSize: UInt32) {
-
         // Need to check that it's the current player's turn, 
         // and the action is valid
-        const [stack1, stack2, turn, street, lastAction, gameOver] = this.getGamestate();
+        const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
+
         gameOver.equals(this.GameNotOver).assertTrue('Game has already finished!');
 
         // Want these as bools to simplify checks
@@ -409,9 +456,9 @@ export class PoZKerApp extends SmartContract {
         act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
 
         // If action is call, we need to determine if it's actually PreflopCall...
-        // Player 1's stack can only ever be 99 if game has just started and it's their turn
+        // Can only be true if call and pot contains only blinds, so 3...
         const actionReal: UInt32 = Provable.if(
-            action.equals(this.Call).and(stack1.equals(this.GameBuyin.sub(this.SmallBlind))),
+            action.equals(this.Call).and(pot.equals(UInt32.from(3))),
             this.PreflopCall,
             action);
 
@@ -443,26 +490,25 @@ export class PoZKerApp extends SmartContract {
             UInt32.from(1),
         ).assertGreaterThanOrEqual(UInt32.from(1), "Invalid bet size!")
 
-        // Raise - betsize should be at least equal to diff*2, or all-in
-        const stackPlusAmount: UInt32 = Provable.if(p1turn,
-            this.GameBuyin.sub(stack1).add(betSize),
-            this.GameBuyin.sub(stack2).add(betSize)
-        )
-        stackPlusAmount.assertLessThanOrEqual(this.GameBuyin, "Cannot bet more than stack!");
-
-        const allin: Bool = stackPlusAmount.equals(this.GameBuyin);
-
-        Provable.if(actionReal.equals(this.Raise),
-            betSize.greaterThanOrEqual(stackDiff.mul(2)).or(allin),
-            Bool(true),
-        ).assertTrue("Invalid raise amount!");
-
         // Call - betsize should make stacks equal
         // So we might need to override the other betsize here
         const betSizeReal = Provable.if(actionReal.equals(this.Call).or(actionReal.equals(this.PreflopCall)),
             stackDiff,
             betSize,
         )
+
+        const compareStack = Provable.if(p1turn,
+            stack1,
+            stack2)
+
+        betSizeReal.assertLessThanOrEqual(compareStack, "Cannot bet more than stack!");
+        const allin: Bool = betSizeReal.equals(compareStack);
+
+        Provable.if(actionReal.equals(this.Raise),
+            betSize.greaterThanOrEqual(stackDiff.mul(2)).or(allin),
+            Bool(true),
+        ).assertTrue("Invalid raise amount!");
+
 
         // Make sure the player has enough funds to take the action
         const case1 = playerHash.equals(player1Hash).and(betSizeReal.lessThanOrEqual(stack1));
@@ -524,8 +570,8 @@ export class PoZKerApp extends SmartContract {
         )
 
         // If game is over from a fold - need to send funds to winner
-        const p1WinnerBal = stack1.add(this.GameBuyin.sub(stack2New));
-        const p2WinnerBal = stack2.add(this.GameBuyin.sub(stack1New));
+        const p1WinnerBal = stack1.add(pot);
+        const p2WinnerBal = stack2.add(pot);
 
         const stack1Final = Provable.if(
             gameOverNow.equals(this.GameOver).and(playerHash.equals(player2Hash)),
@@ -537,18 +583,32 @@ export class PoZKerApp extends SmartContract {
             p2WinnerBal,
             stack2New
         );
-        this.setGamestate(stack1Final, stack2Final, playerTurnNow, currStreet, facingAction, gameOverNow);
+
+        const potNew = Provable.if(
+            gameOverNow.equals(this.GameOver),
+            UInt32.from(0),
+            pot.add(betSizeReal)
+        );
+
+        // TODO - double check logic - any other scenarios we should reset lastBetSize?
+        const newLastBetSize = Provable.if(
+            actionReal.equals(this.Call),
+            UInt32.from(0),
+            betSizeReal
+        )
+
+        this.setGamestate(stack1Final, stack2Final, playerTurnNow, currStreet, facingAction, newLastBetSize, gameOverNow, potNew);
     }
 
     @method showdown() {
         // We should only call this if we actually made it to showdown
-        const [stack1, stack2, turn, street, lastAction, gameOver] = this.getGamestate();
+        const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
         street.equals(this.ShowdownComplete).assertTrue("Invalid showdown gamestate!");
         // Sanity check - if it's a showdown both stacks must be equal
         stack1.equals(stack2).assertTrue("Invalid showdown gamestate!");
 
-        const p1WinnerBal = this.GameBuyin.add(this.GameBuyin.sub(stack2));
-        const p2WinnerBal = this.GameBuyin.add(this.GameBuyin.sub(stack1));
+        const p1WinnerBal = stack1.add(pot);
+        const p2WinnerBal = stack2.add(pot);
 
         // Convention is we'll have stored player1's lookup value for their hand 
         // in slot0, and player2's lookup value in slot1
@@ -558,8 +618,8 @@ export class PoZKerApp extends SmartContract {
         // If we get a tie - split the pot
         const tieAdj = Provable.if(
             Bool(slot0 === slot1),
-            // Could subtract from either one here - stacks must be the same
-            this.GameBuyin.sub(stack2),
+            // pot should always be evenly divisible by 2
+            pot.div(UInt32.from(2)),
             UInt32.from(0),
         );
 
@@ -575,10 +635,8 @@ export class PoZKerApp extends SmartContract {
             stack2.add(tieAdj)
         );
 
-        // Sanity check - should always be true
-        stack1Final.add(stack2Final).assertEquals(this.GameBuyin.mul(UInt32.from(2)));
-
-        this.setGamestate(stack1Final, stack2Final, turn, street, lastAction, this.GameOver);
+        const potNew = UInt32.from(0);
+        this.setGamestate(stack1Final, stack2Final, turn, street, lastAction, lastBetSize, this.GameOver, potNew);
     }
 
     cardPrimeToCardPoint(cardPrime: UInt64): PublicKey {
@@ -894,7 +952,7 @@ export class PoZKerApp extends SmartContract {
         3. re-hash the cards and confirm it matches their stored hash
         4. check that board cards are the real board cards
         */
-        const [stack1, stack2, turn, street, lastAction, gameOver] = this.getGamestate();
+        const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
         // const gamestate = this.gamestate.getAndRequireEquals();
         // TODO - what was this check again?  Reimplement with new format...
         // gamestate.assertLessThanOrEqual(UInt64.from(3));
@@ -957,14 +1015,15 @@ export class PoZKerApp extends SmartContract {
         // CHECK 1. confirm the card lookup key and value are valid entries in the merkle map
         // MerkleMapRootBasic
         // MerkleMapRootFlush
-        const root = Provable.if(
-            isFlush,
-            this.MerkleMapRootFlush,
-            this.MerkleMapRootBasic,
-        );
-        const pathValid = path.computeRootAndKey(merkleMapVal);
-        pathValid[0].assertEquals(root);
-        pathValid[1].assertEquals(merkleMapKey);
+        // TEMP - disabling since we don't currently have access to merkle map on front end
+        // const root = Provable.if(
+        //     isFlush,
+        //     this.MerkleMapRootFlush,
+        //     this.MerkleMapRootBasic,
+        // );
+        // const pathValid = path.computeRootAndKey(merkleMapVal);
+        // pathValid[0].assertEquals(root);
+        // pathValid[1].assertEquals(merkleMapKey);
 
         // CHECK 3. re-hash the cards and confirm it matches their stored hash
         const cardPoint1 = this.cardPrimeToCardPoint(holecard0);
@@ -1009,8 +1068,7 @@ export class PoZKerApp extends SmartContract {
             street.mul(this.P2Turn),
         );
 
-        // this.gamestate.set(gamestateNew);
-        this.setGamestate(stack1, stack2, turn, streetNew, lastAction, gameOver);
+        this.setGamestate(stack1, stack2, turn, streetNew, lastAction, lastBetSize, gameOver, pot);
     }
 
     generateHash(card1: Field, card2: Field, privateKey: PrivateKey): Field {
@@ -1028,6 +1086,31 @@ export class PoZKerApp extends SmartContract {
         const d1 = PublicKey.fromGroup(epk.toGroup().scale(Scalar.fromFields(shuffleSecret.toFields())));
         const pubKey = PublicKey.fromGroup(msg.toGroup().sub(d1.toGroup()));
         return pubKey
+    }
+
+    storeHardcodedCards() {
+        // Just for live testing - store cards directly rather than doing decryption to simplify front end teesting
+        // PrivateKey.empty
+        // const shuffleSecret = PrivateKey.fromFields([Field(1), Field(2), Field(3), Field(4)])
+        const shuffleSecret = PrivateKey.fromBigInt(BigInt(1));
+        // Ah
+        const cardPoint1F = PublicKey.fromBase58("B62qoa5ohnNnFEXfbPshXCzkBkgWSzXk3auy2yS9hyjLma4EkH7xWbs").toFields()[0];
+        // Ad
+        const cardPoint2F = PublicKey.fromBase58("B62qiuLMUJ9xPCYGqAzJY2C8JTwgAFhfgZFTnVRsq3EBksHKAE1G3mX").toFields()[0];
+        // Ks
+        const cardPoint3F = PublicKey.fromBase58("B62qnp98SGKe6dQ2cTMUKJeWGhECfj57vZGS5D5MA9hr5bXFYMo3wDM").toFields()[0];
+        // Ts
+        const cardPoint4F = PublicKey.fromBase58("B62qrdxHXHyuQjDSyYPsWYTEgtZBSEqF5bpTktk5RqSwbdojebLVZLH").toFields()[0];
+
+        const cardHash1 = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
+        const cardHash2 = this.generateHash(cardPoint3F, cardPoint4F, shuffleSecret);
+
+        this.slot0.set(cardHash1);
+        this.slot1.set(cardHash2);
+
+        // We'll store board cards in slot2, initialize with all nul values
+        const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
+        this.slot2.set(noBoardcards);
     }
 
     @method storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey) {
