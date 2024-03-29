@@ -34,6 +34,7 @@ type GlobalContext = {
 export const GlobalContext = createContext<GlobalContext | null>(null);
 
 export default function GlobalContextProvider({ children }: GlobalContextProviderProps) {
+
     const [globalState, setGlobalState] = useState<GlobalState>(
         {
             testStr: "abcd",
@@ -50,7 +51,8 @@ export default function GlobalContextProvider({ children }: GlobalContextProvide
             creatingTransaction: false,
             // These are constants
             transactionFee: 0.1,
-            zkappAddress: 'B62qpGqTpNvxMNjh1msVt1Dy6KTSZo2Q9XYR3dcc8Ld1LpcuDm4VUhW',
+            // zkappAddress: 'B62qpGqTpNvxMNjh1msVt1Dy6KTSZo2Q9XYR3dcc8Ld1LpcuDm4VUhW',
+            zkappAddress: 'B62qiy9qMzMKXhP3N2Dad6P4VZHQehP4YSQojHnyF9uCfGN3Fg4zkos',
         }
     );
 
