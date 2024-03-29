@@ -90,25 +90,75 @@ export default function Component() {
                 await globalState.zkappWorkerClient!.createTallyBoardCardsTx(cardPrime52);
                 break;
             case 'showCards':
-                // TODO - where do we get the real values?
-                const holecard0: UInt64 = UInt64.from(0);
-                const holecard1: UInt64 = UInt64.from(0);
-                const boardcard0: UInt64 = UInt64.from(0);
-                const boardcard1: UInt64 = UInt64.from(0);
-                const boardcard2: UInt64 = UInt64.from(0);
-                const boardcard3: UInt64 = UInt64.from(0);
-                const boardcard4: UInt64 = UInt64.from(0);
-                const useHolecard0: Bool = Bool(false);
-                const useHolecard1: Bool = Bool(false);
-                const useBoardcards0: Bool = Bool(false);
-                const useBoardcards1: Bool = Bool(false);
-                const useBoardcards2: Bool = Bool(false);
-                const useBoardcards3: Bool = Bool(false);
-                const useBoardcards4: Bool = Bool(false);
-                const isFlush: Bool = Bool(false);
-                const shuffleKey: PrivateKey = PrivateKey.random();
-                const merkleMapKey: Field = Field(0);
-                const merkleMapVal: Field = Field(0);
+                // Hardcoded values for now...
+
+                // "Ah": 41,
+                // "Ad": 101,
+                // "Ks": 233,
+                // "Ts": 223,
+
+                // "Kc": 163,
+                // "Ac": 167,
+                // "Qs": 229,
+                // "8s": 199,
+                // "6s": 193,
+
+                let holecard0: UInt64;
+                let holecard1: UInt64;
+
+                let useHolecard0: Bool;
+                let useHolecard1: Bool;
+                let useBoardcards0: Bool;
+                let useBoardcards1: Bool;
+                let useBoardcards2: Bool;
+                let useBoardcards3: Bool;
+                let useBoardcards4: Bool;
+                let isFlush: Bool;
+                let merkleMapKey: Field;
+                let merkleMapVal: Field;
+
+                if (player === "player1") {
+                    holecard0 = UInt64.from(41);
+                    holecard1 = UInt64.from(101);
+
+                    useHolecard0 = Bool(true);
+                    useHolecard1 = Bool(true);
+                    useBoardcards0 = Bool(true);
+                    useBoardcards1 = Bool(true);
+                    useBoardcards2 = Bool(true);
+                    useBoardcards3 = Bool(false);
+                    useBoardcards4 = Bool(false);
+                    isFlush = Bool(false);
+                    merkleMapKey = Field(79052387);
+                    merkleMapVal = Field(1609);
+                }
+                else if (player === "player2") {
+                    holecard0 = UInt64.from(233);
+                    holecard1 = UInt64.from(223);
+
+                    useHolecard0 = Bool(true);
+                    useHolecard1 = Bool(true);
+                    useBoardcards0 = Bool(false);
+                    useBoardcards1 = Bool(false);
+                    useBoardcards2 = Bool(true);
+                    useBoardcards3 = Bool(true);
+                    useBoardcards4 = Bool(true);
+                    isFlush = Bool(true);
+                    merkleMapKey = Field(4933247);
+                    merkleMapVal = Field(858);
+                }
+                else {
+                    throw new Error("Not in game!");
+                }
+
+                const boardcard0: UInt64 = UInt64.from(163);
+                const boardcard1: UInt64 = UInt64.from(167);
+                const boardcard2: UInt64 = UInt64.from(229);
+                const boardcard3: UInt64 = UInt64.from(199);
+                const boardcard4: UInt64 = UInt64.from(193);
+
+                const shuffleKey: PrivateKey = PrivateKey.fromBigInt(BigInt(1));
+                // Leaving these empty - we've disabled that check
                 const isLefts: Bool[] = [];
                 const siblings: Field[] = [];
                 const path: MerkleMapWitness = new MerkleMapWitness(isLefts, siblings);
