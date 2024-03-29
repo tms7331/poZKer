@@ -155,6 +155,14 @@ export class PoZKerApp extends SmartContract {
         this.slot4.set(Field(42));
         // Temp - hardcode cards for each player
         this.storeHardcodedCards();
+        // Temp - hardcoding board cards
+        // "Kc": 163,
+        // "Ac": 167,
+        // "Qs": 229,
+        // "8s": 199,
+        // "6s": 193,
+        // 163*167*229*199*193 = 239414220863
+        this.slot2.set(Field(239414220863))
     }
 
 
@@ -1082,7 +1090,9 @@ export class PoZKerApp extends SmartContract {
 
     storeHardcodedCards() {
         // Just for live testing - store cards directly rather than doing decryption to simplify front end teesting
-        const shuffleSecret = PrivateKey.empty();
+        // PrivateKey.empty
+        // const shuffleSecret = PrivateKey.fromFields([Field(1), Field(2), Field(3), Field(4)])
+        const shuffleSecret = PrivateKey.fromBigInt(BigInt(1));
         // Ah
         const cardPoint1F = PublicKey.fromBase58("B62qoa5ohnNnFEXfbPshXCzkBkgWSzXk3auy2yS9hyjLma4EkH7xWbs").toFields()[0];
         // Ad
