@@ -61,12 +61,10 @@ const functions = {
   },
 
   getGamestate: async (args: {}) => {
-    // const gamestate = await state.zkapp!.gamestate.get();
-    // const unpacked = Gamestate.unpack(gamestate.packed);
-    // // All UInt32s, representing:
-    // // stack1, stack2, turn, street, lastAction, gameOver
-    // return JSON.stringify([unpacked[0].toJSON(), unpacked[1].toJSON(), unpacked[2].toJSON(), unpacked[3].toJSON(), unpacked[4].toJSON(), unpacked[5].toJSON()])
+    const gamestate = await state.zkapp!.gamestate.get();
+    return JSON.stringify(gamestate.toJSON());
   },
+
   createSetTempvarTx: async (args: { num: number }) => {
     // setTempvarValue(val: Field)
     const value: Field = Field(args.num);

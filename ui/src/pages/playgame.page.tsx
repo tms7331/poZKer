@@ -18,7 +18,7 @@ export default function Component() {
     const [street, setStreet] = useState<number>(0);
     const [lastAction, setLastAction] = useState<number>(0);
     const [lastBetSize, setLastBetSize] = useState<number>(0);
-    const [gameOver, setGameOver] = useState<number>(0);
+    const [gameOver, setGameOver] = useState<boolean>(false);
     const [pot, setPot] = useState<number>(0);
 
 
@@ -59,8 +59,22 @@ export default function Component() {
                 setPlayer("player2");
                 setHoleCards(["Ks", "Ts"]);
             }
+            else {
+                setPlayer("notInGame");
+            }
         })
     }, []);
+
+
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            console.log('Logging every 30 seconds');
+        }, 30000); // 30 seconds in milliseconds
+
+        // Clean up the interval to prevent memory leaks
+        return () => clearInterval(intervalId);
+    }, []); // Empty dependency array means this effect runs only once on component mount
+
 
 
     const onSendTransaction = async (methodStr: string, actionStr: string) => {
@@ -201,15 +215,32 @@ export default function Component() {
 
     useEffect(() => {
         const unpacked = Gamestate.unpack(globalState.gamestate!);
-        // console.log(unpacked[0].toJSON(), unpacked[1].toJSON(), unpacked[2].toJSON());
-        const [stack1_, stack2_, turn_, street_, lastAction_, lastBetSize_, gameOver_, pot_] = unpacked;
+        const [stack1_, stack2_, turn_, street_, lastAction_, lastBetSizeGameOver, pot_] = unpacked;
+        // Need to further unpack gameOver and lastBetSize
+        const gameOverLastBetSize = lastBetSizeGameOver.toJSON() as number;
+        let lastBetSize_ = gameOverLastBetSize;
+        let gameOver_ = false;
+        if (gameOverLastBetSize > 1000) {
+            lastBetSize_ = lastBetSize_ - 1000;
+            gameOver_ = true;
+        }
+
+        console.log("UNPACKED GAMESTATE", stack1_.toJSON(),
+            stack2_.toJSON(),
+            turn_.toJSON(),
+            street_.toJSON(),
+            lastAction_.toJSON(),
+            lastBetSize_,
+            gameOver_,
+            pot_.toJSON())
+
         setStack1(stack1_.toJSON());
         setStack2(stack2_.toJSON());
         setTurn(turn_.toJSON());
         setStreet(street_.toJSON());
         setLastAction(lastAction_.toJSON());
-        setLastBetSize(lastBetSize_.toJSON());
-        setGameOver(gameOver_.toJSON());
+        setLastBetSize(lastBetSize_);
+        setGameOver(gameOver_);
         setPot(pot_.toJSON());
 
         // Set board based on current street...

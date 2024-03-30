@@ -12,9 +12,9 @@ type GlobalState = {
     hasWallet: null | boolean;
     hasBeenSetup: boolean;
     accountExists: boolean;
-    currentNum: null | Field;
+    currentNum: Field;
     // This should have the o1js-pack encoded game state
-    gamestate: null | Field;
+    gamestate: Field;
     player1Hash: Field;
     player2Hash: Field;
     publicKey: null | PublicKey;
@@ -42,8 +42,8 @@ export default function GlobalContextProvider({ children }: GlobalContextProvide
             hasWallet: null,
             hasBeenSetup: false,
             accountExists: false,
-            currentNum: null,
-            gamestate: null,
+            currentNum: Field(0),
+            gamestate: Field(0),
             player1Hash: Field(0),
             player2Hash: Field(0),
             publicKey: null,

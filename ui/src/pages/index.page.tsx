@@ -78,6 +78,7 @@ export default function Component() {
         const currentNum = await zkappWorkerClient.getNum();
         const player1Hash = await zkappWorkerClient.getPlayer1Hash();
         const player2Hash = await zkappWorkerClient.getPlayer2Hash();
+        const gamestate = await zkappWorkerClient.getGamestate();
         console.log(`Current state in zkApp: ${currentNum.toString()}`);
         setDisplayText('');
 
@@ -90,6 +91,7 @@ export default function Component() {
           zkappPublicKey,
           accountExists,
           currentNum,
+          gamestate,
           player1Hash,
           player2Hash
         });
@@ -175,6 +177,7 @@ export default function Component() {
           Current state in zkApp: {globalState.currentNum!.toString()}{' '}
           player1hash: {globalState.player1Hash!.toString()}{' '}
           player2hash: {globalState.player2Hash!.toString()}{' '}
+          gamestate: {globalState.gamestate!.toString()}{' '}
         </div>
 
       </div>
@@ -191,6 +194,9 @@ export default function Component() {
             </Link>
             <Link className="text-sm font-medium hover:underline underline-offset-4" href="join">
               Join
+            </Link>
+            <Link className="text-sm font-medium hover:underline underline-offset-4" href="playgame">
+              Gameplay
             </Link>
             <Link className="text-sm font-medium hover:underline underline-offset-4" href="gettokens">
               Get Tokens
