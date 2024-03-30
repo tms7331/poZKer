@@ -604,8 +604,9 @@ export class PoZKerApp extends SmartContract {
         // We should only call this if we actually made it to showdown
         const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
         street.equals(this.ShowdownComplete).assertTrue("Invalid showdown gamestate!");
+        // This is no longer true if players can start with different stacks!
         // Sanity check - if it's a showdown both stacks must be equal
-        stack1.equals(stack2).assertTrue("Invalid showdown gamestate!");
+        // stack1.equals(stack2).assertTrue("Invalid showdown gamestate!");
 
         const p1WinnerBal = stack1.add(pot);
         const p2WinnerBal = stack2.add(pot);
@@ -637,6 +638,7 @@ export class PoZKerApp extends SmartContract {
 
         const potNew = UInt32.from(0);
         this.setGamestate(stack1Final, stack2Final, turn, street, lastAction, lastBetSize, this.GameOver, potNew);
+
     }
 
     cardPrimeToCardPoint(cardPrime: UInt64): PublicKey {
