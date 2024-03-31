@@ -539,9 +539,6 @@ describe('PoZKer', () => {
     // make sure we've reached showdown...
     expect(street).toEqual(zkAppInstance.ShowdownPending);
 
-    // TODO - this test fails because of some of the setup we do
-
-
     // We should NOT be able to call 'showdown' method yet - 
     // 1. Need other board cards
     // 2. Both players need to show hands

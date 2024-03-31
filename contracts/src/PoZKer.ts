@@ -1205,16 +1205,4 @@ export class PoZKerApp extends SmartContract {
         this.slot3.set(slot3New);
         this.slot4.set(slot4New);
     }
-
-    @method setTempvar() {
-        this.slot4.set(Field(123));
-    }
-
-    @method setTempvar2() {
-        this.slot4.set(Field(456));
-    }
-
-    @method setTempvarValue(val: Field) {
-        this.slot4.set(val);
-    }
 }
