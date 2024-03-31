@@ -85,6 +85,8 @@ export default function Component() {
             publicKey: globalState.publicKey!
         });
 
+        // Needed for several of the transactions
+        const senderB58 = globalState.publicKey!.toBase58();
         switch (methodStr) {
             case 'takeAction':
                 const actionMapping: { [key: string]: number } = {
@@ -97,16 +99,15 @@ export default function Component() {
                     // We'll infer this one
                     // "PreflopCall": UInt32.from(6),
                 };
-
                 const action: number = actionMapping[actionStr];
                 const betSize: number = betAmount
-                await globalState.zkappWorkerClient!.createTakeActionTx(action, betSize);
+                await globalState.zkappWorkerClient!.createTakeActionTx(senderB58, action, betSize);
                 break;
             case 'showdown':
                 await globalState.zkappWorkerClient!.createShowdownTx();
                 break;
             case "withdraw":
-                await globalState.zkappWorkerClient!.createWithdrawTx();
+                await globalState.zkappWorkerClient!.createWithdrawTx(senderB58);
                 break;
             case 'tallyBoardCards':
                 const cardPrime52: number = 0;
@@ -185,7 +186,7 @@ export default function Component() {
                 const isLefts: Bool[] = [];
                 const siblings: Field[] = [];
                 const path: MerkleMapWitness = new MerkleMapWitness(isLefts, siblings);
-                await globalState.zkappWorkerClient!.createShowCardsTx(holecard0, holecard1, boardcard0, boardcard1, boardcard2, boardcard3, boardcard4, useHolecard0, useHolecard1, useBoardcards0, useBoardcards1, useBoardcards2, useBoardcards3, useBoardcards4, isFlush, shuffleKey, merkleMapKey, merkleMapVal);
+                await globalState.zkappWorkerClient!.createShowCardsTx(senderB58, holecard0, holecard1, boardcard0, boardcard1, boardcard2, boardcard3, boardcard4, useHolecard0, useHolecard1, useBoardcards0, useBoardcards1, useBoardcards2, useBoardcards3, useBoardcards4, isFlush, shuffleKey, merkleMapKey, merkleMapVal);
                 break;
         }
 

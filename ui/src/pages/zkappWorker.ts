@@ -87,8 +87,9 @@ const functions = {
     state.transaction = transaction;
   },
 
-  createWithdrawTx: async (args: {}) => {
-    const transaction = await Mina.transaction(() => {
+  createWithdrawTx: async (args: { senderB58: string }) => {
+    const senderPK = PublicKey.fromBase58(args.senderB58);
+    const transaction = await Mina.transaction(senderPK, () => {
       state.zkapp!.withdraw();
     });
     state.transaction = transaction;
@@ -103,11 +104,12 @@ const functions = {
     state.transaction = transaction;
   },
 
-  createTakeActionTx: async (args: { action: number, betSize: number }) => {
+  createTakeActionTx: async (args: { senderB58: string, action: number, betSize: number }) => {
     // takeAction(action: UInt32, betSize: UInt32)
+    const senderPK = PublicKey.fromBase58(args.senderB58);
     const actionU: UInt32 = UInt32.from(args.action);
     const betSizeU: UInt32 = UInt32.from(args.betSize);
-    const transaction = await Mina.transaction(() => {
+    const transaction = await Mina.transaction(senderPK, () => {
       state.zkapp!.takeAction(actionU, betSizeU);
     });
     state.transaction = transaction;
@@ -159,8 +161,10 @@ const functions = {
     state.transaction = transaction;
   },
 
-  createShowCardsTx: async (args: { holecard0n: number, holecard1n: number, boardcard0n: number, boardcard1n: number, boardcard2n: number, boardcard3n: number, boardcard4n: number, useHolecard0b: boolean, useHolecard1b: boolean, useBoardcards0b: boolean, useBoardcards1b: boolean, useBoardcards2b: boolean, useBoardcards3b: boolean, useBoardcards4b: boolean, isFlushb: boolean, shuffleKeyB58: string, merkleMapKey: number, merkleMapVal: number }) => {
+  createShowCardsTx: async (args: { senderB58: string, holecard0n: number, holecard1n: number, boardcard0n: number, boardcard1n: number, boardcard2n: number, boardcard3n: number, boardcard4n: number, useHolecard0b: boolean, useHolecard1b: boolean, useBoardcards0b: boolean, useBoardcards1b: boolean, useBoardcards2b: boolean, useBoardcards3b: boolean, useBoardcards4b: boolean, isFlushb: boolean, shuffleKeyB58: string, merkleMapKey: number, merkleMapVal: number }) => {
     // showCards(holecard0: UInt64, holecard1: UInt64, boardcard0: UInt64, boardcard1: UInt64, boardcard2: UInt64, boardcard3: UInt64, boardcard4: UInt64, useHolecard0: Bool, useHolecard1: Bool, useBoardcards0: Bool, useBoardcards1: Bool, useBoardcards2: Bool, useBoardcards3: Bool, useBoardcards4: Bool, isFlush: Bool, shuffleKey: PrivateKey, merkleMapKey: Field, merkleMapVal: Field, path: MerkleMapWitness)
+
+    const senderPK = PublicKey.fromBase58(args.senderB58);
 
     const holecard0: UInt64 = UInt64.from(args.holecard0n);
     const holecard1: UInt64 = UInt64.from(args.holecard1n);
@@ -186,7 +190,7 @@ const functions = {
     const siblings: Field[] = [];
     const path: MerkleMapWitness = new MerkleMapWitness(isLefts, siblings);
 
-    const transaction = await Mina.transaction(() => {
+    const transaction = await Mina.transaction(senderPK, () => {
       // const test: UInt64 = UInt64.from(33);
       state.zkapp!.showCards(holecard0, holecard1, boardcard0, boardcard1, boardcard2, boardcard3, boardcard4, useHolecard0, useHolecard1, useBoardcards0, useBoardcards1, useBoardcards2, useBoardcards3, useBoardcards4, isFlush, shuffleKey, merkleMapKeyF, merkleMapValF, path);
     });
