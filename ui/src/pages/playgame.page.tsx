@@ -1,4 +1,5 @@
 import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
+import Link from "next/link"
 import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button"
 import { useGlobalContext } from "./global-context";
@@ -337,128 +338,142 @@ export default function Component() {
         setPossibleActions(possibleActions);
     }, [actionHistory]);
 
-
-
     return (
-        <div>
-            <div>
-                <div>Game</div>
-                <div>Pot: ${pot}</div>
-            </div>
-            <div className="grid gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center">
-                        <div>Stack 1</div>
-                        <span className="ml-auto font-semibold">${stack1}</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div>Stack 2</div>
-                        <span className="ml-auto font-semibold">${stack2}</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div>Turn</div>
-                        <span className="ml-auto font-semibold">{turn}</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div>Turn</div>
-                        <span className="ml-auto font-semibold">{street}</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div>Facing Action</div>
-                        <span className="ml-auto font-semibold">{lastAction}</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div>Facing Bet</div>
-                        <span className="ml-auto font-semibold">{lastBetSize}</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div>Pot</div>
-                        <span className="ml-auto font-semibold">{pot}</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div>Game Over?</div>
-                        <span className="ml-auto font-semibold">{gameOver}</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div>You are player:</div>
-                        <span className="ml-auto font-semibold">{player}</span>
-                    </div>
+        <div className="flex flex-col min-h-[100dvh]">
+            <header className="px-4 lg:px-6">
+                <div className="container flex items-center justify-center h-14 px-4 md:px-6">
+                    <nav className="hidden gap-4 lg:flex">
+                        <Link className="text-sm font-medium hover:underline underline-offset-4" href="join">
+                            Join
+                        </Link>
+                        <Link className="text-sm font-medium hover:underline underline-offset-4" href="playgame">
+                            Gameplay
+                        </Link>
+                    </nav>
+                    <div className="flex-1" />
+                    <Link className="flex items-center justify-center text-sm font-medium" href="#">
+                        Home
+                    </Link>
                 </div>
+            </header>
+            <main className="flex-1">
                 <div>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Action List</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <ul className="divide-y">
-                                {actionHistory
-                                    .map((row, index) => {
-                                        return (
-                                            <li key={index} className="px-4 py-2 flex items-center space-x-2">
-                                                <span>{row.action}</span>
-                                                <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">{row.player}</span>
-                                            </li>)
-                                    })}
-                            </ul>
-                        </CardContent>
-                    </Card>
+                    <div>Game</div>
+                    <div>Pot: ${pot}</div>
                 </div>
-                <div>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Board Cards</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
-                            {boardCards
-                                .map((row, index) => { return (<span key={index}>{row}</span>) })}
-                        </CardContent>
-                    </Card>
-                </div>
-
-                <div>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Hole Cards</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
-                            <span>{holeCards[0]}</span>
-                            <span>{holeCards[1]}</span>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                <div>
-                    {possibleActions.map((action, index) => (
-                        <div key={index}>
-                            <Button variant="primary" onClick={() => onSendTransaction('takeAction', action.action)} disabled={globalState.creatingTransaction}>{action.action}</Button>
-                            {action.needsAmount && (
-                                <input
-                                    type="number"
-                                    value={betAmount}
-                                    onChange={handleAmountChange}
-                                    min={0}
-                                />
-                            )}
+                <div className="grid gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center">
+                            <div>Stack 1</div>
+                            <span className="ml-auto font-semibold">${stack1}</span>
                         </div>
-                    ))}
+                        <div className="flex items-center">
+                            <div>Stack 2</div>
+                            <span className="ml-auto font-semibold">${stack2}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div>Turn</div>
+                            <span className="ml-auto font-semibold">{turn}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div>Turn</div>
+                            <span className="ml-auto font-semibold">{street}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div>Facing Action</div>
+                            <span className="ml-auto font-semibold">{lastAction}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div>Facing Bet</div>
+                            <span className="ml-auto font-semibold">{lastBetSize}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div>Pot</div>
+                            <span className="ml-auto font-semibold">{pot}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div>Game Over?</div>
+                            <span className="ml-auto font-semibold">{gameOver}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div>You are player:</div>
+                            <span className="ml-auto font-semibold">{player}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Action List</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <ul className="divide-y">
+                                    {actionHistory
+                                        .map((row, index) => {
+                                            return (
+                                                <li key={index} className="px-4 py-2 flex items-center space-x-2">
+                                                    <span>{row.action}</span>
+                                                    <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">{row.player}</span>
+                                                </li>)
+                                        })}
+                                </ul>
+                            </CardContent>
+                        </Card>
+                    </div>
+                    <div>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Board Cards</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
+                                {boardCards
+                                    .map((row, index) => { return (<span key={index}>{row}</span>) })}
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Hole Cards</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
+                                <span>{holeCards[0]}</span>
+                                <span>{holeCards[1]}</span>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div>
+                        {possibleActions.map((action, index) => (
+                            <div key={index}>
+                                <Button variant="primary" onClick={() => onSendTransaction('takeAction', action.action)} disabled={globalState.creatingTransaction}>{action.action}</Button>
+                                {action.needsAmount && (
+                                    <input
+                                        type="number"
+                                        value={betAmount}
+                                        onChange={handleAmountChange}
+                                        min={0}
+                                    />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Showdown</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
+                                <Button variant="primary" onClick={() => onSendTransaction('showCards', "")} disabled={globalState.creatingTransaction}>Show Cards</Button>
+                                <Button variant="primary" onClick={() => onSendTransaction('showdown', "")} disabled={globalState.creatingTransaction}>Showdown</Button>
+                                <Button variant="primary" onClick={() => onSendTransaction('withdraw', "")} disabled={globalState.creatingTransaction}>Withdraw</Button>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
-
-                <div>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Showdown</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
-                            <Button variant="primary" onClick={() => onSendTransaction('showCards', "")} disabled={globalState.creatingTransaction}>Show Cards</Button>
-                            <Button variant="primary" onClick={() => onSendTransaction('showdown', "")} disabled={globalState.creatingTransaction}>Showdown</Button>
-                            <Button variant="primary" onClick={() => onSendTransaction('withdraw', "")} disabled={globalState.creatingTransaction}>Withdraw</Button>
-                        </CardContent>
-                    </Card>
-                </div>
-
-
-            </div>
-        </div>
+            </main >
+        </div >
     )
 }
 

@@ -112,24 +112,25 @@ export default function Component() {
         setGlobalState({ ...globalState, creatingTransaction: false });
     };
 
-
-
     return (
-        <div className="flex flex-col h-screen">
-            <header className="sticky top-0 z-10 bg-white border-b border-gray-100 backdrop-blur-smooth dark:bg-gray-950 dark:border-gray-850">
-                <div className="container flex items-center justify-between h-[60px] px-4 md:px-6">
-                    <h1 className="text-xl font-semibold tracking-tighter">Join Game</h1>
-                    <nav className="flex gap-4">
-                        <Link
-                            className="flex items-center text-sm font-medium rounded-md transition-colors hover:bg-gray-100 hover:text-gray-900 px-3 py-2 dark:hover:bg-gray-800 dark:hover:text-gray-50"
-                            href="#"
-                        >
-                            Back
+        <div className="flex flex-col min-h-[100dvh]">
+            <header className="px-4 lg:px-6">
+                <div className="container flex items-center justify-center h-14 px-4 md:px-6">
+                    <nav className="hidden gap-4 lg:flex">
+                        <Link className="text-sm font-medium hover:underline underline-offset-4" href="join">
+                            Join
+                        </Link>
+                        <Link className="text-sm font-medium hover:underline underline-offset-4" href="playgame">
+                            Gameplay
                         </Link>
                     </nav>
+                    <div className="flex-1" />
+                    <Link className="flex items-center justify-center text-sm font-medium" href="#">
+                        Home
+                    </Link>
                 </div>
             </header>
-            <main className="flex-1 overflow-y-auto py-6">
+            <main className="flex-1">
                 <div className="container px-4 md:px-6">
                     <div className="grid gap-4">
                         <div className="grid grid-cols-[1fr_200px] items-center">
