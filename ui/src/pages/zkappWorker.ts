@@ -20,9 +20,9 @@ const functions = {
   setActiveInstanceToBerkeley: async (args: {}) => {
     const Berkeley = Mina.Network({
       mina: [
-        'https://proxy.berkeley.minaexplorer.com/graphql',
+        // 'https://proxy.berkeley.minaexplorer.com/graphql',
         'https://berkeley.minascan.io/graphql',
-        'https://api.minascan.io/node/berkeley/v1/graphql'
+        // 'https://api.minascan.io/node/berkeley/v1/graphql'
       ],
     });
     console.log('Berkeley Instance Created');
@@ -75,16 +75,16 @@ const functions = {
   },
 
   // Real app functions
-  createJoinGameTx: async (args: { player: PublicKey }) => {
-    // joinGame(player: PublicKey)
+  //createJoinGameTx: async (args: { player: PublicKey }) => {
+  createJoinGameTx: async (args: { publicKey58: string }) => {
+    const player = PublicKey.fromBase58(args.publicKey58);
     const transaction = await Mina.transaction(() => {
-      state.zkapp!.joinGame(args.player);
+      state.zkapp!.joinGame(player);
     });
     state.transaction = transaction;
   },
 
   createWithdrawTx: async (args: {}) => {
-    //withdraw()
     const transaction = await Mina.transaction(() => {
       state.zkapp!.withdraw();
     });
@@ -92,17 +92,19 @@ const functions = {
   },
 
   createDepositTx: async (args: {}) => {
-    // deposit()
     const transaction = await Mina.transaction(() => {
-      state.zkapp!.deposit();
+      const depositAmount: UInt32 = UInt32.from(100);
+      state.zkapp!.deposit(depositAmount);
     });
     state.transaction = transaction;
   },
 
-  createTakeActionTx: async (args: { action: UInt32, betSize: UInt32 }) => {
+  createTakeActionTx: async (args: { action: number, betSize: number }) => {
     // takeAction(action: UInt32, betSize: UInt32)
+    const actionU: UInt32 = UInt32.from(args.action);
+    const betSizeU: UInt32 = UInt32.from(args.betSize);
     const transaction = await Mina.transaction(() => {
-      state.zkapp!.takeAction(args.action, args.betSize);
+      state.zkapp!.takeAction(actionU, betSizeU);
     });
     state.transaction = transaction;
   },
@@ -122,35 +124,67 @@ const functions = {
     state.transaction = transaction;
   },
 
-  createTallyBoardCardsTx: async (args: { cardPrime52: Field }) => {
+  createTallyBoardCardsTx: async (args: { cardPrime52: number }) => {
     // tallyBoardCards(cardPrime52: Field)
+    const cardPrime52F: Field = Field(args.cardPrime52);
     const transaction = await Mina.transaction(() => {
-      state.zkapp!.tallyBoardCards(args.cardPrime52);
+      state.zkapp!.tallyBoardCards(cardPrime52F);
     });
     state.transaction = transaction;
   },
 
-  createStoreCardHashTx: async (args: { slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey }) => {
+  createStoreCardHashTx: async (args: { slotI: number, shuffleSecretB58: string, epk1B58: string, epk2B58: string }) => {
     // storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey, msg1: PublicKey, msg2: PublicKey)
+    const slotIF: Field = Field(args.slotI)
+    const shuffleSecret: PrivateKey = PrivateKey.fromBase58(args.shuffleSecretB58);
+    const epk1: PublicKey = PublicKey.fromBase58(args.epk1B58)
+    const epk2: PublicKey = PublicKey.fromBase58(args.epk2B58)
     const transaction = await Mina.transaction(() => {
-      state.zkapp!.storeCardHash(args.slotI, args.shuffleSecret, args.epk1, args.epk2);
+      state.zkapp!.storeCardHash(slotIF, shuffleSecret, epk1, epk2);
     });
     state.transaction = transaction;
   },
 
-  createCommitCardTx: async (args: { slotI: Field, msg: PublicKey }) => {
+  createCommitCardTx: async (args: { slotI: number, msg: string }) => {
     // commitCard(slotI: Field, msg: PublicKey)
+    const slotIF: Field = Field(args.slotI);
+    const msgPK = PublicKey.fromBase58(args.msg);
     const transaction = await Mina.transaction(() => {
-      state.zkapp!.commitCard(args.slotI, args.msg);
+      state.zkapp!.commitCard(slotIF, msgPK);
     });
     state.transaction = transaction;
   },
 
-  createShowCardsTx: async (args: { holecard0: UInt64, holecard1: UInt64, boardcard0: UInt64, boardcard1: UInt64, boardcard2: UInt64, boardcard3: UInt64, boardcard4: UInt64, useHolecard0: Bool, useHolecard1: Bool, useBoardcards0: Bool, useBoardcards1: Bool, useBoardcards2: Bool, useBoardcards3: Bool, useBoardcards4: Bool, isFlush: Bool, shuffleKey: PrivateKey, merkleMapKey: Field, merkleMapVal: Field, path: MerkleMapWitness }) => {
+  createShowCardsTx: async (args: { holecard0n: number, holecard1n: number, boardcard0n: number, boardcard1n: number, boardcard2n: number, boardcard3n: number, boardcard4n: number, useHolecard0b: boolean, useHolecard1b: boolean, useBoardcards0b: boolean, useBoardcards1b: boolean, useBoardcards2b: boolean, useBoardcards3b: boolean, useBoardcards4b: boolean, isFlushb: boolean, shuffleKeyB58: string, merkleMapKey: number, merkleMapVal: number }) => {
     // showCards(holecard0: UInt64, holecard1: UInt64, boardcard0: UInt64, boardcard1: UInt64, boardcard2: UInt64, boardcard3: UInt64, boardcard4: UInt64, useHolecard0: Bool, useHolecard1: Bool, useBoardcards0: Bool, useBoardcards1: Bool, useBoardcards2: Bool, useBoardcards3: Bool, useBoardcards4: Bool, isFlush: Bool, shuffleKey: PrivateKey, merkleMapKey: Field, merkleMapVal: Field, path: MerkleMapWitness)
+
+    const holecard0: UInt64 = UInt64.from(args.holecard0n);
+    const holecard1: UInt64 = UInt64.from(args.holecard1n);
+    const boardcard0: UInt64 = UInt64.from(args.boardcard0n);
+    const boardcard1: UInt64 = UInt64.from(args.boardcard1n);
+    const boardcard2: UInt64 = UInt64.from(args.boardcard2n);
+    const boardcard3: UInt64 = UInt64.from(args.boardcard3n);
+    const boardcard4: UInt64 = UInt64.from(args.boardcard4n);
+    const useHolecard0: Bool = Bool(args.useHolecard0b);
+    const useHolecard1: Bool = Bool(args.useHolecard1b);
+    const useBoardcards0: Bool = Bool(args.useBoardcards0b);
+    const useBoardcards1: Bool = Bool(args.useBoardcards1b);
+    const useBoardcards2: Bool = Bool(args.useBoardcards2b);
+    const useBoardcards3: Bool = Bool(args.useBoardcards3b);
+    const useBoardcards4: Bool = Bool(args.useBoardcards4b);
+    const isFlush: Bool = Bool(args.isFlushb);
+    const shuffleKey: PrivateKey = PrivateKey.fromBase58(args.shuffleKeyB58);
+    const merkleMapKeyF: Field = Field(args.merkleMapKey);
+    const merkleMapValF: Field = Field(args.merkleMapVal);
+
+    // Hardcoding empty lookup value here - tricky to pass in 
+    const isLefts: Bool[] = [];
+    const siblings: Field[] = [];
+    const path: MerkleMapWitness = new MerkleMapWitness(isLefts, siblings);
+
     const transaction = await Mina.transaction(() => {
       // const test: UInt64 = UInt64.from(33);
-      state.zkapp!.showCards(args.holecard0, args.holecard1, args.boardcard0, args.boardcard1, args.boardcard2, args.boardcard3, args.boardcard4, args.useHolecard0, args.useHolecard1, args.useBoardcards0, args.useBoardcards1, args.useBoardcards2, args.useBoardcards3, args.useBoardcards4, args.isFlush, args.shuffleKey, args.merkleMapKey, args.merkleMapVal, args.path);
+      state.zkapp!.showCards(holecard0, holecard1, boardcard0, boardcard1, boardcard2, boardcard3, boardcard4, useHolecard0, useHolecard1, useBoardcards0, useBoardcards1, useBoardcards2, useBoardcards3, useBoardcards4, isFlush, shuffleKey, merkleMapKeyF, merkleMapValF, path);
     });
     state.transaction = transaction;
   },

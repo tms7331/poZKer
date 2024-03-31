@@ -52,7 +52,8 @@ export default function GlobalContextProvider({ children }: GlobalContextProvide
             // These are constants
             transactionFee: 0.1,
             // zkappAddress: 'B62qpGqTpNvxMNjh1msVt1Dy6KTSZo2Q9XYR3dcc8Ld1LpcuDm4VUhW',
-            zkappAddress: 'B62qiy9qMzMKXhP3N2Dad6P4VZHQehP4YSQojHnyF9uCfGN3Fg4zkos',
+            // zkappAddress: 'B62qiy9qMzMKXhP3N2Dad6P4VZHQehP4YSQojHnyF9uCfGN3Fg4zkos',
+            zkappAddress: 'B62qqcj8mPmXN1wYDG38oX4zVSSUHefd1gBWpfUUCVjBYS5J2SBdNJW',
         }
     );
 

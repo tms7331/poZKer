@@ -47,7 +47,14 @@ export default function Component() {
             const publicKeyBase58: string = (await mina.requestAccounts())[0];
             console.log("index: publicKeyBase58", publicKeyBase58)
             const publicKey = PublicKey.fromBase58(publicKeyBase58);
+
+
+            // const publicKey = globalState.publicKey!;
             const pHash = Poseidon.hash(publicKey.toFields());
+
+            console.log("PHASH COMPARISON")
+            console.log(pHash.toJSON());
+            console.log(globalState.player1Hash.toJSON());
 
             // Figure out which player we are...
             if (pHash === globalState.player1Hash) {
@@ -66,6 +73,7 @@ export default function Component() {
     }, []);
 
 
+    /*
     useEffect(() => {
         const intervalId = setInterval(() => {
             console.log('Logging every 30 seconds');
@@ -74,7 +82,7 @@ export default function Component() {
         // Clean up the interval to prevent memory leaks
         return () => clearInterval(intervalId);
     }, []); // Empty dependency array means this effect runs only once on component mount
-
+    */
 
 
     const onSendTransaction = async (methodStr: string, actionStr: string) => {
@@ -88,19 +96,19 @@ export default function Component() {
 
         switch (methodStr) {
             case 'takeAction':
-                const actionMapping: { [key: string]: UInt32 } = {
+                const actionMapping: { [key: string]: number } = {
                     // "Null": UInt32.from(0),
-                    "Bet": UInt32.from(1),
-                    "Call": UInt32.from(2),
-                    "Fold": UInt32.from(3),
-                    "Raise": UInt32.from(4),
-                    "Check": UInt32.from(5),
+                    "Bet": 1,
+                    "Call": 2,
+                    "Fold": 3,
+                    "Raise": 4,
+                    "Check": 5,
                     // We'll infer this one
                     // "PreflopCall": UInt32.from(6),
                 };
 
-                const action: UInt32 = actionMapping[actionStr];
-                const betSize: UInt32 = UInt32.from(betAmount);
+                const action: number = actionMapping[actionStr];
+                const betSize: number = betAmount
                 await globalState.zkappWorkerClient!.createTakeActionTx(action, betSize);
                 break;
             case 'showdown':
@@ -110,7 +118,7 @@ export default function Component() {
                 await globalState.zkappWorkerClient!.createWithdrawTx();
                 break;
             case 'tallyBoardCards':
-                const cardPrime52: Field = Field(0);
+                const cardPrime52: number = 0;
                 await globalState.zkappWorkerClient!.createTallyBoardCardsTx(cardPrime52);
                 break;
             case 'showCards':
@@ -127,66 +135,66 @@ export default function Component() {
                 // "8s": 199,
                 // "6s": 193,
 
-                let holecard0: UInt64;
-                let holecard1: UInt64;
+                let holecard0: number;
+                let holecard1: number;
 
-                let useHolecard0: Bool;
-                let useHolecard1: Bool;
-                let useBoardcards0: Bool;
-                let useBoardcards1: Bool;
-                let useBoardcards2: Bool;
-                let useBoardcards3: Bool;
-                let useBoardcards4: Bool;
-                let isFlush: Bool;
-                let merkleMapKey: Field;
-                let merkleMapVal: Field;
+                let useHolecard0: boolean;
+                let useHolecard1: boolean;
+                let useBoardcards0: boolean;
+                let useBoardcards1: boolean;
+                let useBoardcards2: boolean;
+                let useBoardcards3: boolean;
+                let useBoardcards4: boolean;
+                let isFlush: boolean;
+                let merkleMapKey: number;
+                let merkleMapVal: number;
 
                 if (player === "player1") {
-                    holecard0 = UInt64.from(41);
-                    holecard1 = UInt64.from(101);
+                    holecard0 = 41;
+                    holecard1 = 101;
 
-                    useHolecard0 = Bool(true);
-                    useHolecard1 = Bool(true);
-                    useBoardcards0 = Bool(true);
-                    useBoardcards1 = Bool(true);
-                    useBoardcards2 = Bool(true);
-                    useBoardcards3 = Bool(false);
-                    useBoardcards4 = Bool(false);
-                    isFlush = Bool(false);
-                    merkleMapKey = Field(79052387);
-                    merkleMapVal = Field(1609);
+                    useHolecard0 = true;
+                    useHolecard1 = true;
+                    useBoardcards0 = true;
+                    useBoardcards1 = true;
+                    useBoardcards2 = true;
+                    useBoardcards3 = false;
+                    useBoardcards4 = false;
+                    isFlush = false;
+                    merkleMapKey = 79052387;
+                    merkleMapVal = 1609;
                 }
                 else if (player === "player2") {
-                    holecard0 = UInt64.from(233);
-                    holecard1 = UInt64.from(223);
+                    holecard0 = 233;
+                    holecard1 = 223;
 
-                    useHolecard0 = Bool(true);
-                    useHolecard1 = Bool(true);
-                    useBoardcards0 = Bool(false);
-                    useBoardcards1 = Bool(false);
-                    useBoardcards2 = Bool(true);
-                    useBoardcards3 = Bool(true);
-                    useBoardcards4 = Bool(true);
-                    isFlush = Bool(true);
-                    merkleMapKey = Field(4933247);
-                    merkleMapVal = Field(858);
+                    useHolecard0 = true;
+                    useHolecard1 = true;
+                    useBoardcards0 = false;
+                    useBoardcards1 = false;
+                    useBoardcards2 = true;
+                    useBoardcards3 = true;
+                    useBoardcards4 = true;
+                    isFlush = true;
+                    merkleMapKey = 4933247;
+                    merkleMapVal = 858;
                 }
                 else {
                     throw new Error("Not in game!");
                 }
 
-                const boardcard0: UInt64 = UInt64.from(163);
-                const boardcard1: UInt64 = UInt64.from(167);
-                const boardcard2: UInt64 = UInt64.from(229);
-                const boardcard3: UInt64 = UInt64.from(199);
-                const boardcard4: UInt64 = UInt64.from(193);
+                const boardcard0: number = 163;
+                const boardcard1: number = 167;
+                const boardcard2: number = 229;
+                const boardcard3: number = 199;
+                const boardcard4: number = 193;
 
-                const shuffleKey: PrivateKey = PrivateKey.fromBigInt(BigInt(1));
+                const shuffleKey: string = PrivateKey.fromBigInt(BigInt(1)).toBase58();
                 // Leaving these empty - we've disabled that check
                 const isLefts: Bool[] = [];
                 const siblings: Field[] = [];
                 const path: MerkleMapWitness = new MerkleMapWitness(isLefts, siblings);
-                await globalState.zkappWorkerClient!.createShowCardsTx(holecard0, holecard1, boardcard0, boardcard1, boardcard2, boardcard3, boardcard4, useHolecard0, useHolecard1, useBoardcards0, useBoardcards1, useBoardcards2, useBoardcards3, useBoardcards4, isFlush, shuffleKey, merkleMapKey, merkleMapVal, path);
+                await globalState.zkappWorkerClient!.createShowCardsTx(holecard0, holecard1, boardcard0, boardcard1, boardcard2, boardcard3, boardcard4, useHolecard0, useHolecard1, useBoardcards0, useBoardcards1, useBoardcards2, useBoardcards3, useBoardcards4, isFlush, shuffleKey, merkleMapKey, merkleMapVal);
                 break;
         }
 
@@ -211,6 +219,29 @@ export default function Component() {
 
         setGlobalState({ ...globalState, creatingTransaction: false });
     }
+
+
+    useEffect(() => {
+        const publicKey = globalState.publicKey!;
+        const pHashJSON = Poseidon.hash(publicKey.toFields()).toJSON();
+
+        // Figure out which player we are...
+        if (pHashJSON === globalState.player1Hash.toJSON()) {
+            console.log("Matched player 1...")
+            setPlayer("player1");
+            // Hardcoding player's cards
+            setHoleCards(["Ah", "Ad"]);
+        }
+        else if (pHashJSON === globalState.player2Hash.toJSON()) {
+            console.log("Matched player 2...")
+            setPlayer("player2");
+            setHoleCards(["Ks", "Ts"]);
+        }
+        else {
+            console.log("Not in game...")
+            setPlayer("notInGame");
+        }
+    }, [globalState.player1Hash, globalState.player2Hash, globalState.publicKey]);
 
 
     useEffect(() => {
@@ -355,6 +386,10 @@ export default function Component() {
                     <div className="flex items-center">
                         <div>Game Over?</div>
                         <span className="ml-auto font-semibold">{gameOver}</span>
+                    </div>
+                    <div className="flex items-center">
+                        <div>You are player:</div>
+                        <span className="ml-auto font-semibold">{player}</span>
                     </div>
                 </div>
                 <div>

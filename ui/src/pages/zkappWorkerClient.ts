@@ -67,7 +67,8 @@ export default class ZkappWorkerClient {
   }
 
   createJoinGameTx(player: PublicKey) {
-    return this._call('createJoinGameTx', { player: player });
+    const playerStr = player.toBase58();
+    return this._call('createJoinGameTx', { publicKey58: playerStr });
   }
 
   createWithdrawTx() {
@@ -78,7 +79,7 @@ export default class ZkappWorkerClient {
     return this._call('createDepositTx', {});
   }
 
-  createTakeActionTx(action: UInt32, betSize: UInt32) {
+  createTakeActionTx(action: number, betSize: number) {
     return this._call('createTakeActionTx', { action: action, betSize: betSize });
   }
 
@@ -90,22 +91,21 @@ export default class ZkappWorkerClient {
     return this._call('createPlayerTimeoutTx', {});
   }
 
-  createTallyBoardCardsTx(cardPrime52: Field) {
+  createTallyBoardCardsTx(cardPrime52: number) {
     return this._call('createTallyBoardCardsTx', { cardPrime52: cardPrime52 });
   }
 
-  createStoreCardHashTx(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey) {
-    return this._call('createStoreCardHashTx', { slotI: slotI, shuffleSecret: shuffleSecret, epk1: epk1, epk2: epk2 });
+  createStoreCardHashTx(slotI: number, shuffleSecretB58: string, epk1B58: string, epk2B58: string) {
+    return this._call('createStoreCardHashTx', { slotI: slotI, shuffleSecretB58: shuffleSecretB58, epk1B58: epk1B58, epk2B58: epk2B58 });
   }
 
-  createCommitCardTx(slotI: Field, msg: PublicKey) {
+  createCommitCardTx(slotI: number, msg: string) {
     return this._call('createCommitCardTx', { slotI: slotI, msg: msg });
   }
 
-  createShowCardsTx(holecard0: UInt64, holecard1: UInt64, boardcard0: UInt64, boardcard1: UInt64, boardcard2: UInt64, boardcard3: UInt64, boardcard4: UInt64, useHolecard0: Bool, useHolecard1: Bool, useBoardcards0: Bool, useBoardcards1: Bool, useBoardcards2: Bool, useBoardcards3: Bool, useBoardcards4: Bool, isFlush: Bool, shuffleKey: PrivateKey, merkleMapKey: Field, merkleMapVal: Field, path: MerkleMapWitness) {
-    return this._call('createShowCardsTx', { holecard0: holecard0, holecard1: holecard1, boardcard0: boardcard0, boardcard1: boardcard1, boardcard2: boardcard2, boardcard3: boardcard3, boardcard4: boardcard4, useHolecard0: useHolecard0, useHolecard1: useHolecard1, useBoardcards0: useBoardcards0, useBoardcards1: useBoardcards1, useBoardcards2: useBoardcards2, useBoardcards3: useBoardcards3, useBoardcards4: useBoardcards4, isFlush: isFlush, shuffleKey: shuffleKey, merkleMapKey: merkleMapKey, merkleMapVal: merkleMapVal, path: path });
+  createShowCardsTx(holecard0n: number, holecard1n: number, boardcard0n: number, boardcard1n: number, boardcard2n: number, boardcard3n: number, boardcard4n: number, useHolecard0b: boolean, useHolecard1b: boolean, useBoardcards0b: boolean, useBoardcards1b: boolean, useBoardcards2b: boolean, useBoardcards3b: boolean, useBoardcards4b: boolean, isFlushb: boolean, shuffleKeyB58: string, merkleMapKey: number, merkleMapVal: number) {
+    return this._call('createShowCardsTx', { holecard0n: holecard0n, holecard1n: holecard1n, boardcard0n: boardcard0n, boardcard1n: boardcard1n, boardcard2n: boardcard2n, boardcard3n: boardcard3n, boardcard4n: boardcard4n, useHolecard0b: useHolecard0b, useHolecard1b: useHolecard1b, useBoardcards0b: useBoardcards0b, useBoardcards1b: useBoardcards1b, useBoardcards2b: useBoardcards2b, useBoardcards3b: useBoardcards3b, useBoardcards4b: useBoardcards4b, isFlushb: isFlushb, shuffleKeyB58: shuffleKeyB58, merkleMapKey: merkleMapKey, merkleMapVal: merkleMapVal });
   }
-
 
   proveUpdateTransaction() {
     return this._call('proveUpdateTransaction', {});
