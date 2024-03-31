@@ -477,7 +477,7 @@ export default function Component() {
                     <div>
                         {possibleActions.map((action, index) => (
                             <div key={index}>
-                                <Button variant="primary" onClick={() => onSendTransaction('takeAction', action.action)} disabled={globalState.creatingTransaction}>{action.action}</Button>
+                                <Button variant="secondary" onClick={() => onSendTransaction('takeAction', action.action)} disabled={globalState.creatingTransaction}>{action.action}</Button>
                                 {action.needsAmount && (
                                     <input
                                         type="number"
@@ -496,9 +496,9 @@ export default function Component() {
                                 <CardTitle>Showdown</CardTitle>
                             </CardHeader>
                             <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
-                                <Button variant="primary" onClick={() => onSendTransaction('showCards', "")} disabled={globalState.creatingTransaction}>Show Cards</Button>
-                                <Button variant="primary" onClick={() => onSendTransaction('showdown', "")} disabled={globalState.creatingTransaction}>Showdown</Button>
-                                <Button variant="primary" onClick={() => onSendTransaction('withdraw', "")} disabled={globalState.creatingTransaction}>Withdraw</Button>
+                                <Button variant="secondary" onClick={() => onSendTransaction('showCards', "")} disabled={globalState.creatingTransaction}>Show Cards</Button>
+                                <Button variant="secondary" onClick={() => onSendTransaction('showdown', "")} disabled={globalState.creatingTransaction}>Showdown</Button>
+                                <Button variant="secondary" onClick={() => onSendTransaction('withdraw', "")} disabled={globalState.creatingTransaction}>Withdraw</Button>
                             </CardContent>
                         </Card>
                     </div>

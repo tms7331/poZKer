@@ -152,8 +152,8 @@ export default function Component() {
                             <div className="flex items-center justify-between p-4">
                                 <div className="text-sm font-medium">Game01</div>
                                 <div className="text-sm font-medium">{numPlayers} / 2</div>
-                                <div className="text-sm font-medium"><Button variant="primary" onClick={() => onSendTransaction('joinGame')} disabled={globalState.creatingTransaction}>Join Game</Button></div>
-                                <div className="text-sm font-medium"><Button variant="primary" onClick={() => onSendTransaction('deposit')} disabled={globalState.creatingTransaction}>Deposit</Button></div>
+                                <div className="text-sm font-medium"><Button variant="secondary" onClick={() => onSendTransaction('joinGame')} disabled={globalState.creatingTransaction}>Join Game</Button></div>
+                                <div className="text-sm font-medium"><Button variant="secondary" onClick={() => onSendTransaction('deposit')} disabled={globalState.creatingTransaction}>Deposit</Button></div>
 
                             </div>
                         </div>
