@@ -14,16 +14,20 @@ export default function Component() {
     useEffect(() => {
         (async () => {
             const mina = (window as any).mina;
-
             if (mina == null) {
                 return;
             }
+            const player1HashS = globalState.player1Hash.toJSON();
+            const player2HashS = globalState.player1Hash.toJSON();
+
+            console.log(player1HashS);
+            console.log(player2HashS);
 
             // Hashes will be overwritten when we have players, so track it here
-            if (globalState.player1Hash === Field(0)) {
+            if (player1HashS === '0') {
                 setNumPlayers(0);
             }
-            else if (globalState.player2Hash === Field(0)) {
+            else if (player2HashS === '0') {
                 setNumPlayers(1);
             }
             else {
@@ -32,18 +36,73 @@ export default function Component() {
         })
     }, []);
 
+
+    useEffect(() => {
+        const player1HashS = globalState.player1Hash.toJSON();
+        const player2HashS = globalState.player2Hash.toJSON();
+
+        console.log("Player hashes...")
+        console.log(player1HashS);
+        console.log(player2HashS);
+
+        // Hashes will be overwritten when we have players, so track it here
+        if (player1HashS === '0') {
+            setNumPlayers(0);
+        }
+        else if (player2HashS === '0') {
+            setNumPlayers(1);
+        }
+        else {
+            setNumPlayers(2);
+        }
+    }, [globalState.player1Hash, globalState.player2Hash]);
+
+    // We'll run this in a loop every 60 seconds to keep gamestate updated
+    async function fetchData(): Promise<void> {
+        const mina = (window as any).mina;
+        if (mina == null) {
+            console.log("Could not find mina...")
+            return;
+        }
+
+        const player1Hash = await globalState.zkappWorkerClient!.getPlayer1Hash();
+        const player2Hash = await globalState.zkappWorkerClient!.getPlayer1Hash();
+        const gamestate = await globalState.zkappWorkerClient!.getGamestate();
+        setGlobalState({
+            ...globalState,
+            gamestate,
+            player1Hash,
+            player2Hash
+        });
+    }
+
+    useEffect(() => {
+        const intervalId = setInterval(async () => {
+            await fetchData()
+        }, 60000); // 60 seconds in milliseconds
+
+        // Clean up the interval to prevent memory leaks
+        return () => clearInterval(intervalId);
+    }, []); // Empty dependency array means this effect runs only once on component mount
+
+
     const onSendTransaction = async (methodStr: string) => {
         setGlobalState({ ...globalState, creatingTransaction: true });
 
         console.log('Creating a transaction...');
 
-        await globalState.zkappWorkerClient!.fetchAccount({
+        const res = await globalState.zkappWorkerClient!.fetchAccount({
             publicKey: globalState.publicKey!
         });
+        console.log("Res was...", res)
+        const accountExists = res.error == null;
+        console.log("Account exists?", accountExists);
+        console.log("Creating transaction from...", methodStr)
 
         switch (methodStr) {
             case "joinGame":
                 const player: PublicKey = globalState.publicKey!;
+                console.log("JOINING WITH PLAYER", player.toBase58())
                 await globalState.zkappWorkerClient!.createJoinGameTx(player);
                 break;
             case 'deposit':
