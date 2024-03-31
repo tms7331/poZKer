@@ -32,57 +32,42 @@ export default function Component() {
     type Player = "player1" | "player2" | "notInGame";
     const [player, setPlayer] = useState<Player>("notInGame");
 
-    // On page load - we SHOULD be one of the players in the game...
+    // We'll run this in a loop every 60 seconds to keep gamestate updated
+    async function fetchData(): Promise<void> {
+        console.log("Fetching data...")
+        const mina = (window as any).mina;
+
+        if (mina == null) {
+            console.log("MINA IS NULL...")
+            // This should never happen?  If we make it to this page we
+            // should have joined a game...
+            // setGlobalState({ ...globalState, hasWallet: false });
+            return;
+        }
+
+        // Want to repeatedly pull gamestate and players
+        const player1Hash = await globalState.zkappWorkerClient!.getPlayer1Hash();
+        const player2Hash = await globalState.zkappWorkerClient!.getPlayer2Hash();
+        const gamestate = await globalState.zkappWorkerClient!.getGamestate();
+
+        setGlobalState({
+            ...globalState,
+            gamestate,
+            player1Hash,
+            player2Hash
+        });
+
+    }
+
     useEffect(() => {
-        (async () => {
-            const mina = (window as any).mina;
-
-            if (mina == null) {
-                // This should never happen?  If we make it to this page we
-                // should have joined a game...
-                // setGlobalState({ ...globalState, hasWallet: false });
-                return;
-            }
-
-            const publicKeyBase58: string = (await mina.requestAccounts())[0];
-            console.log("index: publicKeyBase58", publicKeyBase58)
-            const publicKey = PublicKey.fromBase58(publicKeyBase58);
-
-
-            // const publicKey = globalState.publicKey!;
-            const pHash = Poseidon.hash(publicKey.toFields());
-
-            console.log("PHASH COMPARISON")
-            console.log(pHash.toJSON());
-            console.log(globalState.player1Hash.toJSON());
-
-            // Figure out which player we are...
-            if (pHash === globalState.player1Hash) {
-                setPlayer("player1");
-                // Hardcoding player's cards
-                setHoleCards(["Ah", "Ad"]);
-            }
-            else if (pHash === globalState.player2Hash) {
-                setPlayer("player2");
-                setHoleCards(["Ks", "Ts"]);
-            }
-            else {
-                setPlayer("notInGame");
-            }
-        })
-    }, []);
-
-
-    /*
-    useEffect(() => {
-        const intervalId = setInterval(() => {
+        const intervalId = setInterval(async () => {
             console.log('Logging every 30 seconds');
-        }, 30000); // 30 seconds in milliseconds
+            await fetchData()
+        }, 60000); // 60 seconds in milliseconds
 
         // Clean up the interval to prevent memory leaks
         return () => clearInterval(intervalId);
     }, []); // Empty dependency array means this effect runs only once on component mount
-    */
 
 
     const onSendTransaction = async (methodStr: string, actionStr: string) => {
