@@ -85,13 +85,10 @@ const functions = {
         state.transaction = transaction;
     },
     // Real app functions
-    //createJoinGameTx: async (args: { player: PublicKey }) => {
     createJoinGameTx: async (args)=>{
         const player = o1js__WEBPACK_IMPORTED_MODULE_0__/* .PublicKey */ .nh.fromBase58(args.publicKey58);
         const transaction = await o1js__WEBPACK_IMPORTED_MODULE_0__/* .Mina */ .No.transaction(()=>{
-            //state.zkapp!.joinGame(player);
-            const depositAmount = o1js__WEBPACK_IMPORTED_MODULE_0__/* .UInt32 */ .xH.from(100);
-            state.zkapp.deposit(depositAmount);
+            state.zkapp.joinGame(player);
         });
         state.transaction = transaction;
     },
