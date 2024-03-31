@@ -79,7 +79,10 @@ const functions = {
   createJoinGameTx: async (args: { publicKey58: string }) => {
     const player = PublicKey.fromBase58(args.publicKey58);
     const transaction = await Mina.transaction(() => {
-      state.zkapp!.joinGame(player);
+      //state.zkapp!.joinGame(player);
+
+      const depositAmount: UInt32 = UInt32.from(100);
+      state.zkapp!.deposit(depositAmount);
     });
     state.transaction = transaction;
   },
@@ -91,8 +94,9 @@ const functions = {
     state.transaction = transaction;
   },
 
-  createDepositTx: async (args: {}) => {
-    const transaction = await Mina.transaction(() => {
+  createDepositTx: async (args: { senderB58: string }) => {
+    const senderPK = PublicKey.fromBase58(args.senderB58);
+    const transaction = await Mina.transaction(senderPK, () => {
       const depositAmount: UInt32 = UInt32.from(100);
       state.zkapp!.deposit(depositAmount);
     });

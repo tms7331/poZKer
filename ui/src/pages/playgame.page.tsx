@@ -45,6 +45,11 @@ export default function Component() {
             return;
         }
 
+        // Keep updating player account too
+        const publicKeyBase58: string = (await mina.requestAccounts())[0];
+        console.log("index: publicKeyBase58", publicKeyBase58)
+        const publicKey = PublicKey.fromBase58(publicKeyBase58);
+
         // Want to repeatedly pull gamestate and players
         const player1Hash = await globalState.zkappWorkerClient!.getPlayer1Hash();
         const player2Hash = await globalState.zkappWorkerClient!.getPlayer2Hash();
@@ -52,6 +57,7 @@ export default function Component() {
 
         setGlobalState({
             ...globalState,
+            publicKey,
             gamestate,
             player1Hash,
             player2Hash

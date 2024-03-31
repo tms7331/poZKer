@@ -10,33 +10,6 @@ export default function Component() {
 
     const [numPlayers, setNumPlayers] = useState<number>(0);
 
-    // On load - see what the state of our game is
-    useEffect(() => {
-        (async () => {
-            const mina = (window as any).mina;
-            if (mina == null) {
-                return;
-            }
-            const player1HashS = globalState.player1Hash.toJSON();
-            const player2HashS = globalState.player1Hash.toJSON();
-
-            console.log(player1HashS);
-            console.log(player2HashS);
-
-            // Hashes will be overwritten when we have players, so track it here
-            if (player1HashS === '0') {
-                setNumPlayers(0);
-            }
-            else if (player2HashS === '0') {
-                setNumPlayers(1);
-            }
-            else {
-                setNumPlayers(2);
-            }
-        })
-    }, []);
-
-
     useEffect(() => {
         const player1HashS = globalState.player1Hash.toJSON();
         const player2HashS = globalState.player2Hash.toJSON();
@@ -65,11 +38,17 @@ export default function Component() {
             return;
         }
 
+        // Keep updating player account too
+        const publicKeyBase58: string = (await mina.requestAccounts())[0];
+        console.log("index: publicKeyBase58", publicKeyBase58)
+        const publicKey = PublicKey.fromBase58(publicKeyBase58);
+
         const player1Hash = await globalState.zkappWorkerClient!.getPlayer1Hash();
-        const player2Hash = await globalState.zkappWorkerClient!.getPlayer1Hash();
+        const player2Hash = await globalState.zkappWorkerClient!.getPlayer2Hash();
         const gamestate = await globalState.zkappWorkerClient!.getGamestate();
         setGlobalState({
             ...globalState,
+            publicKey,
             gamestate,
             player1Hash,
             player2Hash
@@ -106,7 +85,8 @@ export default function Component() {
                 await globalState.zkappWorkerClient!.createJoinGameTx(player);
                 break;
             case 'deposit':
-                await globalState.zkappWorkerClient!.createDepositTx();
+                const senderB58 = globalState.publicKey!.toBase58();
+                await globalState.zkappWorkerClient!.createDepositTx(senderB58);
                 break;
         }
 

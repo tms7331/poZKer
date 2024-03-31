@@ -75,8 +75,8 @@ export default class ZkappWorkerClient {
     return this._call('createWithdrawTx', {});
   }
 
-  createDepositTx() {
-    return this._call('createDepositTx', {});
+  createDepositTx(senderB58: string) {
+    return this._call('createDepositTx', { senderB58 });
   }
 
   createTakeActionTx(action: number, betSize: number) {
