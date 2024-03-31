@@ -15,11 +15,11 @@ export default function Component() {
     // Corresponds directly to data pulled from packed 'gamestate'
     const [stack1, setStack1] = useState<number>(0);
     const [stack2, setStack2] = useState<number>(0);
-    const [turn, setTurn] = useState<number>(0);
-    const [street, setStreet] = useState<number>(0);
-    const [lastAction, setLastAction] = useState<number>(0);
+    const [turn, setTurn] = useState<number | "">("");
+    const [street, setStreet] = useState<string>("");
+    const [lastAction, setLastAction] = useState<string>("");
     const [lastBetSize, setLastBetSize] = useState<number>(0);
-    const [gameOver, setGameOver] = useState<boolean>(false);
+    const [gameOver, setGameOver] = useState<string>("false");
     const [pot, setPot] = useState<number>(0);
 
 
@@ -51,6 +51,11 @@ export default function Component() {
         console.log("index: publicKeyBase58", publicKeyBase58)
         const publicKey = PublicKey.fromBase58(publicKeyBase58);
 
+        console.log('Reloading zkApp state...');
+        const zkappPublicKey = PublicKey.fromBase58(globalState.zkappAddress);
+        // Don't need to initialize again
+        // await zkappWorkerClient.initZkappInstance(zkappPublicKey);
+        await globalState.zkappWorkerClient!.fetchAccount({ publicKey: zkappPublicKey });
         // Want to repeatedly pull gamestate and players
         const player1Hash = await globalState.zkappWorkerClient!.getPlayer1Hash();
         const player2Hash = await globalState.zkappWorkerClient!.getPlayer2Hash();
@@ -244,7 +249,7 @@ export default function Component() {
         const gameOverLastBetSize = lastBetSizeGameOver.toJSON() as number;
         let lastBetSize_ = gameOverLastBetSize;
         let gameOver_ = false;
-        if (gameOverLastBetSize > 1000) {
+        if (gameOverLastBetSize >= 1000) {
             lastBetSize_ = lastBetSize_ - 1000;
             gameOver_ = true;
         }
@@ -261,14 +266,37 @@ export default function Component() {
         setStack1(stack1_.toJSON());
         setStack2(stack2_.toJSON());
         setTurn(turn_.toJSON());
-        setStreet(street_.toJSON());
-        setLastAction(lastAction_.toJSON());
         setLastBetSize(lastBetSize_);
-        setGameOver(gameOver_);
+        setGameOver(gameOver_.toString());
         setPot(pot_.toJSON());
 
         // Set board based on current street...
-        const boardStr = street_.toJSON()
+        // type Street = "ShowdownPending" | "Preflop" | "Flop" | "Turn" | "River" | "ShowdownComplete";
+        const boardStr: string = street_.toJSON()
+        const streetMap: { [key: string]: string } = {
+            "1": "ShowdownPending",
+            "2": "Preflop",
+            "3": "Flop",
+            "4": "Turn",
+            "5": "River",
+            "6": "ShowdownComplete",
+        };
+        const streetStr = streetMap[boardStr];
+        setStreet(streetStr);
+
+        const lastActionStr: string = lastAction_.toJSON()
+        const actionMap: { [key: string]: string } = {
+            "0": "Null",
+            "1": "Bet",
+            "2": "Call",
+            "3": "Fold",
+            "4": "Raise",
+            "5": "Check",
+            "6": "PreflopCall",
+        };
+        const actionStr = actionMap[lastActionStr];
+        setLastAction(actionStr);;
+
         // Street encoding
         // Preflop = UInt32.from(2);
         // Flop = UInt32.from(3);
@@ -277,6 +305,7 @@ export default function Component() {
         if (boardStr === "3") {
             const board = boardCardsHardcoded.slice(0, 3);
             setBoardCards(board);
+
         }
         else if (boardStr === "4") {
             const board = boardCardsHardcoded.slice(0, 4);
@@ -338,6 +367,31 @@ export default function Component() {
         setPossibleActions(possibleActions);
     }, [actionHistory]);
 
+    // Think it's not possible to construct action list
+    // based on visible state in contract?  We'd have to see all the state changes
+    /*
+
+                    <div>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Action List</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <ul className="divide-y">
+                                    {actionHistory
+                                        .map((row, index) => {
+                                            return (
+                                                <li key={index} className="px-4 py-2 flex items-center space-x-2">
+                                                    <span>{row.action}</span>
+                                                    <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">{row.player}</span>
+                                                </li>)
+                                        })}
+                                </ul>
+                            </CardContent>
+                        </Card>
+                    </div>
+    */
+
     return (
         <div className="flex flex-col min-h-[100dvh]">
             <header className="px-4 lg:px-6">
@@ -358,8 +412,8 @@ export default function Component() {
             </header>
             <main className="flex-1">
                 <div>
-                    <div>Game</div>
-                    <div>Pot: ${pot}</div>
+                    <div>Game Info</div>
+                    <div>Current Pot: ${pot}</div>
                 </div>
                 <div className="grid gap-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -373,10 +427,10 @@ export default function Component() {
                         </div>
                         <div className="flex items-center">
                             <div>Turn</div>
-                            <span className="ml-auto font-semibold">{turn}</span>
+                            <span className="ml-auto font-semibold">player{turn}</span>
                         </div>
                         <div className="flex items-center">
-                            <div>Turn</div>
+                            <div>Street</div>
                             <span className="ml-auto font-semibold">{street}</span>
                         </div>
                         <div className="flex items-center">
@@ -388,10 +442,6 @@ export default function Component() {
                             <span className="ml-auto font-semibold">{lastBetSize}</span>
                         </div>
                         <div className="flex items-center">
-                            <div>Pot</div>
-                            <span className="ml-auto font-semibold">{pot}</span>
-                        </div>
-                        <div className="flex items-center">
                             <div>Game Over?</div>
                             <span className="ml-auto font-semibold">{gameOver}</span>
                         </div>
@@ -399,25 +449,6 @@ export default function Component() {
                             <div>You are player:</div>
                             <span className="ml-auto font-semibold">{player}</span>
                         </div>
-                    </div>
-                    <div>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Action List</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <ul className="divide-y">
-                                    {actionHistory
-                                        .map((row, index) => {
-                                            return (
-                                                <li key={index} className="px-4 py-2 flex items-center space-x-2">
-                                                    <span>{row.action}</span>
-                                                    <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">{row.player}</span>
-                                                </li>)
-                                        })}
-                                </ul>
-                            </CardContent>
-                        </Card>
                     </div>
                     <div>
                         <Card>

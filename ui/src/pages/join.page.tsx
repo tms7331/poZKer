@@ -43,6 +43,12 @@ export default function Component() {
         console.log("index: publicKeyBase58", publicKeyBase58)
         const publicKey = PublicKey.fromBase58(publicKeyBase58);
 
+        console.log('Reloading zkApp state...');
+        const zkappPublicKey = PublicKey.fromBase58(globalState.zkappAddress);
+        // Don't need to initialize again
+        // await zkappWorkerClient.initZkappInstance(zkappPublicKey);
+        await globalState.zkappWorkerClient!.fetchAccount({ publicKey: zkappPublicKey });
+
         const player1Hash = await globalState.zkappWorkerClient!.getPlayer1Hash();
         const player2Hash = await globalState.zkappWorkerClient!.getPlayer2Hash();
         const gamestate = await globalState.zkappWorkerClient!.getGamestate();
