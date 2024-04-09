@@ -151,14 +151,12 @@ export class Balances extends BaseBalances<BalancesConfig> {
   @state() public player1Hash = State.from<Field>(Field);
   @state() public player2Hash = State.from<Field>(Field);
 
-
   // Free memory slots for storing data
   @state() public slot0 = State.from<Field>(Field);
   @state() public slot1 = State.from<Field>(Field);
   @state() public slot2 = State.from<Field>(Field);
   @state() public slot3 = State.from<Field>(Field);
   @state() public slot4 = State.from<Field>(Field);
-
 
   // Coded game state, contains packed data:
   // stack1, stack2, turn, street, lastAction, gameOver
@@ -184,7 +182,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const gameOver: UInt32 = this.GameNotOver;
     const pot: UInt32 = UInt32.from(0);
     const lastBetSize = UInt32.from(0);
-    this.setGamestate(stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot);
+    // this.setGamestate(stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot);
 
     // Initialize with 0s so we can tell when two players have joined
     this.player1Hash.set(Field(0));
@@ -193,7 +191,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
     // Temp - just want to use this to experiment with pulling data
     this.slot4.set(Field(42));
     // Temp - hardcode cards for each player
-    this.storeHardcodedCards();
+    // this.storeHardcodedCards();
     // Temp - hardcoding board cards
     // "Kc": 163,
     // "Ac": 167,
@@ -231,6 +229,8 @@ export class Balances extends BaseBalances<BalancesConfig> {
     this.player2Hash.set(p2Hash);
   }
 
+
+  /*
   getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32] {
     const gamestate = this.gamestate.getAndRequireEquals();
     const unpacked = Gamestate.unpack(gamestate);
@@ -680,6 +680,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
     this.setGamestate(stack1Final, stack2Final, turn, street, lastAction, lastBetSize, this.GameOver, potNew);
 
   }
+  */
 
   cardPrimeToCardPoint(cardPrime: UInt64): PublicKey {
     /*
@@ -798,18 +799,19 @@ export class Balances extends BaseBalances<BalancesConfig> {
     return cardPoint;
   }
 
+  /*
   @runtimeMethod()
   public tallyBoardCards(cardPrime52: Field): void {
     // Remember - cardPrime52 should be in the 52 format
     // We'll always store the board card product in slot2
     const slot2 = this.slot2.getAndRequireEquals();
-
+  
     // Remember - we start out having the board card be Null*5
     // Need to do this so we can ensure at showdown that player submitted all cards
     const slot2New = slot2.mul(cardPrime52).div(this.NullBoardcard);
     this.slot2.set(slot2New)
   }
-
+  */
 
   convert52to13(c52: UInt64): UInt64 {
     // takes care of converting a card in cardMapping52 format to cardMapping13
@@ -863,6 +865,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
 
   }
 
+  /*
   calcLookupVal(holecard0: UInt64,
     holecard1: UInt64,
     boardcard0: UInt64,
@@ -897,6 +900,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
 
     return lookupVal;
   }
+  */
 
 
   calcCheckFlush(holecard0: UInt64,
@@ -964,6 +968,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
   }
 
 
+  /*
   @runtimeMethod()
   public showCards(holecard0: UInt64,
     holecard1: UInt64,
@@ -989,265 +994,272 @@ export class Balances extends BaseBalances<BalancesConfig> {
     /*
     Each player has to pass in their holecards, along with all board cards
     And specify which cards are used to make their best 6c hand
- 
+   
     To make cheating impossible, we need these checks:
     1. confirm the card lookup key and value are valid entries in the merkle map
     2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
     3. re-hash the cards and confirm it matches their stored hash
     4. check that board cards are the real board cards
     */
-    const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
-    // const gamestate = this.gamestate.getAndRequireEquals();
-    // TODO - what was this check again?  Reimplement with new format...
-    // gamestate.assertLessThanOrEqual(UInt64.from(3));
 
-    // Player card hash will be stored in slot1 or slot1
-    const slot0 = this.slot0.getAndRequireEquals();
-    const slot1 = this.slot1.getAndRequireEquals();
-    // We are going to be storing the product of all the board card primes here!
-    const slot2 = this.slot2.getAndRequireEquals();
+  /*
+  const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
+  // const gamestate = this.gamestate.getAndRequireEquals();
+  // TODO - what was this check again?  Reimplement with new format...
+  // gamestate.assertLessThanOrEqual(UInt64.from(3));
 
-
-    // CHECK 0. - make sure player is a part of the game...
-    const player = this.sender;
-    const player1Hash = this.player1Hash.getAndRequireEquals();
-    const player2Hash = this.player2Hash.getAndRequireEquals();
-    const playerHash = Poseidon.hash(player.toFields());
-    playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)).assertTrue('Player is not part of this game!');
-
-    const holecardsHash = Provable.if(
-      playerHash.equals(player1Hash),
-      slot0,
-      slot1
-    );
-
-    // CHECK 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
-    // the lookupVal is the expected key for our merkle map
-    const lookupVal: UInt64 = this.calcLookupVal(holecard0,
-      holecard1,
-      boardcard0,
-      boardcard1,
-      boardcard2,
-      boardcard3,
-      boardcard4,
-      useHolecard0,
-      useHolecard1,
-      useBoardcards0,
-      useBoardcards1,
-      useBoardcards2,
-      useBoardcards3,
-      useBoardcards4)
-
-    const isFlushReal: Bool = this.calcCheckFlush(holecard0,
-      holecard1,
-      boardcard0,
-      boardcard1,
-      boardcard2,
-      boardcard3,
-      boardcard4,
-      useHolecard0,
-      useHolecard1,
-      useBoardcards0,
-      useBoardcards1,
-      useBoardcards2,
-      useBoardcards3,
-      useBoardcards4)
-
-    isFlushReal.assertEquals(isFlush, 'Player did not pass in correct flush value!');
-    lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Incorrect hand strenght passed in!');
-
-    // CHECK 1. confirm the card lookup key and value are valid entries in the merkle map
-    // MerkleMapRootBasic
-    // MerkleMapRootFlush
-    // TEMP - disabling since we don't currently have access to merkle map on front end
-    // const root = Provable.if(
-    //     isFlush,
-    //     this.MerkleMapRootFlush,
-    //     this.MerkleMapRootBasic,
-    // );
-    // const pathValid = path.computeRootAndKey(merkleMapVal);
-    // pathValid[0].assertEquals(root);
-    // pathValid[1].assertEquals(merkleMapKey);
-
-    // CHECK 3. re-hash the cards and confirm it matches their stored hash
-    const cardPoint1 = this.cardPrimeToCardPoint(holecard0);
-    const cardPoint2 = this.cardPrimeToCardPoint(holecard1);
-    const cardPoint1F = cardPoint1.toFields()[0]
-    const cardPoint2F = cardPoint2.toFields()[0]
-    const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleKey);
-    cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
-
-    // CHECK 4. check that board cards are the real board cards
-    const boardcardMul = boardcard0.mul(boardcard1).mul(boardcard2).mul(boardcard3).mul(boardcard4);
-    const boardcardMulReal = UInt64.from(slot2);
-    boardcardMul.assertEquals(boardcardMulReal);
-    // And check that we have 5 boardcards - should not be divisible by null val
-    const nullBoardcardUint = UInt64.from(this.NullBoardcard);
-    boardcardMulReal.divMod(nullBoardcardUint).rest.equals(UInt64.from(0)).assertFalse();
-
-    // And now we can store the lookup value in the appropriate slot
-
-    // Assuming we made it past all our checks - 
-    // We are now storing the merkleMapVal, which represents
-    // hand strength in these slots!  Lower is better!
-    const slot0New = Provable.if(
-      playerHash.equals(player1Hash),
-      merkleMapVal,
-      slot0,
-    );
-    const slot1New = Provable.if(
-      playerHash.equals(player2Hash),
-      merkleMapVal,
-      slot1,
-    );
-    this.slot0.set(slot0New);
-    this.slot1.set(slot1New);
-
-    // Description of logic within actionMapping - 
-    // transition from 1 to 6 via multiplying by 2 and 3 after each player
-    // shows their cards
-    const streetNew = Provable.if(
-      playerHash.equals(player1Hash),
-      street.mul(this.P1Turn),
-      street.mul(this.P2Turn),
-    );
-
-    this.setGamestate(stack1, stack2, turn, streetNew, lastAction, lastBetSize, gameOver, pot);
-  }
-
-  generateHash(card1: Field, card2: Field, privateKey: PrivateKey): Field {
-    // Apply a double hash to get a single value for both cards
-    // We'll use this to generate the hash for a given card
-    // We'll use the same hash function as the lookup table
-    const pkField = privateKey.toFields()[0];
-    const round1 = Poseidon.hash([pkField, card1]);
-    const round2 = Poseidon.hash([round1, card2]);
-    return round2
-  }
+  // Player card hash will be stored in slot1 or slot1
+  const slot0 = this.slot0.getAndRequireEquals();
+  const slot1 = this.slot1.getAndRequireEquals();
+  // We are going to be storing the product of all the board card primes here!
+  const slot2 = this.slot2.getAndRequireEquals();
 
 
-  decodeCard(epk: PublicKey, msg: PublicKey, shuffleSecret: PrivateKey): PublicKey {
-    const d1 = PublicKey.fromGroup(epk.toGroup().scale(Scalar.fromFields(shuffleSecret.toFields())));
-    const pubKey = PublicKey.fromGroup(msg.toGroup().sub(d1.toGroup()));
-    return pubKey
-  }
+  // CHECK 0. - make sure player is a part of the game...
+  const player = this.sender;
+  const player1Hash = this.player1Hash.getAndRequireEquals();
+  const player2Hash = this.player2Hash.getAndRequireEquals();
+  const playerHash = Poseidon.hash(player.toFields());
+  playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)).assertTrue('Player is not part of this game!');
 
-  storeHardcodedCards() {
-    // Just for live testing - store cards directly rather than doing decryption to simplify front end teesting
-    // PrivateKey.empty
-    // const shuffleSecret = PrivateKey.fromFields([Field(1), Field(2), Field(3), Field(4)])
-    const shuffleSecret = PrivateKey.fromBigInt(BigInt(1));
-    // Ah
-    const cardPoint1F = PublicKey.fromBase58("B62qoa5ohnNnFEXfbPshXCzkBkgWSzXk3auy2yS9hyjLma4EkH7xWbs").toFields()[0];
-    // Ad
-    const cardPoint2F = PublicKey.fromBase58("B62qiuLMUJ9xPCYGqAzJY2C8JTwgAFhfgZFTnVRsq3EBksHKAE1G3mX").toFields()[0];
-    // Ks
-    const cardPoint3F = PublicKey.fromBase58("B62qnp98SGKe6dQ2cTMUKJeWGhECfj57vZGS5D5MA9hr5bXFYMo3wDM").toFields()[0];
-    // Ts
-    const cardPoint4F = PublicKey.fromBase58("B62qrdxHXHyuQjDSyYPsWYTEgtZBSEqF5bpTktk5RqSwbdojebLVZLH").toFields()[0];
+  const holecardsHash = Provable.if(
+    playerHash.equals(player1Hash),
+    slot0,
+    slot1
+  );
 
-    const cardHash1 = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
-    const cardHash2 = this.generateHash(cardPoint3F, cardPoint4F, shuffleSecret);
+  // CHECK 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
+  // the lookupVal is the expected key for our merkle map
+  const lookupVal: UInt64 = this.calcLookupVal(holecard0,
+    holecard1,
+    boardcard0,
+    boardcard1,
+    boardcard2,
+    boardcard3,
+    boardcard4,
+    useHolecard0,
+    useHolecard1,
+    useBoardcards0,
+    useBoardcards1,
+    useBoardcards2,
+    useBoardcards3,
+    useBoardcards4)
 
-    this.slot0.set(cardHash1);
-    this.slot1.set(cardHash2);
+  const isFlushReal: Bool = this.calcCheckFlush(holecard0,
+    holecard1,
+    boardcard0,
+    boardcard1,
+    boardcard2,
+    boardcard3,
+    boardcard4,
+    useHolecard0,
+    useHolecard1,
+    useBoardcards0,
+    useBoardcards1,
+    useBoardcards2,
+    useBoardcards3,
+    useBoardcards4)
 
-    // We'll store board cards in slot2, initialize with all nul values
-    const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
-    this.slot2.set(noBoardcards);
-  }
+  isFlushReal.assertEquals(isFlush, 'Player did not pass in correct flush value!');
+  lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Incorrect hand strenght passed in!');
 
 
-  @runtimeMethod()
-  public storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey): void {
-    // Used to store a hash of the player's cards
-    // 1. decrypt both cards
-    // 2. double hash the resulting value
-    // 3. and store the hash in a slot
+  // CHECK 1. confirm the card lookup key and value are valid entries in the merkle map
+  // MerkleMapRootBasic
+  // MerkleMapRootFlush
+  // TEMP - disabling since we don't currently have access to merkle map on front end
+  // const root = Provable.if(
+  //     isFlush,
+  //     this.MerkleMapRootFlush,
+  //     this.MerkleMapRootBasic,
+  // );
+  // const pathValid = path.computeRootAndKey(merkleMapVal);
+  // pathValid[0].assertEquals(root);
+  // pathValid[1].assertEquals(merkleMapKey);
 
-    // For both players their encrypted card will be stored here
-    const slot0 = this.slot0.getAndRequireEquals();
+  // CHECK 3. re-hash the cards and confirm it matches their stored hash
+  const cardPoint1 = this.cardPrimeToCardPoint(holecard0);
+  const cardPoint2 = this.cardPrimeToCardPoint(holecard1);
+  const cardPoint1F = cardPoint1.toFields()[0]
+  const cardPoint2F = cardPoint2.toFields()[0]
+  const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleKey);
+  cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
 
-    const msg1F0 = this.slot1.getAndRequireEquals();
-    const msg2F0 = this.slot2.getAndRequireEquals();
-    const msg1F1 = this.slot3.getAndRequireEquals();
-    const msg2F1 = this.slot4.getAndRequireEquals();
+  // CHECK 4. check that board cards are the real board cards
+  const boardcardMul = boardcard0.mul(boardcard1).mul(boardcard2).mul(boardcard3).mul(boardcard4);
+  const boardcardMulReal = UInt64.from(slot2);
+  boardcardMul.assertEquals(boardcardMulReal);
+  // And check that we have 5 boardcards - should not be divisible by null val
+  const nullBoardcardUint = UInt64.from(this.NullBoardcard);
+  boardcardMulReal.divMod(nullBoardcardUint).rest.equals(UInt64.from(0)).assertFalse();
 
-    //msg1F.assertEquals(msg1.toFields()[0]);
-    //msg2F.assertEquals(msg2.toFields()[0]);
-    const msg1: PublicKey = PublicKey.fromFields([msg1F0, msg1F1]);
-    const msg2: PublicKey = PublicKey.fromFields([msg2F0, msg2F1]);
+  // And now we can store the lookup value in the appropriate slot
 
-    // We are ALWAYS storing the encrypted cards in slots1 and 2
+  // Assuming we made it past all our checks - 
+  // We are now storing the merkleMapVal, which represents
+  // hand strength in these slots!  Lower is better!
+  const slot0New = Provable.if(
+    playerHash.equals(player1Hash),
+    merkleMapVal,
+    slot0,
+  );
+  const slot1New = Provable.if(
+    playerHash.equals(player2Hash),
+    merkleMapVal,
+    slot1,
+  );
+  this.slot0.set(slot0New);
+  this.slot1.set(slot1New);
 
-    // Want to decrypt BOTH cards, and multiply them together
-    const cardPoint1 = this.decodeCard(epk1, msg1, shuffleSecret)
-    const cardPoint2 = this.decodeCard(epk2, msg2, shuffleSecret)
-    // This is still a field representation of the card - not the prime52 value!
-    const cardPoint1F = cardPoint1.toFields()[0];
-    const cardPoint2F = cardPoint2.toFields()[0];
-    const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
+  // Description of logic within actionMapping - 
+  // transition from 1 to 6 via multiplying by 2 and 3 after each player
+  // shows their cards
+  const streetNew = Provable.if(
+    playerHash.equals(player1Hash),
+    street.mul(this.P1Turn),
+    street.mul(this.P2Turn),
+  );
 
-    const slot0New = Provable.if(
-      slotI.equals(0),
-      cardHash,
-      slot0,
-    );
-
-    const slot1New = Provable.if(
-      slotI.equals(1),
-      cardHash,
-      Field(0),
-    );
-
-    this.slot0.set(slot0New);
-    this.slot1.set(slot1New);
-
-    // We'll store board cards in slot2, initialize with all nul values
-    const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
-    this.slot2.set(noBoardcards);
-  }
-
-  @runtimeMethod()
-  public commitCard(slotI: Field, msg: PublicKey): void {
-    // msg corresponds to the field representation of the msg PublicKey in the mentalpoker Card struct
-
-    // The other player should perform their half of the partialUnmask,
-    // and then commit the results here
-
-    // Players can then decrypt their cards, preserving the secrecy of the
-    // cards and avoiding the need for a trusted dealer
-
-    const [msgF0, msgF1] = msg.toFields()
-
-    const slot1 = this.slot1.getAndRequireEquals();
-    const slot2 = this.slot2.getAndRequireEquals();
-    const slot3 = this.slot3.getAndRequireEquals();
-    const slot4 = this.slot4.getAndRequireEquals();
-    const slot1New = Provable.if(
-      slotI.equals(1),
-      msgF0,
-      slot1,
-    );
-    const slot2New = Provable.if(
-      slotI.equals(2),
-      msgF0,
-      slot2,
-    );
-    // And now store the second value too
-    const slot3New = Provable.if(
-      slotI.equals(1),
-      msgF1,
-      slot3,
-    );
-    const slot4New = Provable.if(
-      slotI.equals(2),
-      msgF1,
-      slot4,
-    );
-    this.slot1.set(slot1New);
-    this.slot2.set(slot2New);
-    this.slot3.set(slot3New);
-    this.slot4.set(slot4New);
-  }
+  this.setGamestate(stack1, stack2, turn, streetNew, lastAction, lastBetSize, gameOver, pot);
 }
+
+generateHash(card1: Field, card2: Field, privateKey: PrivateKey): Field {
+  // Apply a double hash to get a single value for both cards
+  // We'll use this to generate the hash for a given card
+  // We'll use the same hash function as the lookup table
+  const pkField = privateKey.toFields()[0];
+  const round1 = Poseidon.hash([pkField, card1]);
+  const round2 = Poseidon.hash([round1, card2]);
+  return round2
+}
+
+
+decodeCard(epk: PublicKey, msg: PublicKey, shuffleSecret: PrivateKey): PublicKey {
+  const d1 = PublicKey.fromGroup(epk.toGroup().scale(Scalar.fromFields(shuffleSecret.toFields())));
+  const pubKey = PublicKey.fromGroup(msg.toGroup().sub(d1.toGroup()));
+  return pubKey
+}
+
+storeHardcodedCards() {
+  // Just for live testing - store cards directly rather than doing decryption to simplify front end teesting
+  // PrivateKey.empty
+  // const shuffleSecret = PrivateKey.fromFields([Field(1), Field(2), Field(3), Field(4)])
+  const shuffleSecret = PrivateKey.fromBigInt(BigInt(1));
+  // Ah
+  const cardPoint1F = PublicKey.fromBase58("B62qoa5ohnNnFEXfbPshXCzkBkgWSzXk3auy2yS9hyjLma4EkH7xWbs").toFields()[0];
+  // Ad
+  const cardPoint2F = PublicKey.fromBase58("B62qiuLMUJ9xPCYGqAzJY2C8JTwgAFhfgZFTnVRsq3EBksHKAE1G3mX").toFields()[0];
+  // Ks
+  const cardPoint3F = PublicKey.fromBase58("B62qnp98SGKe6dQ2cTMUKJeWGhECfj57vZGS5D5MA9hr5bXFYMo3wDM").toFields()[0];
+  // Ts
+  const cardPoint4F = PublicKey.fromBase58("B62qrdxHXHyuQjDSyYPsWYTEgtZBSEqF5bpTktk5RqSwbdojebLVZLH").toFields()[0];
+
+  const cardHash1 = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
+  const cardHash2 = this.generateHash(cardPoint3F, cardPoint4F, shuffleSecret);
+
+  this.slot0.set(cardHash1);
+  this.slot1.set(cardHash2);
+
+  // We'll store board cards in slot2, initialize with all nul values
+  const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
+  this.slot2.set(noBoardcards);
+}
+
+
+@runtimeMethod()
+public storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey): void {
+  // Used to store a hash of the player's cards
+  // 1. decrypt both cards
+  // 2. double hash the resulting value
+  // 3. and store the hash in a slot
+
+  // For both players their encrypted card will be stored here
+  const slot0 = this.slot0.getAndRequireEquals();
+
+  const msg1F0 = this.slot1.getAndRequireEquals();
+  const msg2F0 = this.slot2.getAndRequireEquals();
+  const msg1F1 = this.slot3.getAndRequireEquals();
+  const msg2F1 = this.slot4.getAndRequireEquals();
+
+  //msg1F.assertEquals(msg1.toFields()[0]);
+  //msg2F.assertEquals(msg2.toFields()[0]);
+  const msg1: PublicKey = PublicKey.fromFields([msg1F0, msg1F1]);
+  const msg2: PublicKey = PublicKey.fromFields([msg2F0, msg2F1]);
+
+  // We are ALWAYS storing the encrypted cards in slots1 and 2
+
+  // Want to decrypt BOTH cards, and multiply them together
+  const cardPoint1 = this.decodeCard(epk1, msg1, shuffleSecret)
+  const cardPoint2 = this.decodeCard(epk2, msg2, shuffleSecret)
+  // This is still a field representation of the card - not the prime52 value!
+  const cardPoint1F = cardPoint1.toFields()[0];
+  const cardPoint2F = cardPoint2.toFields()[0];
+  const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
+
+  const slot0New = Provable.if(
+    slotI.equals(0),
+    cardHash,
+    slot0,
+  );
+
+  const slot1New = Provable.if(
+    slotI.equals(1),
+    cardHash,
+    Field(0),
+  );
+
+  this.slot0.set(slot0New);
+  this.slot1.set(slot1New);
+
+  // We'll store board cards in slot2, initialize with all nul values
+  const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
+  this.slot2.set(noBoardcards);
+}
+
+@runtimeMethod()
+public commitCard(slotI: Field, msg: PublicKey): void {
+  // msg corresponds to the field representation of the msg PublicKey in the mentalpoker Card struct
+
+  // The other player should perform their half of the partialUnmask,
+  // and then commit the results here
+
+  // Players can then decrypt their cards, preserving the secrecy of the
+  // cards and avoiding the need for a trusted dealer
+
+  const [msgF0, msgF1] = msg.toFields()
+
+  const slot1 = this.slot1.getAndRequireEquals();
+  const slot2 = this.slot2.getAndRequireEquals();
+  const slot3 = this.slot3.getAndRequireEquals();
+  const slot4 = this.slot4.getAndRequireEquals();
+  const slot1New = Provable.if(
+    slotI.equals(1),
+    msgF0,
+    slot1,
+  );
+  const slot2New = Provable.if(
+    slotI.equals(2),
+    msgF0,
+    slot2,
+  );
+  // And now store the second value too
+  const slot3New = Provable.if(
+    slotI.equals(1),
+    msgF1,
+    slot3,
+  );
+  const slot4New = Provable.if(
+    slotI.equals(2),
+    msgF1,
+    slot4,
+  );
+  this.slot1.set(slot1New);
+  this.slot2.set(slot2New);
+  this.slot3.set(slot3New);
+  this.slot4.set(slot4New);
+}
+*/
+
+}
+
+
