@@ -114,27 +114,27 @@ export class Balances extends BaseBalances<BalancesConfig> {
     AgentInfo
   );
 
-  GameNotOver = UInt32.from(0);
-  GameOver = UInt32.from(1);
+  GameNotOver = Field(0);
+  GameOver = Field(1);
 
   // we need P1Turn*P2Turn*ShowdownPending = ShowdownComplete
-  P1Turn = UInt32.from(2);
-  P2Turn = UInt32.from(3);
+  P1Turn = Field(2);
+  P2Turn = Field(3);
 
-  ShowdownPending = UInt32.from(1);
-  ShowdownComplete = UInt32.from(6);
-  Preflop = UInt32.from(2);
-  Flop = UInt32.from(3);
-  Turn = UInt32.from(4);
-  River = UInt32.from(5);
+  ShowdownPending = Field(1);
+  ShowdownComplete = Field(6);
+  Preflop = Field(2);
+  Flop = Field(3);
+  Turn = Field(4);
+  River = Field(5);
 
-  Null = UInt32.from(0);
-  Bet = UInt32.from(1);
-  Call = UInt32.from(2);
-  Fold = UInt32.from(3);
-  Raise = UInt32.from(4);
-  Check = UInt32.from(5);
-  PreflopCall = UInt32.from(6);
+  Null = Field(0);
+  Bet = Field(1);
+  Call = Field(2);
+  Fold = Field(3);
+  Raise = Field(4);
+  Check = Field(5);
+  PreflopCall = Field(6);
 
   NullBoardcard = Field(cardMapping52[""]);
 
@@ -143,10 +143,15 @@ export class Balances extends BaseBalances<BalancesConfig> {
   MerkleMapRootFlush = Field("12839577190240250171319696533609974348200540625786415982151412596597428662991");
   // Hardcode 100 as game size
   // Say game is 1/2, players can buy in from 20 to 200
-  MinBuyin = UInt32.from(20);
-  MaxBuyin = UInt32.from(200);
-  SmallBlind = UInt32.from(1);
-  BigBlind = UInt32.from(2);
+  // MinBuyin = UInt32.from(20);
+  // MaxBuyin = UInt32.from(200);
+  // SmallBlind = UInt32.from(1);
+  // BigBlind = UInt32.from(2);
+
+  MinBuyin = Field(20);
+  MaxBuyin = Field(200);
+  SmallBlind = Field(1);
+  BigBlind = Field(2);
 
   @state() public player1Hash = State.from<Field>(Field);
   @state() public player2Hash = State.from<Field>(Field);
@@ -168,21 +173,20 @@ export class Balances extends BaseBalances<BalancesConfig> {
   @state() public street = State.from<Field>(Field);
   @state() public lastAction = State.from<Field>(Field);
   @state() public lastBetSize = State.from<Field>(Field);
-  @state() public gameOver = State.from<Field>(Field);
+  @state() public gameOver = State.from<Bool>(Bool);
   @state() public pot = State.from<Field>(Field);
 
   init() {
     // super.init();
     // Starting gamestate is always P2's turn preflop, with P1 having posted small blind
-    const stack1: UInt32 = UInt32.from(0);
-    const stack2: UInt32 = UInt32.from(0);
-    const turn: UInt32 = this.P1Turn;
-    const street: UInt32 = this.Preflop;
-    const lastAction: UInt32 = this.Bet;
-    const gameOver: UInt32 = this.GameNotOver;
-    const pot: UInt32 = UInt32.from(0);
-    const lastBetSize = UInt32.from(0);
-    // this.setGamestate(stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot);
+    this.stack1.set(Field(0));
+    this.stack2.set(Field(0));
+    this.turn.set(this.P1Turn);
+    this.street.set(this.Preflop);
+    this.lastAction.set(this.Bet);
+    this.gameOver.set(Bool(false));
+    this.pot.set(Field(0));
+    this.lastBetSize.set(Field(0));
 
     // Initialize with 0s so we can tell when two players have joined
     this.player1Hash.set(Field(0));
@@ -229,33 +233,68 @@ export class Balances extends BaseBalances<BalancesConfig> {
     this.player2Hash.set(p2Hash);
   }
 
+  @runtimeMethod()
+  public deposit(depositAmount: Field): void {
+    // Constraints:
+    // Only player1 and player2 can deposit
+    // They can only deposit once
+    // We can call '.value' because these will never be empty - default is Field(0)
+    const player1Hash: Field = this.player1Hash.get().value;
+    const player2Hash: Field = this.player2Hash.get().value;
+
+    // const player = this.sender;
+    const player: PublicKey = this.transaction.sender.value;
+    const playerHash = Poseidon.hash(player.toFields());
+
+    // const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
+    const stack1: Field = this.stack1.get().value;
+    const stack2: Field = this.stack2.get().value;
+    const pot: Field = this.pot.get().value;
+
+    const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
+    cond0.assertTrue('Player is not part of this game!')
+    const cond1 = playerHash.equals(player1Hash).and(stack1.equals(Field(0)));
+    const cond2 = playerHash.equals(player2Hash).and(stack2.equals(Field(0)));
+    cond1.or(cond2).assertTrue('Player can only deposit once!');
+
+    // From https://github.com/o1-labs/o1js/blob/5ca43684e98af3e4f348f7b035a0ad7320d88f3d/src/examples/zkapps/escrow/escrow.ts
+    // const payerUpdate = AccountUpdate.createSigned(player);
+
+    // TEMP - disabling this so we can test game without needing to send funds
+    // payerUpdate.send({ to: this.address, amount: gameBuyin64 });
+
+    // const test = depositAmount.sub(this.SmallBlind);
+
+    // Also include blinds!
+    // 1/2, where player1 always posts small blind
+    const stack1New = Provable.if(
+      playerHash.equals(player1Hash),
+      depositAmount.sub(this.SmallBlind),
+      stack1
+    );
+    const stack2New = Provable.if(
+      playerHash.equals(player2Hash),
+      depositAmount.sub(this.BigBlind),
+      stack1
+    );
+
+    const potNew = Provable.if(
+      playerHash.equals(player1Hash),
+      pot.add(this.SmallBlind),
+      pot.add(this.BigBlind),
+    );
+
+    // Set last bet to be 1 to make the math work out?
+    const newLastBetSize = Field(1);
+
+    this.stack1.set(stack1New);
+    this.stack2.set(stack2New);
+    this.lastBetSize.set(newLastBetSize);
+    this.pot.set(potNew);
+  }
+
 
   /*
-  getGamestate(): [UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32] {
-    const gamestate = this.gamestate.getAndRequireEquals();
-    const unpacked = Gamestate.unpack(gamestate);
-    // Need to further unpack gameOver and lastBetSize
-    const gameOverLastBetSize: UInt32 = unpacked[5];
-    const gameOver = Provable.if(gameOverLastBetSize.greaterThanOrEqual(UInt32.from(1000)), this.GameOver, this.GameNotOver);
-
-    // If game is over, lastBetSize is meaningless, so it's ok to return 1000+lastBetSize
-    const lastBetSize = gameOverLastBetSize;
-
-    return [unpacked[0], unpacked[1], unpacked[2], unpacked[3], unpacked[4], lastBetSize, gameOver, unpacked[6]]
-  }
-
-  setGamestate(stack1: UInt32, stack2: UInt32, turn: UInt32, street: UInt32, lastAction: UInt32, lastBetSize: UInt32, gameOver: UInt32, pot: UInt32) {
-    // Can only store 7 UInt32s, but 'gameOver' is a bool so we can pack gameOver and lastBetSize into one field
-    // Add 1000 to lastBetSize to indicate gameOver
-    const gameOverLastBetSize = Provable.if(
-      gameOver.equals(this.GameNotOver),
-      lastBetSize,
-      lastBetSize.add(UInt32.from(1000)),
-    );
-    const gamestateField = Gamestate.fromUInt32s([stack1, stack2, turn, street, lastAction, gameOverLastBetSize, pot]);
-    this.gamestate.set(gamestateField.packed);
-  }
-
   @runtimeMethod()
   public playerTimeout(): void {
     // If the other player hasn't made a move in n blocks, we can
@@ -367,76 +406,6 @@ export class Balances extends BaseBalances<BalancesConfig> {
     this.storeHardcodedCards();
   }
 
-
-  @runtimeMethod()
-  public deposit(depositAmount: UInt32): void {
-    // Constraints:
-    // Only player1 and player2 can deposit
-    // They can only deposit once
-    const player1Hash = this.player1Hash.getAndRequireEquals();
-    const player2Hash = this.player2Hash.getAndRequireEquals();
-
-    const player = this.sender;
-    const playerHash = Poseidon.hash(player.toFields());
-
-    const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
-
-    const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
-    cond0.assertTrue('Player is not part of this game!')
-    const cond1 = playerHash.equals(player1Hash).and(stack1.equals(UInt32.from(0)));
-    const cond2 = playerHash.equals(player2Hash).and(stack2.equals(UInt32.from(0)));
-    cond1.or(cond2).assertTrue('Player can only deposit once!');
-
-    // From https://github.com/o1-labs/o1js/blob/5ca43684e98af3e4f348f7b035a0ad7320d88f3d/src/examples/zkapps/escrow/escrow.ts
-    const payerUpdate = AccountUpdate.createSigned(player);
-
-    // TEMP - disabling this so we can test game without needing to send funds
-    // payerUpdate.send({ to: this.address, amount: gameBuyin64 });
-
-    // Also include blinds!
-    // 1/2, where player1 always posts small blind
-    const stack1New = Provable.if(
-      playerHash.equals(player1Hash),
-      depositAmount.sub(this.SmallBlind),
-      stack1
-    );
-    const stack2New = Provable.if(
-      playerHash.equals(player2Hash),
-      depositAmount.sub(this.BigBlind),
-      stack2
-    );
-
-    const potNew = Provable.if(
-      playerHash.equals(player1Hash),
-      pot.add(this.SmallBlind),
-      pot.add(this.BigBlind),
-    );
-
-    // Set last bet to be 1 to make the math work out?
-    const newLastBetSize = UInt32.from(1);
-    this.setGamestate(stack1New, stack2New, turn, street, lastAction, newLastBetSize, gameOver, potNew);
-  }
-
-  uint_subtraction(cond: Bool, val1: UInt32, val1sub: UInt32, val2: UInt32, val2sub: UInt32): UInt32 {
-    // We have multiple situations where we're subtracting UInts representing stack sizes
-    // In really they cannot underflow due to game logic
-    // However because both branches always execute in the Provable.if, we get underflow
-    // errors in the branch that will not be selected
-    // Is there a better solution besides casting them to fields and back?
-    const val1F = val1.toFields()[0];
-    const val2F = val2.toFields()[0];
-    const val1subF = val1sub.toFields()[0];
-    const val2subF = val2sub.toFields()[0];
-
-    const valDiffF: Field = Provable.if(cond,
-      val1F.sub(val1subF),
-      val2F.sub(val2subF)
-    );
-    // Run into weird errors with this assertion
-    // valDiffF.assertGreaterThanOrEqual(Field(0), "Bad subtraction!");
-    const valDiff = UInt32.from(valDiffF);
-    return valDiff;
-  }
 
   @runtimeMethod()
   public takeAction(action: UInt32, betSize: UInt32): void {
