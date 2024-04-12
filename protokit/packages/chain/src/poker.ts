@@ -1,20 +1,9 @@
 import { RuntimeModule, runtimeModule, state, runtimeMethod } from "@proto-kit/module";
 import { State, assert, StateMap, Option } from "@proto-kit/protocol";
-import { Balance, Balances as BaseBalances, TokenId, UInt64, UInt32 } from "@proto-kit/library";
-// import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt64, UInt32, AccountUpdate, Poseidon, MerkleMapWitness, Scalar, } from 'o1js';
-import { PublicKey, PrivateKey, Poseidon, Struct, Field, Bool, Provable, MerkleMapWitness } from "o1js";
+import { UInt32, Balance, Balances as BaseBalances, TokenId } from "@proto-kit/library";
+// import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt32, AccountUpdate, Poseidon, MerkleMapWitness, } from 'o1js';
+import { PublicKey, PrivateKey, Poseidon, Struct, Field, Bool, Provable, MerkleMapWitness, Scalar } from "o1js";
 
-export class Message extends Struct({ agentId: Field, messageNumber: UInt64, twelveChars: Field, securityCode: Field }) { }
-
-// This will be the stored state for each agent
-export class AgentInfo extends Struct({ messageNumber: UInt64, securityCode: Field }) { }
-
-type AgentMessagesStoreConfig = Record<string, never>;
-
-@runtimeModule()
-export class AgentMessagesStore extends RuntimeModule<AgentMessagesStoreConfig> {
-
-}
 // So convert this to hte other one...
 interface BalancesConfig {
   totalSupply: Balance;
@@ -102,20 +91,10 @@ export const cardMapping52 = {
   "": 241,
 }
 
-
 // export class PoZKerApp extends SmartContract {
 
-// TODO - convert from 'Balances' to 'AgentMessagesStore'
 @runtimeModule()
 export class Balances extends BaseBalances<BalancesConfig> {
-
-  @state() public agentMap = StateMap.from<Field, AgentInfo>(
-    Field,
-    AgentInfo
-  );
-
-  GameNotOver = Field(0);
-  GameOver = Field(1);
 
   // we need P1Turn*P2Turn*ShowdownPending = ShowdownComplete
   P1Turn = Field(2);
@@ -143,11 +122,6 @@ export class Balances extends BaseBalances<BalancesConfig> {
   MerkleMapRootFlush = Field("12839577190240250171319696533609974348200540625786415982151412596597428662991");
   // Hardcode 100 as game size
   // Say game is 1/2, players can buy in from 20 to 200
-  // MinBuyin = UInt32.from(20);
-  // MaxBuyin = UInt32.from(200);
-  // SmallBlind = UInt32.from(1);
-  // BigBlind = UInt32.from(2);
-
   MinBuyin = Field(20);
   MaxBuyin = Field(200);
   SmallBlind = Field(1);
@@ -263,8 +237,6 @@ export class Balances extends BaseBalances<BalancesConfig> {
     // TEMP - disabling this so we can test game without needing to send funds
     // payerUpdate.send({ to: this.address, amount: gameBuyin64 });
 
-    // const test = depositAmount.sub(this.SmallBlind);
-
     // Also include blinds!
     // 1/2, where player1 always posts small blind
     const stack1New = Provable.if(
@@ -294,58 +266,23 @@ export class Balances extends BaseBalances<BalancesConfig> {
   }
 
 
-  /*
-  @runtimeMethod()
-  public playerTimeout(): void {
-    // If the other player hasn't made a move in n blocks, we can
-    // end the hand and claim the pot...
-    // TODO - we need to be recording block numbers so we can verify timeout condition is met
-
-    const player1Hash = this.player1Hash.getAndRequireEquals();
-    const player2Hash = this.player2Hash.getAndRequireEquals();
-    const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
-
-    gameOver.equals(this.GameNotOver).assertTrue('Game has already finished!');
-
-    const player: PublicKey = this.transaction.sender;
-    const playerHash = Poseidon.hash(player.toFields());
-
-    const p1WinnerBal = stack1.add(pot);
-    const p2WinnerBal = stack2.add(pot);
-
-    // We must  check that that the OTHER player has timed out for this to be valid
-    const stack1Final = Provable.if(
-      playerHash.equals(player2Hash),
-      p1WinnerBal,
-      stack1
-    );
-    const stack2Final = Provable.if(
-      playerHash.equals(player1Hash),
-      p2WinnerBal,
-      stack2
-    );
-    // Calling this method should always result in one player taking the pot, so we can set pot to 0
-    const newPot = UInt32.from(0);
-    // TODO - fix this!
-    const newLastBetSize = UInt32.from(0);
-    this.setGamestate(stack1Final, stack2Final, turn, street, lastAction, newLastBetSize, gameOver, newPot);
-  }
-
-
-
   @runtimeMethod()
   public withdraw(): void {
     // Can ONLY withdraw when the hand is over!
-    const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
-    gameOver.equals(this.GameOver).assertTrue('Game is not over!');
+    // const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
+    const stack1: Field = this.stack1.get().value;
+    const stack2: Field = this.stack2.get().value;
+    const gameOver = this.gameOver.get().value;
+    const pot = this.pot.get().value;
+    gameOver.assertTrue('Game is not over!');
 
     // Sanity check - pot should have been awarded by this time...
-    pot.equals(UInt32.from(0)).assertTrue("Pot has not been awarded!");
+    pot.equals(Field(0)).assertTrue("Pot has not been awarded!");
 
-    const player1Hash = this.player1Hash.getAndRequireEquals();
-    const player2Hash = this.player2Hash.getAndRequireEquals();
+    const player1Hash = this.player1Hash.get().value;
+    const player2Hash = this.player2Hash.get().value;
 
-    const player = this.sender;
+    const player: PublicKey = this.transaction.sender.value;
     const playerHash = Poseidon.hash(player.toFields());
     const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
     cond0.assertTrue('Player is not part of this game!')
@@ -364,13 +301,13 @@ export class Balances extends BaseBalances<BalancesConfig> {
     // We have to update the stacks so they cannot withdraw multiple times!
     const stack1New = Provable.if(
       playerHash.equals(player1Hash),
-      UInt32.from(0),
+      Field(0),
       stack1
     );
 
     const stack2New = Provable.if(
       playerHash.equals(player2Hash),
-      UInt32.from(0),
+      Field(0),
       stack2
     );
 
@@ -389,42 +326,56 @@ export class Balances extends BaseBalances<BalancesConfig> {
     this.player1Hash.set(player1HashNew);
     this.player2Hash.set(player2HashNew);
 
-    const turnReset: UInt32 = this.P1Turn;
-    const streetReset: UInt32 = this.Preflop;
-    const lastActionReset: UInt32 = this.Bet;
+    const turnReset: Field = this.P1Turn;
+    const streetReset: Field = this.Preflop;
+    const lastActionReset: Field = this.Bet;
 
     // Check that both players have been reset to reset game
     // We can't check stack sizes because if one player goes bust, 
     // both stacks will be 0 after the winner calls
     const gameShouldReset: Bool = player1HashNew.equals(Field(0)).and(player2HashNew.equals(Field(0)));
-    const gameOverNew = Provable.if(gameShouldReset, this.GameNotOver, this.GameOver);
+    const gameOverNew = Provable.if(gameShouldReset, Bool(false), Bool(true));
 
-    const newLastBetSize = UInt32.from(0);
-    this.setGamestate(stack1New, stack2New, turnReset, streetReset, lastActionReset, newLastBetSize, gameOverNew, pot);
+    const newLastBetSize = Field(0);
+    this.stack1.set(stack1New);
+    this.stack2.set(stack2New);
+
+    this.turn.set(turnReset);
+    this.street.set(streetReset);
+    this.lastAction.set(lastActionReset);
+    this.lastBetSize.set(newLastBetSize);
+    this.gameOver.set(gameOverNew);
+    this.pot.set(pot);
 
     // TEMP - when game is over, reset player cards for next hand
-    this.storeHardcodedCards();
+    // this.storeHardcodedCards();
   }
 
 
   @runtimeMethod()
-  public takeAction(action: UInt32, betSize: UInt32): void {
+  public takeAction(action: Field, betSize: Field): void {
     // Need to check that it's the current player's turn, 
     // and the action is valid
-    const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
+    const stack1: Field = this.stack1.get().value;
+    const stack2: Field = this.stack2.get().value;
+    const gameOver = this.gameOver.get().value;
+    const turn = this.turn.get().value;
+    const street = this.street.get().value;
+    const lastAction = this.lastAction.get().value;
+    const pot = this.pot.get().value;
 
-    gameOver.equals(this.GameNotOver).assertTrue('Game has already finished!');
+    gameOver.assertFalse('Game has already finished!');
 
     // Want these as bools to simplify checks
     const p1turn: Bool = turn.equals(this.P1Turn);
     const p2turn: Bool = turn.equals(this.P2Turn);
     p1turn.or(p2turn).assertTrue('Invalid game state player');
 
-    const player = this.sender;
+    const player: PublicKey = this.transaction.sender.value;
 
     // Logic modified from https://github.com/betterclever/zk-chess/blob/main/src/Chess.ts
-    const player1Hash = this.player1Hash.getAndRequireEquals();
-    const player2Hash = this.player2Hash.getAndRequireEquals();
+    const player1Hash = this.player1Hash.get().value;
+    const player2Hash = this.player2Hash.get().value;
     const playerHash = Poseidon.hash(player.toFields());
 
     playerHash
@@ -465,8 +416,8 @@ export class Balances extends BaseBalances<BalancesConfig> {
 
     // If action is call, we need to determine if it's actually PreflopCall...
     // Can only be true if call and pot contains only blinds, so 3...
-    const actionReal: UInt32 = Provable.if(
-      action.equals(this.Call).and(pot.equals(UInt32.from(3))),
+    const actionReal: Field = Provable.if(
+      action.equals(this.Call).and(pot.equals(Field(3))),
       this.PreflopCall,
       action);
 
@@ -475,10 +426,13 @@ export class Balances extends BaseBalances<BalancesConfig> {
     // For raises - raise needs to be to a valid size
 
     // If stack1 99 and stack2 90, returns 9
-    const stackDiff = this.uint_subtraction(p1turn, stack1, stack2, stack2, stack1);
+    //const stackDiff = this.uint_subtraction(p1turn, stack1, stack2, stack2, stack1);
+    const stackDiff = Provable.if(p1turn,
+      stack1.sub(stack2),
+      stack2.sub(stack1));
 
     // We get an error on underflows so this is always true
-    // stackDiff.assertGreaterThanOrEqual(UInt64.from(0), "");
+    // stackDiff.assertGreaterThanOrEqual(Field(0), "");
 
     // Betsize constraints:
     // Fold/Check - betsize should be 0
@@ -487,7 +441,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
     // Raise - betsize should be at least equal to diff*2, or all-in
 
     const foldCheckAmountBool = Provable.if(actionReal.equals(this.Check).or(actionReal.equals(this.Fold)),
-      betSize.equals(UInt32.from(0)),
+      betSize.equals(Field(0)),
       Bool(true)
     )
     foldCheckAmountBool.assertTrue("Bad betsize for check or fold!");
@@ -495,8 +449,8 @@ export class Balances extends BaseBalances<BalancesConfig> {
     // Bet - betsize should be gt 1 (or whatever minsize is)
     Provable.if(actionReal.equals(this.Bet),
       betSize,
-      UInt32.from(1),
-    ).assertGreaterThanOrEqual(UInt32.from(1), "Invalid bet size!")
+      Field(1),
+    ).assertGreaterThanOrEqual(Field(1), "Invalid bet size!")
 
     // Call - betsize should make stacks equal
     // So we might need to override the other betsize here
@@ -523,12 +477,19 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const case2 = playerHash.equals(player2Hash).and(betSizeReal.lessThanOrEqual(stack2));
     case1.or(case2).assertTrue("Not enough balance for bet!");
 
-    const stack1New = this.uint_subtraction(playerHash.equals(player1Hash),
-      stack1, betSizeReal,
-      stack1, UInt32.from(0));
-    const stack2New = this.uint_subtraction(playerHash.equals(player2Hash),
-      stack2, betSizeReal,
-      stack2, UInt32.from(0));
+
+    // const stack1New = this.uint_subtraction(playerHash.equals(player1Hash),
+    //   stack1, betSizeReal,
+    //   stack1, UInt32.from(0));
+    // const stack2New = this.uint_subtraction(playerHash.equals(player2Hash),
+    //   stack2, betSizeReal,
+    //   stack2, UInt32.from(0));
+    const stack1New = Provable.if(playerHash.equals(player1Hash),
+      stack1.sub(betSizeReal),
+      stack1.sub(Field(0)));
+    const stack2New = Provable.if(playerHash.equals(player2Hash),
+      stack2.sub(betSizeReal),
+      stack2.sub(Field(0)));
 
     // Need to check if we've hit the end of the street - transition to next street
     // Scenarios for this would be:
@@ -543,7 +504,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
     // Showdown takes priority over other logic
     const nextShowdownEnd = Provable.if(isRiver.and(newStreetBool), Bool(true), Bool(false));
     // Additional scenario where we can have a showdown - both allin
-    const nextShowdownAllin = stack1New.equals(UInt32.from(0)).and(stack2New.equals(UInt32.from(0)));
+    const nextShowdownAllin = stack1New.equals(Field(0)).and(stack2New.equals(Field(0)));
     const nextShowdown = nextShowdownEnd.or(nextShowdownAllin);
     const nextPreflop = Provable.if(nextShowdown.not().and(isPreflop.and(newStreetBool.not())), Bool(true), Bool(false));
     const nextFlop = Provable.if(nextShowdown.not().and(isFlop.and(newStreetBool.not()).or(isPreflop.and(newStreetBool))), Bool(true), Bool(false));
@@ -552,7 +513,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
 
     const currStreet = Provable.switch(
       [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
-      UInt32,
+      Field,
       [this.Preflop, this.Flop, this.Turn, this.River, this.ShowdownPending]
     );
 
@@ -571,47 +532,60 @@ export class Balances extends BaseBalances<BalancesConfig> {
       this.P2Turn
     );
 
-    const gameOverNow: UInt32 = Provable.if(
+    const gameOverNow: Bool = Provable.if(
       actionReal.equals(this.Fold),
-      this.GameOver,
-      this.GameNotOver
+      Bool(true),
+      Bool(false)
     )
 
     // If game is over from a fold - need to send funds to winner
     const p1WinnerBal = stack1.add(pot);
     const p2WinnerBal = stack2.add(pot);
 
+
     const stack1Final = Provable.if(
-      gameOverNow.equals(this.GameOver).and(playerHash.equals(player2Hash)),
+      gameOverNow.equals(Bool(true)).and(playerHash.equals(player2Hash)),
       p1WinnerBal,
       stack1New
     );
     const stack2Final = Provable.if(
-      gameOverNow.equals(this.GameOver).and(playerHash.equals(player1Hash)),
+      gameOverNow.equals(Bool(true)).and(playerHash.equals(player1Hash)),
       p2WinnerBal,
       stack2New
     );
 
     const potNew = Provable.if(
-      gameOverNow.equals(this.GameOver),
-      UInt32.from(0),
+      gameOverNow.equals(Bool(true)),
+      Field(0),
       pot.add(betSizeReal)
     );
 
     // TODO - double check logic - any other scenarios we should reset lastBetSize?
     const newLastBetSize = Provable.if(
       actionReal.equals(this.Call),
-      UInt32.from(0),
+      Field(0),
       betSizeReal
     )
 
-    this.setGamestate(stack1Final, stack2Final, playerTurnNow, currStreet, facingAction, newLastBetSize, gameOverNow, potNew);
+    this.stack1.set(stack1Final);
+    this.stack2.set(stack2Final);
+    this.turn.set(playerTurnNow);
+    this.street.set(currStreet);
+    this.lastAction.set(facingAction);
+    this.lastBetSize.set(newLastBetSize);
+    this.gameOver.set(gameOverNow);
+    this.pot.set(potNew);
   }
 
   @runtimeMethod()
   public showdown(): void {
     // We should only call this if we actually made it to showdown
-    const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
+    // const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
+    const stack1: Field = this.stack1.get().value;
+    const stack2: Field = this.stack2.get().value;
+    const pot: Field = this.pot.get().value;
+    const street: Field = this.street.get().value;
+
     street.equals(this.ShowdownComplete).assertTrue("Invalid showdown gamestate!");
     // This is no longer true if players can start with different stacks!
     // Sanity check - if it's a showdown both stacks must be equal
@@ -622,15 +596,15 @@ export class Balances extends BaseBalances<BalancesConfig> {
 
     // Convention is we'll have stored player1's lookup value for their hand 
     // in slot0, and player2's lookup value in slot1
-    const slot0 = this.slot0.getAndRequireEquals();
-    const slot1 = this.slot1.getAndRequireEquals();
+    const slot0 = this.slot0.get().value;
+    const slot1 = this.slot1.get().value;
 
     // If we get a tie - split the pot
     const tieAdj = Provable.if(
       Bool(slot0 === slot1),
       // pot should always be evenly divisible by 2
-      pot.div(UInt32.from(2)),
-      UInt32.from(0),
+      pot.div(Field(2)),
+      Field(0),
     );
 
     // Lower is better for the hand rankings
@@ -645,72 +619,76 @@ export class Balances extends BaseBalances<BalancesConfig> {
       stack2.add(tieAdj)
     );
 
-    const potNew = UInt32.from(0);
-    this.setGamestate(stack1Final, stack2Final, turn, street, lastAction, lastBetSize, this.GameOver, potNew);
+    const potNew = Field(0);
+    // this.setGamestate(stack1Final, stack2Final, turn, street, lastAction, lastBetSize, Bool(true), potNew);
+
+    this.stack1.set(stack1Final);
+    this.stack2.set(stack2Final);
+    this.gameOver.set(Bool(true));
+    this.pot.set(potNew);
 
   }
-  */
 
-  cardPrimeToCardPoint(cardPrime: UInt64): PublicKey {
+  cardPrimeToCardPoint(cardPrime: Field): PublicKey {
     /*
     Players will pass in the prime52 value of their card, we want to get
     the publickey, the cardPoint, associated with that card, so we can
     ensure the cards they passed in are the cards that were committed
- 
+   
     Code to generate this mapping is in gameutils
     */
-    const cardPoint = Provable.switch([cardPrime.equals(UInt64.from(2)),
-    cardPrime.equals(UInt64.from(3)),
-    cardPrime.equals(UInt64.from(5)),
-    cardPrime.equals(UInt64.from(7)),
-    cardPrime.equals(UInt64.from(11)),
-    cardPrime.equals(UInt64.from(13)),
-    cardPrime.equals(UInt64.from(17)),
-    cardPrime.equals(UInt64.from(19)),
-    cardPrime.equals(UInt64.from(23)),
-    cardPrime.equals(UInt64.from(29)),
-    cardPrime.equals(UInt64.from(31)),
-    cardPrime.equals(UInt64.from(37)),
-    cardPrime.equals(UInt64.from(41)),
-    cardPrime.equals(UInt64.from(43)),
-    cardPrime.equals(UInt64.from(47)),
-    cardPrime.equals(UInt64.from(53)),
-    cardPrime.equals(UInt64.from(59)),
-    cardPrime.equals(UInt64.from(61)),
-    cardPrime.equals(UInt64.from(67)),
-    cardPrime.equals(UInt64.from(71)),
-    cardPrime.equals(UInt64.from(73)),
-    cardPrime.equals(UInt64.from(79)),
-    cardPrime.equals(UInt64.from(83)),
-    cardPrime.equals(UInt64.from(89)),
-    cardPrime.equals(UInt64.from(97)),
-    cardPrime.equals(UInt64.from(101)),
-    cardPrime.equals(UInt64.from(103)),
-    cardPrime.equals(UInt64.from(107)),
-    cardPrime.equals(UInt64.from(109)),
-    cardPrime.equals(UInt64.from(113)),
-    cardPrime.equals(UInt64.from(127)),
-    cardPrime.equals(UInt64.from(131)),
-    cardPrime.equals(UInt64.from(137)),
-    cardPrime.equals(UInt64.from(139)),
-    cardPrime.equals(UInt64.from(149)),
-    cardPrime.equals(UInt64.from(151)),
-    cardPrime.equals(UInt64.from(157)),
-    cardPrime.equals(UInt64.from(163)),
-    cardPrime.equals(UInt64.from(167)),
-    cardPrime.equals(UInt64.from(173)),
-    cardPrime.equals(UInt64.from(179)),
-    cardPrime.equals(UInt64.from(181)),
-    cardPrime.equals(UInt64.from(191)),
-    cardPrime.equals(UInt64.from(193)),
-    cardPrime.equals(UInt64.from(197)),
-    cardPrime.equals(UInt64.from(199)),
-    cardPrime.equals(UInt64.from(211)),
-    cardPrime.equals(UInt64.from(223)),
-    cardPrime.equals(UInt64.from(227)),
-    cardPrime.equals(UInt64.from(229)),
-    cardPrime.equals(UInt64.from(233)),
-    cardPrime.equals(UInt64.from(239))],
+    const cardPoint = Provable.switch([cardPrime.equals(Field(2)),
+    cardPrime.equals(Field(3)),
+    cardPrime.equals(Field(5)),
+    cardPrime.equals(Field(7)),
+    cardPrime.equals(Field(11)),
+    cardPrime.equals(Field(13)),
+    cardPrime.equals(Field(17)),
+    cardPrime.equals(Field(19)),
+    cardPrime.equals(Field(23)),
+    cardPrime.equals(Field(29)),
+    cardPrime.equals(Field(31)),
+    cardPrime.equals(Field(37)),
+    cardPrime.equals(Field(41)),
+    cardPrime.equals(Field(43)),
+    cardPrime.equals(Field(47)),
+    cardPrime.equals(Field(53)),
+    cardPrime.equals(Field(59)),
+    cardPrime.equals(Field(61)),
+    cardPrime.equals(Field(67)),
+    cardPrime.equals(Field(71)),
+    cardPrime.equals(Field(73)),
+    cardPrime.equals(Field(79)),
+    cardPrime.equals(Field(83)),
+    cardPrime.equals(Field(89)),
+    cardPrime.equals(Field(97)),
+    cardPrime.equals(Field(101)),
+    cardPrime.equals(Field(103)),
+    cardPrime.equals(Field(107)),
+    cardPrime.equals(Field(109)),
+    cardPrime.equals(Field(113)),
+    cardPrime.equals(Field(127)),
+    cardPrime.equals(Field(131)),
+    cardPrime.equals(Field(137)),
+    cardPrime.equals(Field(139)),
+    cardPrime.equals(Field(149)),
+    cardPrime.equals(Field(151)),
+    cardPrime.equals(Field(157)),
+    cardPrime.equals(Field(163)),
+    cardPrime.equals(Field(167)),
+    cardPrime.equals(Field(173)),
+    cardPrime.equals(Field(179)),
+    cardPrime.equals(Field(181)),
+    cardPrime.equals(Field(191)),
+    cardPrime.equals(Field(193)),
+    cardPrime.equals(Field(197)),
+    cardPrime.equals(Field(199)),
+    cardPrime.equals(Field(211)),
+    cardPrime.equals(Field(223)),
+    cardPrime.equals(Field(227)),
+    cardPrime.equals(Field(229)),
+    cardPrime.equals(Field(233)),
+    cardPrime.equals(Field(239))],
       PublicKey,
       [PublicKey.fromBase58("B62qs2xPJgNhvBw7ubgppB4YSDf1dYyvLYD1ghCrhnkXabLSVAainWx"),
       PublicKey.fromBase58("B62qoK7BxuzJx9Kn7hzNXxJGLXXzmXgzfg59p4ZCWYGXsJE2hbwZC2j"),
@@ -774,7 +752,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
     // Remember - cardPrime52 should be in the 52 format
     // We'll always store the board card product in slot2
     const slot2 = this.slot2.getAndRequireEquals();
-  
+   
     // Remember - we start out having the board card be Null*5
     // Need to do this so we can ensure at showdown that player submitted all cards
     const slot2New = slot2.mul(cardPrime52).div(this.NullBoardcard);
@@ -782,7 +760,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
   }
   */
 
-  convert52to13(c52: UInt64): UInt64 {
+  convert52to13(c52: Field): Field {
     // takes care of converting a card in cardMapping52 format to cardMapping13
     // "2h": 2,  "2d": 43, "2c": 103, "2s": 173,
     // "3h": 3,  "3d": 47, "3c": 107, "3s": 179,
@@ -800,48 +778,47 @@ export class Balances extends BaseBalances<BalancesConfig> {
 
     const c13 = Provable.switch([
       // CONDITIONS
-      c52.equals(UInt64.from(2)).or(c52.equals(UInt64.from(43))).or(c52.equals(UInt64.from(103))).or(c52.equals(UInt64.from(173))),
-      c52.equals(UInt64.from(3)).or(c52.equals(UInt64.from(47))).or(c52.equals(UInt64.from(107))).or(c52.equals(UInt64.from(179))),
-      c52.equals(UInt64.from(5)).or(c52.equals(UInt64.from(53))).or(c52.equals(UInt64.from(109))).or(c52.equals(UInt64.from(181))),
-      c52.equals(UInt64.from(7)).or(c52.equals(UInt64.from(59))).or(c52.equals(UInt64.from(113))).or(c52.equals(UInt64.from(191))),
-      c52.equals(UInt64.from(11)).or(c52.equals(UInt64.from(61))).or(c52.equals(UInt64.from(127))).or(c52.equals(UInt64.from(193))),
-      c52.equals(UInt64.from(13)).or(c52.equals(UInt64.from(67))).or(c52.equals(UInt64.from(131))).or(c52.equals(UInt64.from(197))),
-      c52.equals(UInt64.from(17)).or(c52.equals(UInt64.from(71))).or(c52.equals(UInt64.from(137))).or(c52.equals(UInt64.from(199))),
-      c52.equals(UInt64.from(19)).or(c52.equals(UInt64.from(73))).or(c52.equals(UInt64.from(139))).or(c52.equals(UInt64.from(211))),
-      c52.equals(UInt64.from(23)).or(c52.equals(UInt64.from(79))).or(c52.equals(UInt64.from(149))).or(c52.equals(UInt64.from(223))),
-      c52.equals(UInt64.from(29)).or(c52.equals(UInt64.from(83))).or(c52.equals(UInt64.from(151))).or(c52.equals(UInt64.from(227))),
-      c52.equals(UInt64.from(31)).or(c52.equals(UInt64.from(89))).or(c52.equals(UInt64.from(157))).or(c52.equals(UInt64.from(229))),
-      c52.equals(UInt64.from(37)).or(c52.equals(UInt64.from(97))).or(c52.equals(UInt64.from(163))).or(c52.equals(UInt64.from(233))),
-      c52.equals(UInt64.from(41)).or(c52.equals(UInt64.from(101))).or(c52.equals(UInt64.from(167))).or(c52.equals(UInt64.from(239)))],
+      c52.equals(Field(2)).or(c52.equals(Field(43))).or(c52.equals(Field(103))).or(c52.equals(Field(173))),
+      c52.equals(Field(3)).or(c52.equals(Field(47))).or(c52.equals(Field(107))).or(c52.equals(Field(179))),
+      c52.equals(Field(5)).or(c52.equals(Field(53))).or(c52.equals(Field(109))).or(c52.equals(Field(181))),
+      c52.equals(Field(7)).or(c52.equals(Field(59))).or(c52.equals(Field(113))).or(c52.equals(Field(191))),
+      c52.equals(Field(11)).or(c52.equals(Field(61))).or(c52.equals(Field(127))).or(c52.equals(Field(193))),
+      c52.equals(Field(13)).or(c52.equals(Field(67))).or(c52.equals(Field(131))).or(c52.equals(Field(197))),
+      c52.equals(Field(17)).or(c52.equals(Field(71))).or(c52.equals(Field(137))).or(c52.equals(Field(199))),
+      c52.equals(Field(19)).or(c52.equals(Field(73))).or(c52.equals(Field(139))).or(c52.equals(Field(211))),
+      c52.equals(Field(23)).or(c52.equals(Field(79))).or(c52.equals(Field(149))).or(c52.equals(Field(223))),
+      c52.equals(Field(29)).or(c52.equals(Field(83))).or(c52.equals(Field(151))).or(c52.equals(Field(227))),
+      c52.equals(Field(31)).or(c52.equals(Field(89))).or(c52.equals(Field(157))).or(c52.equals(Field(229))),
+      c52.equals(Field(37)).or(c52.equals(Field(97))).or(c52.equals(Field(163))).or(c52.equals(Field(233))),
+      c52.equals(Field(41)).or(c52.equals(Field(101))).or(c52.equals(Field(167))).or(c52.equals(Field(239)))],
       // RETURN TYPE
-      UInt64,
+      Field,
       // SELECT VALUES
-      [UInt64.from(2),
-      UInt64.from(3),
-      UInt64.from(5),
-      UInt64.from(7),
-      UInt64.from(11),
-      UInt64.from(13),
-      UInt64.from(17),
-      UInt64.from(19),
-      UInt64.from(23),
-      UInt64.from(29),
-      UInt64.from(31),
-      UInt64.from(37),
-      UInt64.from(41),])
+      [Field(2),
+      Field(3),
+      Field(5),
+      Field(7),
+      Field(11),
+      Field(13),
+      Field(17),
+      Field(19),
+      Field(23),
+      Field(29),
+      Field(31),
+      Field(37),
+      Field(41),])
 
     return c13;
 
   }
 
-  /*
-  calcLookupVal(holecard0: UInt64,
-    holecard1: UInt64,
-    boardcard0: UInt64,
-    boardcard1: UInt64,
-    boardcard2: UInt64,
-    boardcard3: UInt64,
-    boardcard4: UInt64,
+  calcLookupVal(holecard0: Field,
+    holecard1: Field,
+    boardcard0: Field,
+    boardcard1: Field,
+    boardcard2: Field,
+    boardcard3: Field,
+    boardcard4: Field,
     useHolecard0: Bool,
     useHolecard1: Bool,
     useBoardcards0: Bool,
@@ -849,9 +826,10 @@ export class Balances extends BaseBalances<BalancesConfig> {
     useBoardcards2: Bool,
     useBoardcards3: Bool,
     useBoardcards4: Bool,
-  ): UInt64 {
+  ): Field {
     // Remember - all cards are in cardMapping52 format
-    let lookupVal = UInt64.from(1);
+    // let lookupVal = Field(1);
+    let lookupVal = Field(1);
 
     const cardList = [holecard0, holecard1, boardcard0, boardcard1, boardcard2, boardcard3, boardcard4];
     const boolList = [useHolecard0, useHolecard1, useBoardcards0, useBoardcards1, useBoardcards2, useBoardcards3, useBoardcards4];
@@ -859,26 +837,25 @@ export class Balances extends BaseBalances<BalancesConfig> {
     // Incredibly ugly but we need to convert cards from cardMapping52 to cardMapping13
     // And then multiply together all the ones that are used to get the lookup val
     for (let i = 0; i < 7; i++) {
-      const c52 = cardList[i];
-      const c13 = this.convert52to13(c52)
-      const boolUse = boolList[i];
+      const c52: Field = cardList[i];
+      const c13: Field = this.convert52to13(c52)
+      const boolUse: Bool = boolList[i];
       // So if we use it, use the value, otherwise just 1...
-      const lvMul = Provable.if(boolUse, c13, UInt64.from(1));
+      const lvMul = Provable.if(boolUse, c13, Field(1));
       lookupVal = lookupVal.mul(lvMul);
     }
 
     return lookupVal;
   }
-  */
 
 
-  calcCheckFlush(holecard0: UInt64,
-    holecard1: UInt64,
-    boardcard0: UInt64,
-    boardcard1: UInt64,
-    boardcard2: UInt64,
-    boardcard3: UInt64,
-    boardcard4: UInt64,
+  calcCheckFlush(holecard0: Field,
+    holecard1: Field,
+    boardcard0: Field,
+    boardcard1: Field,
+    boardcard2: Field,
+    boardcard3: Field,
+    boardcard4: Field,
     useHolecard0: Bool,
     useHolecard1: Bool,
     useBoardcards0: Bool,
@@ -911,14 +888,14 @@ export class Balances extends BaseBalances<BalancesConfig> {
       // "2d": 43, "Ad": 101,
       // "2c": 103, "Ac": 167,
       // "2s": 173, "As": 239,
-      const minHeart = UInt64.from(2);
-      const maxHeart = UInt64.from(41);
-      const minDiamond = UInt64.from(43);
-      const maxDiamond = UInt64.from(101);
-      const minClub = UInt64.from(103);
-      const maxClub = UInt64.from(167);
-      const minSpade = UInt64.from(173);
-      const maxSpade = UInt64.from(239);
+      const minHeart = Field(2);
+      const maxHeart = Field(41);
+      const minDiamond = Field(43);
+      const maxDiamond = Field(101);
+      const minClub = Field(103);
+      const maxClub = Field(167);
+      const minSpade = Field(173);
+      const maxSpade = Field(239);
 
       const isHeart = Provable.if(boolUse.not(), Bool(true), c52.greaterThanOrEqual(minHeart).and(c52.lessThanOrEqual(maxHeart)));
       const isDiamond = Provable.if(boolUse.not(), Bool(true), c52.greaterThanOrEqual(minDiamond).and(c52.lessThanOrEqual(maxDiamond)));
@@ -937,15 +914,14 @@ export class Balances extends BaseBalances<BalancesConfig> {
   }
 
 
-  /*
   @runtimeMethod()
-  public showCards(holecard0: UInt64,
-    holecard1: UInt64,
-    boardcard0: UInt64,
-    boardcard1: UInt64,
-    boardcard2: UInt64,
-    boardcard3: UInt64,
-    boardcard4: UInt64,
+  public showCards(holecard0: Field,
+    holecard1: Field,
+    boardcard0: Field,
+    boardcard1: Field,
+    boardcard2: Field,
+    boardcard3: Field,
+    boardcard4: Field,
     useHolecard0: Bool,
     useHolecard1: Bool,
     useBoardcards0: Bool,
@@ -963,7 +939,7 @@ export class Balances extends BaseBalances<BalancesConfig> {
     /*
     Each player has to pass in their holecards, along with all board cards
     And specify which cards are used to make their best 6c hand
-   
+     
     To make cheating impossible, we need these checks:
     1. confirm the card lookup key and value are valid entries in the merkle map
     2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
@@ -971,264 +947,264 @@ export class Balances extends BaseBalances<BalancesConfig> {
     4. check that board cards are the real board cards
     */
 
-  /*
-  const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
-  // const gamestate = this.gamestate.getAndRequireEquals();
-  // TODO - what was this check again?  Reimplement with new format...
-  // gamestate.assertLessThanOrEqual(UInt64.from(3));
+    // const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
+    const street = this.street.get().value;
+    // const gamestate = this.gamestate.getAndRequireEquals();
+    // TODO - what was this check again?  Reimplement with new format...
+    // gamestate.assertLessThanOrEqual(Field(3));
 
-  // Player card hash will be stored in slot1 or slot1
-  const slot0 = this.slot0.getAndRequireEquals();
-  const slot1 = this.slot1.getAndRequireEquals();
-  // We are going to be storing the product of all the board card primes here!
-  const slot2 = this.slot2.getAndRequireEquals();
-
-
-  // CHECK 0. - make sure player is a part of the game...
-  const player = this.sender;
-  const player1Hash = this.player1Hash.getAndRequireEquals();
-  const player2Hash = this.player2Hash.getAndRequireEquals();
-  const playerHash = Poseidon.hash(player.toFields());
-  playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)).assertTrue('Player is not part of this game!');
-
-  const holecardsHash = Provable.if(
-    playerHash.equals(player1Hash),
-    slot0,
-    slot1
-  );
-
-  // CHECK 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
-  // the lookupVal is the expected key for our merkle map
-  const lookupVal: UInt64 = this.calcLookupVal(holecard0,
-    holecard1,
-    boardcard0,
-    boardcard1,
-    boardcard2,
-    boardcard3,
-    boardcard4,
-    useHolecard0,
-    useHolecard1,
-    useBoardcards0,
-    useBoardcards1,
-    useBoardcards2,
-    useBoardcards3,
-    useBoardcards4)
-
-  const isFlushReal: Bool = this.calcCheckFlush(holecard0,
-    holecard1,
-    boardcard0,
-    boardcard1,
-    boardcard2,
-    boardcard3,
-    boardcard4,
-    useHolecard0,
-    useHolecard1,
-    useBoardcards0,
-    useBoardcards1,
-    useBoardcards2,
-    useBoardcards3,
-    useBoardcards4)
-
-  isFlushReal.assertEquals(isFlush, 'Player did not pass in correct flush value!');
-  lookupVal.toFields()[0].assertEquals(merkleMapKey, 'Incorrect hand strenght passed in!');
+    // Player card hash will be stored in slot1 or slot1
+    const slot0 = this.slot0.get().value;
+    const slot1 = this.slot1.get().value;
+    // We are going to be storing the product of all the board card primes here!
+    const slot2 = this.slot2.get().value;
 
 
-  // CHECK 1. confirm the card lookup key and value are valid entries in the merkle map
-  // MerkleMapRootBasic
-  // MerkleMapRootFlush
-  // TEMP - disabling since we don't currently have access to merkle map on front end
-  // const root = Provable.if(
-  //     isFlush,
-  //     this.MerkleMapRootFlush,
-  //     this.MerkleMapRootBasic,
-  // );
-  // const pathValid = path.computeRootAndKey(merkleMapVal);
-  // pathValid[0].assertEquals(root);
-  // pathValid[1].assertEquals(merkleMapKey);
+    // CHECK 0. - make sure player is a part of the game...
+    const player: PublicKey = this.transaction.sender.value;
+    const player1Hash = this.player1Hash.get().value;
+    const player2Hash = this.player2Hash.get().value;
+    const playerHash = Poseidon.hash(player.toFields());
+    playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)).assertTrue('Player is not part of this game!');
 
-  // CHECK 3. re-hash the cards and confirm it matches their stored hash
-  const cardPoint1 = this.cardPrimeToCardPoint(holecard0);
-  const cardPoint2 = this.cardPrimeToCardPoint(holecard1);
-  const cardPoint1F = cardPoint1.toFields()[0]
-  const cardPoint2F = cardPoint2.toFields()[0]
-  const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleKey);
-  cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
+    const holecardsHash = Provable.if(
+      playerHash.equals(player1Hash),
+      slot0,
+      slot1
+    );
 
-  // CHECK 4. check that board cards are the real board cards
-  const boardcardMul = boardcard0.mul(boardcard1).mul(boardcard2).mul(boardcard3).mul(boardcard4);
-  const boardcardMulReal = UInt64.from(slot2);
-  boardcardMul.assertEquals(boardcardMulReal);
-  // And check that we have 5 boardcards - should not be divisible by null val
-  const nullBoardcardUint = UInt64.from(this.NullBoardcard);
-  boardcardMulReal.divMod(nullBoardcardUint).rest.equals(UInt64.from(0)).assertFalse();
+    // CHECK 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
+    // the lookupVal is the expected key for our merkle map
+    const lookupVal: Field = this.calcLookupVal(holecard0,
+      holecard1,
+      boardcard0,
+      boardcard1,
+      boardcard2,
+      boardcard3,
+      boardcard4,
+      useHolecard0,
+      useHolecard1,
+      useBoardcards0,
+      useBoardcards1,
+      useBoardcards2,
+      useBoardcards3,
+      useBoardcards4)
 
-  // And now we can store the lookup value in the appropriate slot
+    const isFlushReal: Bool = this.calcCheckFlush(holecard0,
+      holecard1,
+      boardcard0,
+      boardcard1,
+      boardcard2,
+      boardcard3,
+      boardcard4,
+      useHolecard0,
+      useHolecard1,
+      useBoardcards0,
+      useBoardcards1,
+      useBoardcards2,
+      useBoardcards3,
+      useBoardcards4)
 
-  // Assuming we made it past all our checks - 
-  // We are now storing the merkleMapVal, which represents
-  // hand strength in these slots!  Lower is better!
-  const slot0New = Provable.if(
-    playerHash.equals(player1Hash),
-    merkleMapVal,
-    slot0,
-  );
-  const slot1New = Provable.if(
-    playerHash.equals(player2Hash),
-    merkleMapVal,
-    slot1,
-  );
-  this.slot0.set(slot0New);
-  this.slot1.set(slot1New);
+    isFlushReal.assertEquals(isFlush, 'Player did not pass in correct flush value!');
+    lookupVal.assertEquals(merkleMapKey, 'Incorrect hand strenght passed in!');
 
-  // Description of logic within actionMapping - 
-  // transition from 1 to 6 via multiplying by 2 and 3 after each player
-  // shows their cards
-  const streetNew = Provable.if(
-    playerHash.equals(player1Hash),
-    street.mul(this.P1Turn),
-    street.mul(this.P2Turn),
-  );
+    // CHECK 1. confirm the card lookup key and value are valid entries in the merkle map
+    // MerkleMapRootBasic
+    // MerkleMapRootFlush
+    // TEMP - disabling since we don't currently have access to merkle map on front end
+    // const root = Provable.if(
+    //     isFlush,
+    //     this.MerkleMapRootFlush,
+    //     this.MerkleMapRootBasic,
+    // );
+    // const pathValid = path.computeRootAndKey(merkleMapVal);
+    // pathValid[0].assertEquals(root);
+    // pathValid[1].assertEquals(merkleMapKey);
 
-  this.setGamestate(stack1, stack2, turn, streetNew, lastAction, lastBetSize, gameOver, pot);
+    // CHECK 3. re-hash the cards and confirm it matches their stored hash
+    const cardPoint1 = this.cardPrimeToCardPoint(holecard0);
+    const cardPoint2 = this.cardPrimeToCardPoint(holecard1);
+    const cardPoint1F = cardPoint1.toFields()[0]
+    const cardPoint2F = cardPoint2.toFields()[0]
+    const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleKey);
+    cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
+
+    // CHECK 4. check that board cards are the real board cards
+    const boardcardMul = boardcard0.mul(boardcard1).mul(boardcard2).mul(boardcard3).mul(boardcard4);
+    const boardcardMulReal = Field(slot2);
+    boardcardMul.assertEquals(boardcardMulReal);
+    // And check that we have 5 boardcards - should not be divisible by null val
+    const nullBoardcardUint = Field(this.NullBoardcard);
+    const divModRes = UInt32.from(boardcardMulReal).divMod(UInt32.from(nullBoardcardUint));
+    const evenDiv = divModRes.rest.value.equals(Field(0));
+    evenDiv.assertFalse()
+    // boardcardMulReal.divMod(nullBoardcardUint).rest.equals(Field(0)).assertFalse();
+
+    // And now we can store the lookup value in the appropriate slot
+
+    // Assuming we made it past all our checks - 
+    // We are now storing the merkleMapVal, which represents
+    // hand strength in these slots!  Lower is better!
+    const slot0New = Provable.if(
+      playerHash.equals(player1Hash),
+      merkleMapVal,
+      slot0,
+    );
+    const slot1New = Provable.if(
+      playerHash.equals(player2Hash),
+      merkleMapVal,
+      slot1,
+    );
+    this.slot0.set(slot0New);
+    this.slot1.set(slot1New);
+
+    // Description of logic within actionMapping - 
+    // transition from 1 to 6 via multiplying by 2 and 3 after each player
+    // shows their cards
+    const streetNew = Provable.if(
+      playerHash.equals(player1Hash),
+      street.mul(this.P1Turn),
+      street.mul(this.P2Turn),
+    );
+
+    this.street.set(streetNew);
+  }
+
+
+  generateHash(card1: Field, card2: Field, privateKey: PrivateKey): Field {
+    // Apply a double hash to get a single value for both cards
+    // We'll use this to generate the hash for a given card
+    // We'll use the same hash function as the lookup table
+    const pkField = privateKey.toFields()[0];
+    const round1 = Poseidon.hash([pkField, card1]);
+    const round2 = Poseidon.hash([round1, card2]);
+    return round2
+  }
+
+
+  decodeCard(epk: PublicKey, msg: PublicKey, shuffleSecret: PrivateKey): PublicKey {
+    const d1 = PublicKey.fromGroup(epk.toGroup().scale(Scalar.fromFields(shuffleSecret.toFields())));
+    const pubKey = PublicKey.fromGroup(msg.toGroup().sub(d1.toGroup()));
+    return pubKey
+  }
+
+  storeHardcodedCards() {
+    // Just for live testing - store cards directly rather than doing decryption to simplify front end teesting
+    // PrivateKey.empty
+    // const shuffleSecret = PrivateKey.fromFields([Field(1), Field(2), Field(3), Field(4)])
+    const shuffleSecret = PrivateKey.fromBigInt(BigInt(1));
+    // Ah
+    const cardPoint1F = PublicKey.fromBase58("B62qoa5ohnNnFEXfbPshXCzkBkgWSzXk3auy2yS9hyjLma4EkH7xWbs").toFields()[0];
+    // Ad
+    const cardPoint2F = PublicKey.fromBase58("B62qiuLMUJ9xPCYGqAzJY2C8JTwgAFhfgZFTnVRsq3EBksHKAE1G3mX").toFields()[0];
+    // Ks
+    const cardPoint3F = PublicKey.fromBase58("B62qnp98SGKe6dQ2cTMUKJeWGhECfj57vZGS5D5MA9hr5bXFYMo3wDM").toFields()[0];
+    // Ts
+    const cardPoint4F = PublicKey.fromBase58("B62qrdxHXHyuQjDSyYPsWYTEgtZBSEqF5bpTktk5RqSwbdojebLVZLH").toFields()[0];
+
+    const cardHash1 = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
+    const cardHash2 = this.generateHash(cardPoint3F, cardPoint4F, shuffleSecret);
+
+    this.slot0.set(cardHash1);
+    this.slot1.set(cardHash2);
+
+    // We'll store board cards in slot2, initialize with all nul values
+    const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
+    this.slot2.set(noBoardcards);
+  }
+
+
+  @runtimeMethod()
+  public storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey): void {
+    // Used to store a hash of the player's cards
+    // 1. decrypt both cards
+    // 2. double hash the resulting value
+    // 3. and store the hash in a slot
+
+    // For both players their encrypted card will be stored here
+    const slot0 = this.slot0.get().value;
+
+    const msg1F0 = this.slot1.get().value;
+    const msg2F0 = this.slot2.get().value;
+    const msg1F1 = this.slot3.get().value;
+    const msg2F1 = this.slot4.get().value;
+
+    //msg1F.assertEquals(msg1.toFields()[0]);
+    //msg2F.assertEquals(msg2.toFields()[0]);
+    const msg1: PublicKey = PublicKey.fromFields([msg1F0, msg1F1]);
+    const msg2: PublicKey = PublicKey.fromFields([msg2F0, msg2F1]);
+
+    // We are ALWAYS storing the encrypted cards in slots1 and 2
+
+    // Want to decrypt BOTH cards, and multiply them together
+    const cardPoint1 = this.decodeCard(epk1, msg1, shuffleSecret)
+    const cardPoint2 = this.decodeCard(epk2, msg2, shuffleSecret)
+    // This is still a field representation of the card - not the prime52 value!
+    const cardPoint1F = cardPoint1.toFields()[0];
+    const cardPoint2F = cardPoint2.toFields()[0];
+    const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
+
+    const slot0New = Provable.if(
+      slotI.equals(0),
+      cardHash,
+      slot0,
+    );
+
+    const slot1New = Provable.if(
+      slotI.equals(1),
+      cardHash,
+      Field(0),
+    );
+
+    this.slot0.set(slot0New);
+    this.slot1.set(slot1New);
+
+    // We'll store board cards in slot2, initialize with all nul values
+    const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
+    this.slot2.set(noBoardcards);
+  }
+
+  @runtimeMethod()
+  public commitCard(slotI: Field, msg: PublicKey): void {
+    // msg corresponds to the field representation of the msg PublicKey in the mentalpoker Card struct
+
+    // The other player should perform their half of the partialUnmask,
+    // and then commit the results here
+
+    // Players can then decrypt their cards, preserving the secrecy of the
+    // cards and avoiding the need for a trusted dealer
+
+    const [msgF0, msgF1] = msg.toFields()
+
+    const slot1 = this.slot1.get().value;
+    const slot2 = this.slot2.get().value;
+    const slot3 = this.slot3.get().value;
+    const slot4 = this.slot4.get().value;
+    const slot1New = Provable.if(
+      slotI.equals(1),
+      msgF0,
+      slot1,
+    );
+    const slot2New = Provable.if(
+      slotI.equals(2),
+      msgF0,
+      slot2,
+    );
+    // And now store the second value too
+    const slot3New = Provable.if(
+      slotI.equals(1),
+      msgF1,
+      slot3,
+    );
+    const slot4New = Provable.if(
+      slotI.equals(2),
+      msgF1,
+      slot4,
+    );
+    this.slot1.set(slot1New);
+    this.slot2.set(slot2New);
+    this.slot3.set(slot3New);
+    this.slot4.set(slot4New);
+  }
+
 }
-
-generateHash(card1: Field, card2: Field, privateKey: PrivateKey): Field {
-  // Apply a double hash to get a single value for both cards
-  // We'll use this to generate the hash for a given card
-  // We'll use the same hash function as the lookup table
-  const pkField = privateKey.toFields()[0];
-  const round1 = Poseidon.hash([pkField, card1]);
-  const round2 = Poseidon.hash([round1, card2]);
-  return round2
-}
-
-
-decodeCard(epk: PublicKey, msg: PublicKey, shuffleSecret: PrivateKey): PublicKey {
-  const d1 = PublicKey.fromGroup(epk.toGroup().scale(Scalar.fromFields(shuffleSecret.toFields())));
-  const pubKey = PublicKey.fromGroup(msg.toGroup().sub(d1.toGroup()));
-  return pubKey
-}
-
-storeHardcodedCards() {
-  // Just for live testing - store cards directly rather than doing decryption to simplify front end teesting
-  // PrivateKey.empty
-  // const shuffleSecret = PrivateKey.fromFields([Field(1), Field(2), Field(3), Field(4)])
-  const shuffleSecret = PrivateKey.fromBigInt(BigInt(1));
-  // Ah
-  const cardPoint1F = PublicKey.fromBase58("B62qoa5ohnNnFEXfbPshXCzkBkgWSzXk3auy2yS9hyjLma4EkH7xWbs").toFields()[0];
-  // Ad
-  const cardPoint2F = PublicKey.fromBase58("B62qiuLMUJ9xPCYGqAzJY2C8JTwgAFhfgZFTnVRsq3EBksHKAE1G3mX").toFields()[0];
-  // Ks
-  const cardPoint3F = PublicKey.fromBase58("B62qnp98SGKe6dQ2cTMUKJeWGhECfj57vZGS5D5MA9hr5bXFYMo3wDM").toFields()[0];
-  // Ts
-  const cardPoint4F = PublicKey.fromBase58("B62qrdxHXHyuQjDSyYPsWYTEgtZBSEqF5bpTktk5RqSwbdojebLVZLH").toFields()[0];
-
-  const cardHash1 = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
-  const cardHash2 = this.generateHash(cardPoint3F, cardPoint4F, shuffleSecret);
-
-  this.slot0.set(cardHash1);
-  this.slot1.set(cardHash2);
-
-  // We'll store board cards in slot2, initialize with all nul values
-  const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
-  this.slot2.set(noBoardcards);
-}
-
-
-@runtimeMethod()
-public storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey): void {
-  // Used to store a hash of the player's cards
-  // 1. decrypt both cards
-  // 2. double hash the resulting value
-  // 3. and store the hash in a slot
-
-  // For both players their encrypted card will be stored here
-  const slot0 = this.slot0.getAndRequireEquals();
-
-  const msg1F0 = this.slot1.getAndRequireEquals();
-  const msg2F0 = this.slot2.getAndRequireEquals();
-  const msg1F1 = this.slot3.getAndRequireEquals();
-  const msg2F1 = this.slot4.getAndRequireEquals();
-
-  //msg1F.assertEquals(msg1.toFields()[0]);
-  //msg2F.assertEquals(msg2.toFields()[0]);
-  const msg1: PublicKey = PublicKey.fromFields([msg1F0, msg1F1]);
-  const msg2: PublicKey = PublicKey.fromFields([msg2F0, msg2F1]);
-
-  // We are ALWAYS storing the encrypted cards in slots1 and 2
-
-  // Want to decrypt BOTH cards, and multiply them together
-  const cardPoint1 = this.decodeCard(epk1, msg1, shuffleSecret)
-  const cardPoint2 = this.decodeCard(epk2, msg2, shuffleSecret)
-  // This is still a field representation of the card - not the prime52 value!
-  const cardPoint1F = cardPoint1.toFields()[0];
-  const cardPoint2F = cardPoint2.toFields()[0];
-  const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
-
-  const slot0New = Provable.if(
-    slotI.equals(0),
-    cardHash,
-    slot0,
-  );
-
-  const slot1New = Provable.if(
-    slotI.equals(1),
-    cardHash,
-    Field(0),
-  );
-
-  this.slot0.set(slot0New);
-  this.slot1.set(slot1New);
-
-  // We'll store board cards in slot2, initialize with all nul values
-  const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
-  this.slot2.set(noBoardcards);
-}
-
-@runtimeMethod()
-public commitCard(slotI: Field, msg: PublicKey): void {
-  // msg corresponds to the field representation of the msg PublicKey in the mentalpoker Card struct
-
-  // The other player should perform their half of the partialUnmask,
-  // and then commit the results here
-
-  // Players can then decrypt their cards, preserving the secrecy of the
-  // cards and avoiding the need for a trusted dealer
-
-  const [msgF0, msgF1] = msg.toFields()
-
-  const slot1 = this.slot1.getAndRequireEquals();
-  const slot2 = this.slot2.getAndRequireEquals();
-  const slot3 = this.slot3.getAndRequireEquals();
-  const slot4 = this.slot4.getAndRequireEquals();
-  const slot1New = Provable.if(
-    slotI.equals(1),
-    msgF0,
-    slot1,
-  );
-  const slot2New = Provable.if(
-    slotI.equals(2),
-    msgF0,
-    slot2,
-  );
-  // And now store the second value too
-  const slot3New = Provable.if(
-    slotI.equals(1),
-    msgF1,
-    slot3,
-  );
-  const slot4New = Provable.if(
-    slotI.equals(2),
-    msgF1,
-    slot4,
-  );
-  this.slot1.set(slot1New);
-  this.slot2.set(slot2New);
-  this.slot3.set(slot3New);
-  this.slot4.set(slot4New);
-}
-*/
-
-}
-
-
