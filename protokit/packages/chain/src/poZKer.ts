@@ -187,7 +187,8 @@ export class Balances extends BaseBalances<BalancesConfig> {
     // to check if player 2 is initialized to know if game is full
     const player1Hash = this.player1Hash.get();
     const player2Hash = this.player2Hash.get();
-    player2Hash.value.assertEquals(Field(0), "Game is full!");
+    // player2Hash.value.assertEquals(Field(0), "Game is full!");
+    assert(player2Hash.value.equals(Field(0)), "Game is full!");
 
     const pHash = Poseidon.hash(player.toFields());
 
@@ -226,10 +227,12 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const pot: Field = this.pot.get().value;
 
     const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
-    cond0.assertTrue('Player is not part of this game!')
+    // cond0.assertTrue('Player is not part of this game!')
+    assert(cond0, 'Player is not part of this game!');
     const cond1 = playerHash.equals(player1Hash).and(stack1.equals(Field(0)));
     const cond2 = playerHash.equals(player2Hash).and(stack2.equals(Field(0)));
-    cond1.or(cond2).assertTrue('Player can only deposit once!');
+    // cond1.or(cond2).assertTrue('Player can only deposit once!');
+    assert(cond1.or(cond2), 'Player can only deposit once!')
 
     // From https://github.com/o1-labs/o1js/blob/5ca43684e98af3e4f348f7b035a0ad7320d88f3d/src/examples/zkapps/escrow/escrow.ts
     // const payerUpdate = AccountUpdate.createSigned(player);
@@ -274,10 +277,12 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const stack2: Field = this.stack2.get().value;
     const gameOver = this.gameOver.get().value;
     const pot = this.pot.get().value;
-    gameOver.assertTrue('Game is not over!');
+    // gameOver.assertTrue('Game is not over!');
+    assert(gameOver, 'Game is not over!');
 
     // Sanity check - pot should have been awarded by this time...
-    pot.equals(Field(0)).assertTrue("Pot has not been awarded!");
+    // pot.equals(Field(0)).assertTrue("Pot has not been awarded!");
+    assert(pot.equals(Field(0)), "Pot has not been awarded!");
 
     const player1Hash = this.player1Hash.get().value;
     const player2Hash = this.player2Hash.get().value;
@@ -285,7 +290,8 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const player: PublicKey = this.transaction.sender.value;
     const playerHash = Poseidon.hash(player.toFields());
     const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
-    cond0.assertTrue('Player is not part of this game!')
+    // cond0.assertTrue('Player is not part of this game!')
+    assert(cond0, 'Player is not part of this game!');
 
     // We'll have tallied up the players winnings into their stack, 
     // so both players can withdraw whatever is in their stack when hand ends
@@ -364,12 +370,14 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const lastAction = this.lastAction.get().value;
     const pot = this.pot.get().value;
 
-    gameOver.assertFalse('Game has already finished!');
+    // gameOver.assertFalse('Game has already finished!');
+    assert(gameOver.not(), 'Game has already finished!');
 
     // Want these as bools to simplify checks
     const p1turn: Bool = turn.equals(this.P1Turn);
     const p2turn: Bool = turn.equals(this.P2Turn);
-    p1turn.or(p2turn).assertTrue('Invalid game state player');
+    // p1turn.or(p2turn).assertTrue('Invalid game state player');
+    assert(p1turn.or(p2turn), 'Invalid game state player');
 
     const player: PublicKey = this.transaction.sender.value;
 
@@ -378,17 +386,19 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const player2Hash = this.player2Hash.get().value;
     const playerHash = Poseidon.hash(player.toFields());
 
-    playerHash
+    const playerOk: Bool = playerHash
       .equals(player1Hash)
       .and(p1turn)
       .or(playerHash.equals(player2Hash).and(p2turn))
-      .assertTrue('Player is not allowed to make a move');
+    assert(playerOk, 'Player is not allowed to make a move')
+    //.assertTrue('Player is not allowed to make a move');
 
     const isPreflop = street.equals(this.Preflop);
     const isFlop = street.equals(this.Flop)
     const isTurn = street.equals(this.Turn)
     const isRiver = street.equals(this.River)
-    isPreflop.or(isFlop).or(isTurn).or(isRiver).assertTrue('Invalid game state street');
+    //isPreflop.or(isFlop).or(isTurn).or(isRiver).assertTrue('Invalid game state street');
+    assert(isPreflop.or(isFlop).or(isTurn).or(isRiver), 'Invalid game state street');
 
     const facingNull = lastAction.equals(this.Null);
     const facingBet = lastAction.equals(this.Bet);
@@ -397,7 +407,8 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const facingCheck = lastAction.equals(this.Check);
     const facingPreflopCall = lastAction.equals(this.PreflopCall);
     // facingFold is impossible - we'd be in showdown state
-    facingNull.or(facingBet).or(facingCall).or(facingRaise).or(facingCheck).or(facingPreflopCall).assertTrue('Invalid game state action');
+    //facingNull.or(facingBet).or(facingCall).or(facingRaise).or(facingCheck).or(facingPreflopCall).assertTrue('Invalid game state action');
+    assert(facingNull.or(facingBet).or(facingCall).or(facingRaise).or(facingCheck).or(facingPreflopCall), 'Invalid game state action');
 
     // Confirm actions is valid, must be some combination below:
     // actions:
@@ -412,7 +423,8 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const act4 = action.equals(this.Raise).and(facingBet.or(facingRaise).or(facingPreflopCall));
     const act5 = action.equals(this.Check).and(facingNull.or(facingCheck).or(facingPreflopCall));
 
-    act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
+    //act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
+    assert(act1.or(act2).or(act3).or(act4).or(act5), 'Invalid bet!');
 
     // If action is call, we need to determine if it's actually PreflopCall...
     // Can only be true if call and pot contains only blinds, so 3...
@@ -444,13 +456,16 @@ export class Balances extends BaseBalances<BalancesConfig> {
       betSize.equals(Field(0)),
       Bool(true)
     )
-    foldCheckAmountBool.assertTrue("Bad betsize for check or fold!");
+    //foldCheckAmountBool.assertTrue("Bad betsize for check or fold!");
+    assert(foldCheckAmountBool, "Bad betsize for check or fold!");
 
     // Bet - betsize should be gt 1 (or whatever minsize is)
-    Provable.if(actionReal.equals(this.Bet),
+    const actionF: Field = Provable.if(actionReal.equals(this.Bet),
       betSize,
       Field(1),
-    ).assertGreaterThanOrEqual(Field(1), "Invalid bet size!")
+    )  // .assertGreaterThanOrEqual(Field(1), "Invalid bet size!")
+    assert(actionF.greaterThanOrEqual(Field(1)), "Invalid bet size!");
+
 
     // Call - betsize should make stacks equal
     // So we might need to override the other betsize here
@@ -463,19 +478,23 @@ export class Balances extends BaseBalances<BalancesConfig> {
       stack1,
       stack2)
 
-    betSizeReal.assertLessThanOrEqual(compareStack, "Cannot bet more than stack!");
+    // betSizeReal.assertLessThanOrEqual(compareStack, "Cannot bet more than stack!");
+    assert(betSizeReal.lessThanOrEqual(compareStack), "Cannot bet more than stack!");
     const allin: Bool = betSizeReal.equals(compareStack);
 
-    Provable.if(actionReal.equals(this.Raise),
+    const raiseOk: Bool = Provable.if(actionReal.equals(this.Raise),
       betSize.greaterThanOrEqual(stackDiff.mul(2)).or(allin),
       Bool(true),
-    ).assertTrue("Invalid raise amount!");
+    )
+    //.assertTrue("Invalid raise amount!");
+    assert(raiseOk, "Invalid raise amount!");
 
 
     // Make sure the player has enough funds to take the action
     const case1 = playerHash.equals(player1Hash).and(betSizeReal.lessThanOrEqual(stack1));
     const case2 = playerHash.equals(player2Hash).and(betSizeReal.lessThanOrEqual(stack2));
-    case1.or(case2).assertTrue("Not enough balance for bet!");
+    // case1.or(case2).assertTrue("Not enough balance for bet!");
+    assert(case1.or(case2), "Not enough balance for bet!");
 
 
     // const stack1New = this.uint_subtraction(playerHash.equals(player1Hash),
@@ -586,7 +605,9 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const pot: Field = this.pot.get().value;
     const street: Field = this.street.get().value;
 
-    street.equals(this.ShowdownComplete).assertTrue("Invalid showdown gamestate!");
+    //street.equals(this.ShowdownComplete).assertTrue("Invalid showdown gamestate!");
+    assert(street.equals(this.ShowdownComplete), "Invalid showdown gamestate!");
+
     // This is no longer true if players can start with different stacks!
     // Sanity check - if it's a showdown both stacks must be equal
     // stack1.equals(stack2).assertTrue("Invalid showdown gamestate!");
@@ -965,7 +986,8 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const player1Hash = this.player1Hash.get().value;
     const player2Hash = this.player2Hash.get().value;
     const playerHash = Poseidon.hash(player.toFields());
-    playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)).assertTrue('Player is not part of this game!');
+    // playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)).assertTrue('Player is not part of this game!');
+    assert(playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)), 'Player is not part of this game!');
 
     const holecardsHash = Provable.if(
       playerHash.equals(player1Hash),
@@ -1005,8 +1027,10 @@ export class Balances extends BaseBalances<BalancesConfig> {
       useBoardcards3,
       useBoardcards4)
 
-    isFlushReal.assertEquals(isFlush, 'Player did not pass in correct flush value!');
-    lookupVal.assertEquals(merkleMapKey, 'Incorrect hand strenght passed in!');
+    //isFlushReal.assertEquals(isFlush, 'Player did not pass in correct flush value!');
+    assert(isFlushReal.equals(isFlush), 'Player did not pass in correct flush value!');
+    //lookupVal.assertEquals(merkleMapKey, 'Incorrect hand strenght passed in!');
+    assert(lookupVal.equals(merkleMapKey), 'Incorrect hand strenght passed in!');
 
     // CHECK 1. confirm the card lookup key and value are valid entries in the merkle map
     // MerkleMapRootBasic
@@ -1027,17 +1051,20 @@ export class Balances extends BaseBalances<BalancesConfig> {
     const cardPoint1F = cardPoint1.toFields()[0]
     const cardPoint2F = cardPoint2.toFields()[0]
     const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleKey);
-    cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
+    //cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
+    assert(cardHash.equals(holecardsHash), 'Player did not pass in their real cards!');
 
     // CHECK 4. check that board cards are the real board cards
     const boardcardMul = boardcard0.mul(boardcard1).mul(boardcard2).mul(boardcard3).mul(boardcard4);
     const boardcardMulReal = Field(slot2);
-    boardcardMul.assertEquals(boardcardMulReal);
+    // boardcardMul.assertEquals(boardcardMulReal);
+    assert(boardcardMul.equals(boardcardMulReal), "Bad board cards passed in!");
     // And check that we have 5 boardcards - should not be divisible by null val
     const nullBoardcardUint = Field(this.NullBoardcard);
     const divModRes = UInt32.from(boardcardMulReal).divMod(UInt32.from(nullBoardcardUint));
     const evenDiv = divModRes.rest.value.equals(Field(0));
-    evenDiv.assertFalse()
+    // evenDiv.assertFalse()
+    assert(evenDiv.not(), "Should have five board cards!");
     // boardcardMulReal.divMod(nullBoardcardUint).rest.equals(Field(0)).assertFalse();
 
     // And now we can store the lookup value in the appropriate slot
