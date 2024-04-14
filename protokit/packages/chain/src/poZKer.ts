@@ -83,8 +83,6 @@ export const cardMapping52 = {
   "": 241,
 }
 
-// export class PoZKerApp extends SmartContract {
-
 @runtimeModule()
 export class PoZKerApp extends RuntimeModule<unknown> {
 
@@ -198,6 +196,12 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     );
     this.player1Hash.set(p1Hash);
     this.player2Hash.set(p2Hash);
+
+    // Init function isn't called so we need to initialize gamestate here
+    this.turn.set(this.P1Turn);
+    this.street.set(this.Preflop);
+    this.lastAction.set(this.Bet);
+    this.gameOver.set(Bool(false));
   }
 
   @runtimeMethod()
