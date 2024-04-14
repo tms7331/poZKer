@@ -1,8 +1,8 @@
 import { TestingAppChain } from "@proto-kit/sdk";
 import { PrivateKey, Field, Poseidon, PublicKey } from "o1js";
-import { Balances } from "../src/poZKer";
+import { PoZKerApp } from "../src/poZKer";
 import { log } from "@proto-kit/common";
-import { BalancesKey, TokenId, UInt64 } from "@proto-kit/library";
+import { UInt64 } from "@proto-kit/library";
 
 log.setLevel("ERROR");
 
@@ -10,10 +10,11 @@ describe("poZKer", () => {
 
   async function localDeploy() {
     const appChain = TestingAppChain.fromRuntime({
-      Balances,
+      PoZKerApp,
     });
     appChain.configurePartial({
       Runtime: {
+        PoZKerApp: {},
         Balances: {
           totalSupply: UInt64.from(10000),
         },
@@ -23,13 +24,13 @@ describe("poZKer", () => {
     return appChain;
   }
 
-  async function setPlayer(appChain: any, balances: Balances, playerPrivKey: PrivateKey, playerPubKey: PublicKey) {
+  async function setPlayer(appChain: any, pa: PoZKerApp, playerPrivKey: PrivateKey, playerPubKey: PublicKey) {
     // Join game with two players
 
     // First player joining
     appChain.setSigner(playerPrivKey);
     const tx1 = await appChain.transaction(playerPubKey, () => {
-      balances.joinGame(playerPubKey)
+      pa.joinGame(playerPubKey)
     });
     await tx1.sign();
     await tx1.send();
@@ -51,18 +52,18 @@ describe("poZKer", () => {
 
     appChain.setSigner(alicePrivateKey);
 
-    const balances = appChain.runtime.resolve("Balances");
+    const pkr = appChain.runtime.resolve("PoZKerApp");
 
     // First player joining
     const tx1 = await appChain.transaction(alice, () => {
-      balances.joinGame(alice)
+      pkr.joinGame(alice)
     });
     await tx1.sign();
     await tx1.send();
     const block = await appChain.produceBlock();
 
-    const player1Hash = await appChain.query.runtime.Balances.player1Hash.get();
-    const player2Hash = await appChain.query.runtime.Balances.player2Hash.get();
+    const player1Hash = await appChain.query.runtime.PoZKerApp.player1Hash.get();
+    const player2Hash = await appChain.query.runtime.PoZKerApp.player2Hash.get();
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
     expect(player1Hash).toEqual(aliceHash);
     expect(player2Hash).toEqual(Field(0));
@@ -71,14 +72,14 @@ describe("poZKer", () => {
     // Second player joining
     appChain.setSigner(bobPrivateKey);
     const tx2 = await appChain.transaction(bob, () => {
-      balances.joinGame(bob)
+      pkr.joinGame(bob)
     });
     await tx2.sign();
     await tx2.send();
     const block2 = await appChain.produceBlock();
 
-    const player1HashB = await appChain.query.runtime.Balances.player1Hash.get();
-    const player2HashB = await appChain.query.runtime.Balances.player2Hash.get();
+    const player1HashB = await appChain.query.runtime.PoZKerApp.player1Hash.get();
+    const player2HashB = await appChain.query.runtime.PoZKerApp.player2Hash.get();
     expect(block2?.transactions[0].status.toBoolean()).toBe(true);
     expect(player1HashB).toEqual(aliceHash);
     expect(player2HashB).toEqual(bobHash);
@@ -93,17 +94,17 @@ describe("poZKer", () => {
     const alice = alicePrivateKey.toPublicKey();
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
-    const balances = appChain.runtime.resolve("Balances");
+    const pkr = appChain.runtime.resolve("PoZKerApp");
 
-    await setPlayer(appChain, balances, alicePrivateKey, alice);
-    await setPlayer(appChain, balances, bobPrivateKey, bob);
+    await setPlayer(appChain, pkr, alicePrivateKey, alice);
+    await setPlayer(appChain, pkr, bobPrivateKey, bob);
 
     const depositAmount1: Field = Field(100);
     const depositAmount2: Field = Field(120);
 
     appChain.setSigner(alicePrivateKey);
     const tx1 = await appChain.transaction(alice, () => {
-      balances.deposit(depositAmount1)
+      pkr.deposit(depositAmount1)
     });
     await tx1.sign();
     await tx1.send();
@@ -111,14 +112,14 @@ describe("poZKer", () => {
 
     appChain.setSigner(bobPrivateKey);
     const tx2 = await appChain.transaction(bob, () => {
-      balances.deposit(depositAmount2)
+      pkr.deposit(depositAmount2)
     });
     await tx2.sign();
     await tx2.send();
     const block2 = await appChain.produceBlock();
 
-    const stack1 = await appChain.query.runtime.Balances.stack1.get();
-    const stack2 = await appChain.query.runtime.Balances.stack2.get();
+    const stack1 = await appChain.query.runtime.PoZKerApp.stack1.get();
+    const stack2 = await appChain.query.runtime.PoZKerApp.stack2.get();
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
     expect(block2?.transactions[0].status.toBoolean()).toBe(true);
     // For actual stacks we'll have to subtract the blinds (1/2)

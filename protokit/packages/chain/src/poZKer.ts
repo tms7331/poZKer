@@ -1,14 +1,7 @@
 import { RuntimeModule, runtimeModule, state, runtimeMethod } from "@proto-kit/module";
 import { State, assert, StateMap, Option } from "@proto-kit/protocol";
-import { UInt32, Balance, Balances as BaseBalances, TokenId } from "@proto-kit/library";
-// import { Field, SmartContract, state, State, method, PublicKey, PrivateKey, Bool, Provable, UInt32, AccountUpdate, Poseidon, MerkleMapWitness, } from 'o1js';
-import { PublicKey, PrivateKey, Poseidon, Struct, Field, Bool, Provable, MerkleMapWitness, Scalar } from "o1js";
-
-// So convert this to hte other one...
-interface BalancesConfig {
-  totalSupply: Balance;
-}
-
+import { UInt32 } from "@proto-kit/library";
+import { PublicKey, PrivateKey, Poseidon, Field, Bool, Provable, MerkleMapWitness, Scalar } from "o1js";
 
 // Want a mapping for cards, each represented as a prime so we can multiply
 // them together and get a unique value
@@ -27,7 +20,6 @@ export const cardMapping13 = {
   "K": 37,
   "A": 41,
 }
-
 
 // Need mapping of full cards to properly track board cards - 
 // We need to store suit and rank
@@ -94,7 +86,7 @@ export const cardMapping52 = {
 // export class PoZKerApp extends SmartContract {
 
 @runtimeModule()
-export class Balances extends BaseBalances<BalancesConfig> {
+export class PoZKerApp extends RuntimeModule<unknown> {
 
   // we need P1Turn*P2Turn*ShowdownPending = ShowdownComplete
   P1Turn = Field(2);
