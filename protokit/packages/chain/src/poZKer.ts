@@ -119,6 +119,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
   @state() public player1Hash = State.from<Field>(Field);
   @state() public player2Hash = State.from<Field>(Field);
+  @state() public player1Key = State.from<PublicKey>(PublicKey);
+  @state() public player2Key = State.from<PublicKey>(PublicKey);
 
   // Free memory slots for storing data
   @state() public slot0 = State.from<Field>(Field);
@@ -155,6 +157,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Initialize with 0s so we can tell when two players have joined
     this.player1Hash.set(Field(0));
     this.player2Hash.set(Field(0));
+    this.player1Key.set(PublicKey.empty());
+    this.player2Key.set(PublicKey.empty());
 
     // Temp - just want to use this to experiment with pulling data
     this.slot4.set(Field(42));
@@ -170,16 +174,16 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.slot2.set(Field(239414220863))
   }
 
-
   @runtimeMethod()
   public joinGame(player: PublicKey): void {
     // Because we'll add player1 and then player 2, we only need
     // to check if player 2 is initialized to know if game is full
     const player1Hash = this.player1Hash.get();
     const player2Hash = this.player2Hash.get();
-    // player2Hash.value.assertEquals(Field(0), "Game is full!");
+    player2Hash.value.assertEquals(Field(0), "Game is full!");
     assert(player2Hash.value.equals(Field(0)), "Game is full!");
 
+    // /*
     const pHash = Poseidon.hash(player.toFields());
 
     // If p1 is uninitialized: p1 = pHash, p2 = Field(0)
@@ -196,6 +200,24 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     );
     this.player1Hash.set(p1Hash);
     this.player2Hash.set(p2Hash);
+    // */
+
+    // TODO - switch over so we exclusively rely on this logic
+    const player1Key = this.player1Key.get();
+    const player2Key = this.player2Key.get();
+    assert(player2Key.value.equals(PublicKey.empty()), "Game is full!");
+    const p1Key = Provable.if(
+      player1Key.value.equals(PublicKey.empty()),
+      player,
+      player1Key.value
+    );
+    const p2Key: PublicKey = Provable.if(
+      player1Key.value.equals(PublicKey.empty()),
+      PublicKey.empty(),
+      player
+    );
+    this.player1Key.set(p1Key);
+    this.player2Key.set(p2Key);
 
     // Init function isn't called so we need to initialize gamestate here
     this.turn.set(this.P1Turn);
@@ -263,7 +285,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.lastBetSize.set(newLastBetSize);
     this.pot.set(potNew);
   }
-
 
   @runtimeMethod()
   public withdraw(): void {
