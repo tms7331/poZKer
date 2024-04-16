@@ -404,4 +404,98 @@ describe("poZKer", () => {
     expect(lastAction).toEqual(pkr.Null);
   });
 
+
+  it('prevents players from betting more than their stack', async () => {
+    const appChain = await localDeploy();
+    const alicePrivateKey = PrivateKey.random();
+    const bobPrivateKey = PrivateKey.random();
+    const alice = alicePrivateKey.toPublicKey();
+    const bob = bobPrivateKey.toPublicKey();
+    appChain.setSigner(alicePrivateKey);
+    const pkr = appChain.runtime.resolve("PoZKerApp");
+    await setPlayer(appChain, pkr, alicePrivateKey, alice);
+    await setPlayer(appChain, pkr, bobPrivateKey, bob);
+    await deposit(appChain, pkr, alicePrivateKey, alice);
+    await deposit(appChain, pkr, bobPrivateKey, bob);
+
+    // Raising to 100 should fail
+    appChain.setSigner(alicePrivateKey);
+    const txnFail = await appChain.transaction(alice, () => {
+      pkr.takeAction(pkr.Raise, Field(100))
+    });
+    await txnFail.sign();
+    await txnFail.send();
+    const blockFail = await appChain.produceBlock();
+    expect(blockFail?.transactions[0].status.toBoolean()).toBe(false);
+    expect(blockFail?.transactions[0].statusMessage).toBe('Cannot bet more than stack!');
+
+    // But raising to 99 should work!
+    const txn = await appChain.transaction(alice, () => {
+      pkr.takeAction(pkr.Raise, Field(99))
+    });
+    await txn.sign();
+    await txn.send();
+    const block = await appChain.produceBlock();
+    expect(block?.transactions[0].status.toBoolean()).toBe(true);
+  })
+
+  it('allows players to raise all-in if they have less than a normal raise amount', async () => {
+    const appChain = await localDeploy();
+    const alicePrivateKey = PrivateKey.random();
+    const bobPrivateKey = PrivateKey.random();
+    const alice = alicePrivateKey.toPublicKey();
+    const bob = bobPrivateKey.toPublicKey();
+    appChain.setSigner(alicePrivateKey);
+    const pkr = appChain.runtime.resolve("PoZKerApp");
+    await setPlayer(appChain, pkr, alicePrivateKey, alice);
+    await setPlayer(appChain, pkr, bobPrivateKey, bob);
+    await deposit(appChain, pkr, alicePrivateKey, alice);
+    await deposit(appChain, pkr, bobPrivateKey, bob);
+
+    // Raise to 90 and then p2's raise will be less than 2x
+    appChain.setSigner(alicePrivateKey);
+    const txn = await appChain.transaction(alice, () => {
+      pkr.takeAction(pkr.Raise, Field(90))
+    });
+    await txn.sign();
+    await txn.send();
+    const block = await appChain.produceBlock();
+    expect(block?.transactions[0].status.toBoolean()).toBe(true);
+
+    // P2 raising to 99, all-in except 1, should not work
+    appChain.setSigner(bobPrivateKey);
+    const txnFail = await appChain.transaction(bob, () => {
+      pkr.takeAction(pkr.Raise, Field(97))
+    });
+    await txnFail.sign();
+    await txnFail.send();
+    const blockFail = await appChain.produceBlock();
+    expect(blockFail?.transactions[0].status.toBoolean()).toBe(false);
+    expect(blockFail?.transactions[0].statusMessage).toBe('Invalid raise amount!');
+
+
+    // But raising all-in should work
+    const txn2 = await appChain.transaction(bob, () => {
+      pkr.takeAction(pkr.Raise, Field(98))
+    });
+    await txn2.sign();
+    await txn2.send();
+    const block2 = await appChain.produceBlock();
+    expect(block2?.transactions[0].status.toBoolean()).toBe(true);
+
+
+    // And if player 1 calls, we should have 'showdown' state
+    appChain.setSigner(alicePrivateKey);
+    const txn3 = await appChain.transaction(alice, () => {
+      pkr.takeAction(pkr.Call, Field(0))
+    });
+    await txn3.sign();
+    await txn3.send();
+    const block3 = await appChain.produceBlock();
+    expect(block3?.transactions[0].status.toBoolean()).toBe(true);
+
+    const street = await appChain.query.runtime.PoZKerApp.street.get();
+    expect(street).toEqual(pkr.ShowdownPending);
+  })
+
 });
