@@ -1,6 +1,6 @@
 import { TestingAppChain } from "@proto-kit/sdk";
-import { PrivateKey, Field, Poseidon, PublicKey } from "o1js";
-import { PoZKerApp } from "../src/poZKer";
+import { PrivateKey, Field, Poseidon, PublicKey, MerkleMapWitness } from "o1js";
+import { PoZKerApp, cardMapping52 } from "../src/poZKer";
 import { log } from "@proto-kit/common";
 import { UInt64 } from "@proto-kit/library";
 
@@ -496,6 +496,106 @@ describe("poZKer", () => {
 
     const street = await appChain.query.runtime.PoZKerApp.street.get();
     expect(street).toEqual(pkr.ShowdownPending);
+  })
+
+
+  it('fails on bets of 0', async () => {
+    // Just ensure our helper functions for joining+depositing work
+    const appChain = await localDeploy();
+    const alicePrivateKey = PrivateKey.random();
+    const bobPrivateKey = PrivateKey.random();
+    const alice = alicePrivateKey.toPublicKey();
+    const bob = bobPrivateKey.toPublicKey();
+    appChain.setSigner(alicePrivateKey);
+    const pkr = appChain.runtime.resolve("PoZKerApp");
+    await setPlayer(appChain, pkr, alicePrivateKey, alice);
+    await setPlayer(appChain, pkr, bobPrivateKey, bob);
+    await deposit(appChain, pkr, alicePrivateKey, alice);
+    await deposit(appChain, pkr, bobPrivateKey, bob);
+
+    // Start with a call and check
+
+    appChain.setSigner(alicePrivateKey);
+
+    const txn1 = await appChain.transaction(alice, () => {
+      pkr.takeAction(pkr.Call, Field(0))
+    });
+    await txn1.sign();
+    await txn1.send();
+    const block1 = await appChain.produceBlock();
+    expect(block1?.transactions[0].status.toBoolean()).toBe(true);
+
+    appChain.setSigner(bobPrivateKey);
+    const txn2 = await appChain.transaction(bob, () => {
+      pkr.takeAction(pkr.Check, Field(0))
+    });
+    await txn2.sign();
+    await txn2.send();
+    const block2 = await appChain.produceBlock();
+    expect(block2?.transactions[0].status.toBoolean()).toBe(true);
+
+    // Betting 0 should fail
+    appChain.setSigner(alicePrivateKey);
+    const txnFail = await appChain.transaction(alice, () => {
+      pkr.takeAction(pkr.Bet, Field(0))
+    });
+    await txnFail.sign();
+    await txnFail.send();
+    const blockFail = await appChain.produceBlock();
+    expect(blockFail?.transactions[0].status.toBoolean()).toBe(false);
+    expect(blockFail?.transactions[0].statusMessage).toBe('Invalid bet size!');
+  })
+
+
+  it('prevents transition to gameover before showdown is complete', async () => {
+    const appChain = await localDeploy();
+    const alicePrivateKey = PrivateKey.random();
+    const bobPrivateKey = PrivateKey.random();
+    const alice = alicePrivateKey.toPublicKey();
+    const bob = bobPrivateKey.toPublicKey();
+    appChain.setSigner(alicePrivateKey);
+    const pkr = appChain.runtime.resolve("PoZKerApp");
+    await setPlayer(appChain, pkr, alicePrivateKey, alice);
+    await setPlayer(appChain, pkr, bobPrivateKey, bob);
+    await deposit(appChain, pkr, alicePrivateKey, alice);
+    await deposit(appChain, pkr, bobPrivateKey, bob);
+
+    // Just immediately go all-in to finish betting
+    appChain.setSigner(alicePrivateKey);
+    const txn1 = await appChain.transaction(alice, () => {
+      pkr.takeAction(pkr.Raise, Field(99))
+    });
+    await txn1.sign();
+    await txn1.send();
+    const block = await appChain.produceBlock();
+    expect(block?.transactions[0].status.toBoolean()).toBe(true);
+
+    appChain.setSigner(bobPrivateKey);
+    const txn2 = await appChain.transaction(bob, () => {
+      pkr.takeAction(pkr.Call, Field(0))
+    });
+    await txn2.sign();
+    await txn2.send();
+    const block2 = await appChain.produceBlock();
+    expect(block2?.transactions[0].status.toBoolean()).toBe(true);
+
+    const street = await appChain.query.runtime.PoZKerApp.street.get();
+    expect(street).toEqual(pkr.ShowdownPending);
+
+    // TODO - this test actually seemed like it was set to pass before?  Not understanding
+
+    // We should NOT be able to call 'showdown' method yet - 
+    // 1. Need other board cards
+    // 2. Both players need to show hands
+    const txnFail = await appChain.transaction(bob, () => {
+      pkr.showdown()
+    });
+    await txnFail.sign();
+    await txnFail.send();
+    const blockFail = await appChain.produceBlock();
+    expect(blockFail?.transactions[0].status.toBoolean()).toBe(false);
+    expect(blockFail?.transactions[0].statusMessage).toBe('Invalid showdown gamestate!');
+
   })
 
 });
