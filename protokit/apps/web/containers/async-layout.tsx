@@ -1,6 +1,7 @@
 import Header from "@/components/header";
 import { Toaster } from "@/components/ui/toaster";
-import { useBalancesStore, useObserveBalance } from "@/lib/stores/balances";
+// import { useBalancesStore, useObserveBalance } from "@/lib/stores/balances";
+import { useBalancesStore, useObserveBalance } from "@/lib/stores/poZKer";
 import { useChainStore, usePollBlockHeight } from "@/lib/stores/chain";
 import { useClientStore } from "@/lib/stores/client";
 import { useNotifyTransactions, useWalletStore } from "@/lib/stores/wallet";
