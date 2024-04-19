@@ -8,18 +8,14 @@ import { useCallback, useEffect } from "react";
 import { useChainStore } from "./chain";
 import { useWalletStore } from "./wallet";
 
-export interface BalancesState {
+export interface PoZKerState {
   loading: boolean;
-  balances: {
-    // address - balance
-    [key: string]: string;
-  };
   player1Key: string;
   player2Key: string;
   stack1: string;
   stack2: string;
-  loadBalance: (client: Client, address: string) => Promise<void>;
-  faucet: (client: Client, address: string) => Promise<PendingTransaction>;
+  loadState: (client: Client, address: string) => Promise<void>;
+  joinGame: (client: Client, address: string) => Promise<PendingTransaction>;
   deposit: (client: Client, address: string, depositAmount: number) => Promise<PendingTransaction>;
 }
 
@@ -30,19 +26,18 @@ function isPendingTransaction(
     throw new Error("Transaction is not a PendingTransaction");
 }
 
-export const useBalancesStore = create<
-  BalancesState,
+export const usePoZKerStore = create<
+  PoZKerState,
   [["zustand/immer", never]]
 >(
   immer((set) => ({
     loading: Boolean(false),
-    balances: {},
     player1Key: "0",
     player2Key: "0",
     stack1: "0",
     stack2: "0",
 
-    async loadBalance(client: Client, address: string) {
+    async loadState(client: Client, address: string) {
       set((state) => {
         state.loading = true;
       });
@@ -69,12 +64,11 @@ export const useBalancesStore = create<
         state.player2Key = player2Key_ ?? "0";
         state.stack1 = stack1?.toString() ?? "0";
         state.stack2 = stack2?.toString() ?? "0";
-        // state.balances[address] = player1Hash?.toString() ?? "0";
         state.loading = false;
       });
     },
 
-    async faucet(client: Client, address: string) {
+    async joinGame(client: Client, address: string) {
       const pkr = client.runtime.resolve("PoZKerApp");
       const sender = PublicKey.fromBase58(address);
       console.log("Fauced called pozker...");
@@ -108,28 +102,28 @@ export const useBalancesStore = create<
   })),
 );
 
-export const useObserveBalance = () => {
+export const useObservePoZKer = () => {
   const client = useClientStore();
   const chain = useChainStore();
   const wallet = useWalletStore();
-  const balances = useBalancesStore();
+  const pkrState = usePoZKerStore();
 
   useEffect(() => {
     if (!client.client || !wallet.wallet) return;
 
-    balances.loadBalance(client.client, wallet.wallet);
+    pkrState.loadState(client.client, wallet.wallet);
   }, [client.client, chain.block?.height, wallet.wallet]);
 };
 
-export const useFaucet = () => {
+export const useJoinGame = () => {
   const client = useClientStore();
-  const pkrStore = useBalancesStore();
+  const pkrState = usePoZKerStore();
   const wallet = useWalletStore();
 
   return useCallback(async () => {
     if (!client.client || !wallet.wallet) return;
 
-    const pendingTransaction = await pkrStore.faucet(
+    const pendingTransaction = await pkrState.joinGame(
       client.client,
       wallet.wallet,
     );
@@ -140,13 +134,13 @@ export const useFaucet = () => {
 
 export const useDeposit = () => {
   const client = useClientStore();
-  const pkrStore = useBalancesStore();
+  const pkrState = usePoZKerStore();
   const wallet = useWalletStore();
 
   return useCallback(async (depositAmount: number) => {
     if (!client.client || !wallet.wallet) return;
 
-    const pendingTransaction = await pkrStore.deposit(
+    const pendingTransaction = await pkrState.deposit(
       client.client,
       wallet.wallet,
       depositAmount,

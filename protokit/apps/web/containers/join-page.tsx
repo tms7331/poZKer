@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button"
 import { Field, PublicKey } from 'o1js';
-import { useFaucet, useBalancesStore, useDeposit, useObserveBalance } from "@/lib/stores/poZKer";
+import { useJoinGame, useDeposit, usePoZKerStore, useObservePoZKer } from "@/lib/stores/poZKer";
 
 export default function Home() {
 
@@ -10,25 +10,24 @@ export default function Home() {
     const [isLoading, setIsLoading] = useState(false);
 
     // either one of these alone triggers it...
-    const drip = useFaucet();
+    const joinGame = useJoinGame();
     const deposit = useDeposit();
-    const balances = useBalancesStore();
+    const pkrState = usePoZKerStore();
 
     useEffect(() => {
         console.log("Updating num players...")
 
         // Hashes will be overwritten when we have players, so track it here
-        if (balances.player1Key === '0') {
+        if (pkrState.player1Key === '0') {
             setNumPlayers(0);
         }
-        else if (balances.player2Key === '0') {
+        else if (pkrState.player2Key === '0') {
             setNumPlayers(1);
         }
         else {
             setNumPlayers(2);
         }
-    }, [balances.player1Key, balances.player2Key]);
-
+    }, [pkrState.player1Key, pkrState.player2Key]);
 
     const handleClick = async () => {
         setIsLoading(true);
@@ -49,10 +48,10 @@ export default function Home() {
                 <div className="container px-4 md:px-6">
                     <div className="grid gap-4">
 
-                        <p>P1Hash: {balances.player1Key}</p>
-                        <p>P2Hash: {balances.player2Key}</p>
-                        <p>Stack1: {balances.stack1}</p>
-                        <p>Stack2: {balances.stack2}</p>
+                        <p>P1Hash: {pkrState.player1Key}</p>
+                        <p>P2Hash: {pkrState.player2Key}</p>
+                        <p>Stack1: {pkrState.stack1}</p>
+                        <p>Stack2: {pkrState.stack2}</p>
 
                         <button onClick={handleClick} disabled={isLoading}>
                             {isLoading ? 'Loading...' : 'Click me'}
@@ -72,7 +71,7 @@ export default function Home() {
                             <div className="flex items-center justify-between p-4">
                                 <div className="text-sm font-medium">Game01</div>
                                 <div className="text-sm font-medium">{numPlayers} / 2</div>
-                                <div className="text-sm font-medium"><Button variant="secondary" onClick={() => drip()}>Join Game</Button></div>
+                                <div className="text-sm font-medium"><Button variant="secondary" onClick={() => joinGame()}>Join Game</Button></div>
                                 <div className="text-sm font-medium"><Button variant="secondary" onClick={() => deposit(100)}>Deposit</Button></div>
 
                             </div>
