@@ -2,8 +2,8 @@ import { create } from "zustand";
 import { Client, useClientStore } from "./client";
 import { immer } from "zustand/middleware/immer";
 import { PendingTransaction, UnsignedTransaction } from "@proto-kit/sequencer";
-import { BalancesKey, TokenId } from "@proto-kit/library";
-import { PublicKey, UInt64 } from "o1js";
+import { BalancesKey, TokenId, UInt64 } from "@proto-kit/library";
+import { PublicKey } from "o1js";
 import { useCallback, useEffect } from "react";
 import { useChainStore } from "./chain";
 import { useWalletStore } from "./wallet";
@@ -42,6 +42,8 @@ export const useBalancesStore = create<
       const key = BalancesKey.from(tokenId, PublicKey.fromBase58(address));
 
       const balance = await client.query.runtime.Balances.balances.get(key);
+      console.log("Called to get balance (regular)...");
+      console.log(balance);
 
       set((state) => {
         state.loading = false;
@@ -51,6 +53,8 @@ export const useBalancesStore = create<
     async faucet(client: Client, address: string) {
       const balances = client.runtime.resolve("Balances");
       const sender = PublicKey.fromBase58(address);
+
+      console.log("Fauced called regular...");
 
       const tx = await client.transaction(sender, () => {
         balances.addBalance(tokenId, sender, UInt64.from(1000));

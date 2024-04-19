@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import protokit from "@/public/protokit-zinc.svg";
 import Image from "next/image";
+import Link from "next/link"
 // @ts-ignore
 import truncateMiddle from "truncate-middle";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,13 +28,27 @@ export default function Header({
   return (
     <div className="flex items-center justify-between border-b p-2 shadow-sm">
       <div className="container flex">
+
         <div className="flex basis-6/12 items-center justify-start">
           <Image className="h-8 w-8" src={protokit} alt={"Protokit logo"} />
           <Separator className="mx-4 h-8" orientation={"vertical"} />
           <div className="flex grow">
             <Chain height={blockHeight} />
           </div>
+
+          <Link className="text-sm font-medium hover:underline underline-offset-4" href="join">
+            Join
+          </Link>
+
+          <Link className="text-sm font-medium hover:underline underline-offset-4" href="play">
+            Play
+          </Link>
+
+          <Link className="text-sm font-medium hover:underline underline-offset-4" href="gettokens">
+            Get Tokens
+          </Link>
         </div>
+
         <div className="flex basis-6/12 flex-row items-center justify-end">
           {/* balance */}
           {wallet && (
