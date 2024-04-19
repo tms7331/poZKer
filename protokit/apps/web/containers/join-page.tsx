@@ -1,24 +1,33 @@
 "use client";
-import { useState } from 'react';
-import Link from "next/link"
+import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button"
 import { Field, PublicKey } from 'o1js';
-import { Faucet } from "@/components/faucet";
 import { useFaucet, useBalancesStore, useDeposit, useObserveBalance } from "@/lib/stores/poZKer";
-import { useWalletStore } from "@/lib/stores/wallet";
 
 export default function Home() {
 
     const [numPlayers, setNumPlayers] = useState<number>(0);
-
-    // either one of these alone triggers it...
-    const wallet = useWalletStore();
-    const drip = useFaucet();
-    const deposit = useDeposit();
-
     const [isLoading, setIsLoading] = useState(false);
 
+    // either one of these alone triggers it...
+    const drip = useFaucet();
+    const deposit = useDeposit();
     const balances = useBalancesStore();
+
+    useEffect(() => {
+        console.log("Updating num players...")
+
+        // Hashes will be overwritten when we have players, so track it here
+        if (balances.player1Key === '0') {
+            setNumPlayers(0);
+        }
+        else if (balances.player2Key === '0') {
+            setNumPlayers(1);
+        }
+        else {
+            setNumPlayers(2);
+        }
+    }, [balances.player1Key, balances.player2Key]);
 
 
     const handleClick = async () => {

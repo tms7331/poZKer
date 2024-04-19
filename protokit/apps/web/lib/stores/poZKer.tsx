@@ -50,22 +50,27 @@ export const useBalancesStore = create<
       console.log("Calleed useBalanceStore loadBalance...");
       const player1Key = await client.query.runtime.PoZKerApp.player1Key.get();
       console.log("MADE player1Hash CALL AND GOT");
-      console.log(player1Key);
+      console.log(player1Key?.toBase58());
       const player2Key = await client.query.runtime.PoZKerApp.player2Key.get();
-      console.log("MADE player1Hash CALL AND GOT");
-      console.log(player2Key);
+      console.log("MADE player2Hash CALL AND GOT");
+      console.log(player2Key?.toBase58());
+      console.log("empty key?", PublicKey.empty().toBase58());
       const stack1 = await client.query.runtime.PoZKerApp.stack1.get();
       const stack2 = await client.query.runtime.PoZKerApp.stack2.get();
 
-
+      // So if key is null OR equalty to empty public key, display 0...
+      const p1Empty = player1Key?.toBase58() === PublicKey.empty().toBase58();
+      const p2Empty = player2Key?.toBase58() === PublicKey.empty().toBase58();
+      const player1Key_ = p1Empty ? "0" : player1Key?.toBase58();
+      const player2Key_ = p2Empty ? "0" : player2Key?.toBase58();
 
       set((state) => {
-        state.loading = false;
-        state.player1Key = player1Key?.toString() ?? "0";
-        state.player2Key = player2Key?.toString() ?? "0";
+        state.player1Key = player1Key_ ?? "0";
+        state.player2Key = player2Key_ ?? "0";
         state.stack1 = stack1?.toString() ?? "0";
         state.stack2 = stack2?.toString() ?? "0";
         // state.balances[address] = player1Hash?.toString() ?? "0";
+        state.loading = false;
       });
     },
 
