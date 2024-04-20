@@ -2,21 +2,16 @@
 import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button"
 import { Field, PublicKey } from 'o1js';
-import { useJoinGame, useDeposit, usePoZKerStore, useObservePoZKer } from "@/lib/stores/poZKer";
+import { useJoinTable, usePoZKerStore, useObservePoZKer } from "@/lib/stores/poZKer";
 
 export default function Home() {
 
     const [numPlayers, setNumPlayers] = useState<number>(0);
-    const [isLoading, setIsLoading] = useState(false);
 
-    // either one of these alone triggers it...
-    const joinGame = useJoinGame();
-    const deposit = useDeposit();
+    const joinTable = useJoinTable();
     const pkrState = usePoZKerStore();
 
     useEffect(() => {
-        console.log("Updating num players...")
-
         // Hashes will be overwritten when we have players, so track it here
         if (pkrState.player1Key === '0') {
             setNumPlayers(0);
@@ -29,18 +24,22 @@ export default function Home() {
         }
     }, [pkrState.player1Key, pkrState.player2Key]);
 
-    const handleClick = async () => {
-        setIsLoading(true);
-
-        try {
-            // Simulating an async operation, replace this with your actual async function
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            console.log('Async function executed successfully!');
-        } catch (error) {
-            console.error('Error occurred while executing async function:', error);
+    const handleJoinTable = async () => {
+        let seat: number;
+        if (numPlayers === 0) {
+            seat = 0;
         }
-        setIsLoading(false);
+        else if (pkrState.player2Key === '0') {
+            seat = 1;
+        }
+        else {
+            console.log("Game full, cannot join...")
+            return
+        }
+        // If both seats available - join seat 0, else join seat 1
+        await joinTable(seat, 100);
     };
+
 
     return (
         <div className="flex flex-col min-h-[100dvh]">
@@ -53,11 +52,6 @@ export default function Home() {
                         <p>Stack1: {pkrState.stack1}</p>
                         <p>Stack2: {pkrState.stack2}</p>
 
-                        <button onClick={handleClick} disabled={isLoading}>
-                            {isLoading ? 'Loading...' : 'Click me'}
-                        </button>
-
-
                         <div className="grid grid-cols-[1fr_200px] items-center">
                             <h2 className="text-2xl font-bold">Available Games</h2>
                         </div>
@@ -66,14 +60,11 @@ export default function Home() {
                                 <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Game ID</div>
                                 <div className="text-sm font-medium">Players</div>
                                 <div className="text-sm font-medium">Join</div>
-                                <div className="text-sm font-medium">Deposit</div>
                             </div>
                             <div className="flex items-center justify-between p-4">
                                 <div className="text-sm font-medium">Game01</div>
                                 <div className="text-sm font-medium">{numPlayers} / 2</div>
-                                <div className="text-sm font-medium"><Button variant="secondary" onClick={() => joinGame()}>Join Game</Button></div>
-                                <div className="text-sm font-medium"><Button variant="secondary" onClick={() => deposit(100)}>Deposit</Button></div>
-
+                                <div className="text-sm font-medium"><Button variant="secondary" onClick={() => handleJoinTable()}>Join Game</Button></div>
                             </div>
                         </div>
                     </div>
