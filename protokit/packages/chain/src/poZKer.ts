@@ -117,8 +117,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   SmallBlind = Field(1);
   BigBlind = Field(2);
 
-  @state() public player1Hash = State.from<Field>(Field);
-  @state() public player2Hash = State.from<Field>(Field);
   @state() public player1Key = State.from<PublicKey>(PublicKey);
   @state() public player2Key = State.from<PublicKey>(PublicKey);
 
@@ -155,8 +153,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.lastBetSize.set(Field(0));
 
     // Initialize with 0s so we can tell when two players have joined
-    this.player1Hash.set(Field(0));
-    this.player2Hash.set(Field(0));
     this.player1Key.set(PublicKey.empty());
     this.player2Key.set(PublicKey.empty());
 
@@ -175,51 +171,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   }
 
   @runtimeMethod()
-  public joinGame(player: PublicKey): void {
-    // Because we'll add player1 and then player 2, we only need
-    // to check if player 2 is initialized to know if game is full
-    const player1Hash = this.player1Hash.get();
-    const player2Hash = this.player2Hash.get();
-    player2Hash.value.assertEquals(Field(0), "Game is full!");
-    assert(player2Hash.value.equals(Field(0)), "Game is full!");
-
-    // /*
-    const pHash = Poseidon.hash(player.toFields());
-
-    // If p1 is uninitialized: p1 = pHash, p2 = Field(0)
-    // If p1 is initialized: p1 = p1, p2 = pHash
-    const p1Hash = Provable.if(
-      player1Hash.value.equals(Field(0)),
-      pHash,
-      player1Hash.value
-    );
-    const p2Hash = Provable.if(
-      player1Hash.value.equals(Field(0)),
-      Field(0),
-      pHash
-    );
-    this.player1Hash.set(p1Hash);
-    this.player2Hash.set(p2Hash);
-    // */
-
-    // TODO - switch over so we exclusively rely on this logic
-    const player1Key = this.player1Key.get();
-    const player2Key = this.player2Key.get();
-    assert(player2Key.value.equals(PublicKey.empty()), "Game is full!");
-    const p1Key = Provable.if(
-      player1Key.value.equals(PublicKey.empty()),
-      player,
-      player1Key.value
-    );
-    const p2Key: PublicKey = Provable.if(
-      player1Key.value.equals(PublicKey.empty()),
-      PublicKey.empty(),
-      player
-    );
-    this.player1Key.set(p1Key);
-    this.player2Key.set(p2Key);
-
-    // Init function isn't called so we need to initialize gamestate here
+  public resetTableState(): void {
+    // Should call this on init too, but want to let players reset the game state
     this.turn.set(this.P1Turn);
     this.street.set(this.Preflop);
     this.lastAction.set(this.Bet);
@@ -227,63 +180,59 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   }
 
   @runtimeMethod()
-  public deposit(depositAmount: Field): void {
-    // Constraints:
-    // Only player1 and player2 can deposit
-    // They can only deposit once
-    // We can call '.value' because these will never be empty - default is Field(0)
-    const player1Hash: Field = this.player1Hash.get().value;
-    const player2Hash: Field = this.player2Hash.get().value;
-
-    // const player = this.sender;
+  public joinTable(seatI: Field, depositAmount: Field): void {
+    // seatI is index of seat they're joining - now should be 0 or 1...
     const player: PublicKey = this.transaction.sender.value;
-    const playerHash = Poseidon.hash(player.toFields());
+    const seatOk: Bool = seatI.equals(Field(0)).or(seatI.equals(Field(1)));
+    assert(seatOk, "Not a valid seat!");
 
-    // const [stack1, stack2, turn, street, lastAction, lastBetSize, gameOver, pot] = this.getGamestate();
+    const player1Key = this.player1Key.get().value;
+    const player2Key = this.player2Key.get().value;
+
+    // If seat is free, should be the empty key
+    const seatFree: Bool = Provable.if(seatI.equals(Field(0)),
+      player1Key.equals(PublicKey.empty()),
+      player2Key.equals(PublicKey.empty()),
+    )
+    assert(seatFree, "Seat is not available!");
+
+    const p1KeyWrite: PublicKey = Provable.if(seatI.equals(Field(0)),
+      player,
+      player1Key
+    )
+    const p2KeyWrite: PublicKey = Provable.if(seatI.equals(Field(1)),
+      player,
+      player2Key
+    )
+    this.player1Key.set(p1KeyWrite);
+    this.player2Key.set(p2KeyWrite);
+
+    this.deposit(seatI, depositAmount);
+  }
+
+  private deposit(seatI: Field, depositAmount: Field): void {
+    // Method is only called when joining table
+    // When this is called we will already have verified that seat is free
     const stack1: Field = this.stack1.get().value;
     const stack2: Field = this.stack2.get().value;
-    const pot: Field = this.pot.get().value;
-
-    const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
-    // cond0.assertTrue('Player is not part of this game!')
-    assert(cond0, 'Player is not part of this game!');
-    const cond1 = playerHash.equals(player1Hash).and(stack1.equals(Field(0)));
-    const cond2 = playerHash.equals(player2Hash).and(stack2.equals(Field(0)));
-    // cond1.or(cond2).assertTrue('Player can only deposit once!');
-    assert(cond1.or(cond2), 'Player can only deposit once!')
+    const stack1New = Provable.if(
+      seatI.equals(Field(0)),
+      depositAmount,
+      stack1
+    );
+    const stack2New = Provable.if(
+      seatI.equals(Field(1)),
+      depositAmount,
+      stack2
+    );
+    this.stack1.set(stack1New);
+    this.stack2.set(stack2New);
 
     // From https://github.com/o1-labs/o1js/blob/5ca43684e98af3e4f348f7b035a0ad7320d88f3d/src/examples/zkapps/escrow/escrow.ts
     // const payerUpdate = AccountUpdate.createSigned(player);
 
     // TEMP - disabling this so we can test game without needing to send funds
     // payerUpdate.send({ to: this.address, amount: gameBuyin64 });
-
-    // Also include blinds!
-    // 1/2, where player1 always posts small blind
-    const stack1New = Provable.if(
-      playerHash.equals(player1Hash),
-      depositAmount.sub(this.SmallBlind),
-      stack1
-    );
-    const stack2New = Provable.if(
-      playerHash.equals(player2Hash),
-      depositAmount.sub(this.BigBlind),
-      stack1
-    );
-
-    const potNew = Provable.if(
-      playerHash.equals(player1Hash),
-      pot.add(this.SmallBlind),
-      pot.add(this.BigBlind),
-    );
-
-    // Set last bet to be 1 to make the math work out?
-    const newLastBetSize = Field(1);
-
-    this.stack1.set(stack1New);
-    this.stack2.set(stack2New);
-    this.lastBetSize.set(newLastBetSize);
-    this.pot.set(potNew);
   }
 
   @runtimeMethod()
@@ -301,19 +250,18 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // pot.equals(Field(0)).assertTrue("Pot has not been awarded!");
     assert(pot.equals(Field(0)), "Pot has not been awarded!");
 
-    const player1Hash = this.player1Hash.get().value;
-    const player2Hash = this.player2Hash.get().value;
+    const player1Key = this.player1Key.get().value;
+    const player2Key = this.player2Key.get().value;
 
     const player: PublicKey = this.transaction.sender.value;
-    const playerHash = Poseidon.hash(player.toFields());
-    const cond0 = playerHash.equals(player1Hash).or(playerHash.equals(player2Hash));
+    const cond0 = player.equals(player1Key).or(player.equals(player2Key));
     // cond0.assertTrue('Player is not part of this game!')
     assert(cond0, 'Player is not part of this game!');
 
     // We'll have tallied up the players winnings into their stack, 
     // so both players can withdraw whatever is in their stack when hand ends
     const sendAmount = Provable.if(
-      playerHash.equals(player1Hash),
+      player.equals(player1Key),
       stack1,
       stack2
     );
@@ -323,31 +271,31 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     // We have to update the stacks so they cannot withdraw multiple times!
     const stack1New = Provable.if(
-      playerHash.equals(player1Hash),
+      player.equals(player1Key),
       Field(0),
       stack1
     );
 
     const stack2New = Provable.if(
-      playerHash.equals(player2Hash),
+      player.equals(player2Key),
       Field(0),
       stack2
     );
 
     // We want to reset the gamestate once both players have withdrawn,
     // so we can use the contract for another hand
-    const player1HashNew = Provable.if(
-      playerHash.equals(player1Hash),
-      Field(0),
-      player1Hash
+    const player1KeyNew = Provable.if(
+      player.equals(player1Key),
+      PublicKey.empty(),
+      player1Key
     );
-    const player2HashNew = Provable.if(
-      playerHash.equals(player2Hash),
-      Field(0),
-      player2Hash
+    const player2KeyNew = Provable.if(
+      player.equals(player2Key),
+      PublicKey.empty(),
+      player2Key
     );
-    this.player1Hash.set(player1HashNew);
-    this.player2Hash.set(player2HashNew);
+    this.player1Key.set(player1KeyNew);
+    this.player2Key.set(player2KeyNew);
 
     const turnReset: Field = this.P1Turn;
     const streetReset: Field = this.Preflop;
@@ -356,7 +304,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Check that both players have been reset to reset game
     // We can't check stack sizes because if one player goes bust, 
     // both stacks will be 0 after the winner calls
-    const gameShouldReset: Bool = player1HashNew.equals(Field(0)).and(player2HashNew.equals(Field(0)));
+    const gameShouldReset: Bool = player1KeyNew.equals(PublicKey.empty()).and(player2KeyNew.equals(PublicKey.empty()));
     const gameOverNew = Provable.if(gameShouldReset, Bool(false), Bool(true));
 
     const newLastBetSize = Field(0);
@@ -399,14 +347,12 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const player: PublicKey = this.transaction.sender.value;
 
     // Logic modified from https://github.com/betterclever/zk-chess/blob/main/src/Chess.ts
-    const player1Hash = this.player1Hash.get().value;
-    const player2Hash = this.player2Hash.get().value;
-    const playerHash = Poseidon.hash(player.toFields());
-
-    const playerOk: Bool = playerHash
-      .equals(player1Hash)
+    const player1Key = this.player1Key.get().value;
+    const player2Key = this.player2Key.get().value;
+    const playerOk: Bool = player
+      .equals(player1Key)
       .and(p1turn)
-      .or(playerHash.equals(player2Hash).and(p2turn))
+      .or(player.equals(player2Key).and(p2turn))
     assert(playerOk, 'Player is not allowed to make a move')
     //.assertTrue('Player is not allowed to make a move');
 
@@ -508,8 +454,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
 
     // Make sure the player has enough funds to take the action
-    const case1 = playerHash.equals(player1Hash).and(betSizeReal.lessThanOrEqual(stack1));
-    const case2 = playerHash.equals(player2Hash).and(betSizeReal.lessThanOrEqual(stack2));
+    const case1 = player.equals(player1Key).and(betSizeReal.lessThanOrEqual(stack1));
+    const case2 = player.equals(player2Key).and(betSizeReal.lessThanOrEqual(stack2));
     // case1.or(case2).assertTrue("Not enough balance for bet!");
     assert(case1.or(case2), "Not enough balance for bet!");
 
@@ -520,10 +466,10 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // const stack2New = this.uint_subtraction(playerHash.equals(player2Hash),
     //   stack2, betSizeReal,
     //   stack2, UInt32.from(0));
-    const stack1New = Provable.if(playerHash.equals(player1Hash),
+    const stack1New = Provable.if(player.equals(player1Key),
       stack1.sub(betSizeReal),
       stack1.sub(Field(0)));
-    const stack2New = Provable.if(playerHash.equals(player2Hash),
+    const stack2New = Provable.if(player.equals(player2Key),
       stack2.sub(betSizeReal),
       stack2.sub(Field(0)));
 
@@ -531,7 +477,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Scenarios for this would be:
     // 1. Either player has called - (but not the PreflopCall)
     // 2. Player 2 has checked
-    const newStreetBool = actionReal.equals(this.Call).or(playerHash.equals(player2Hash).and(actionReal.equals(this.Check)));
+    const newStreetBool = actionReal.equals(this.Call).or(player.equals(player2Key).and(actionReal.equals(this.Check)));
 
     // Is there any way we could simplify this with something like:
     // If newStreetBool and (isPreflop or isTurn) -> Add 2
@@ -580,12 +526,12 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
 
     const stack1Final = Provable.if(
-      gameOverNow.equals(Bool(true)).and(playerHash.equals(player2Hash)),
+      gameOverNow.equals(Bool(true)).and(player.equals(player2Key)),
       p1WinnerBal,
       stack1New
     );
     const stack2Final = Provable.if(
-      gameOverNow.equals(Bool(true)).and(playerHash.equals(player1Hash)),
+      gameOverNow.equals(Bool(true)).and(player.equals(player1Key)),
       p2WinnerBal,
       stack2New
     );
@@ -1000,14 +946,13 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     // CHECK 0. - make sure player is a part of the game...
     const player: PublicKey = this.transaction.sender.value;
-    const player1Hash = this.player1Hash.get().value;
-    const player2Hash = this.player2Hash.get().value;
-    const playerHash = Poseidon.hash(player.toFields());
+    const player1Key = this.player1Key.get().value;
+    const player2Key = this.player2Key.get().value;
     // playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)).assertTrue('Player is not part of this game!');
-    assert(playerHash.equals(player1Hash).or(playerHash.equals(player2Hash)), 'Player is not part of this game!');
+    assert(player.equals(player1Key).or(player.equals(player2Key)), 'Player is not part of this game!');
 
     const holecardsHash = Provable.if(
-      playerHash.equals(player1Hash),
+      player.equals(player1Key),
       slot0,
       slot1
     );
@@ -1090,12 +1035,12 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // We are now storing the merkleMapVal, which represents
     // hand strength in these slots!  Lower is better!
     const slot0New = Provable.if(
-      playerHash.equals(player1Hash),
+      player.equals(player1Key),
       merkleMapVal,
       slot0,
     );
     const slot1New = Provable.if(
-      playerHash.equals(player2Hash),
+      player.equals(player2Key),
       merkleMapVal,
       slot1,
     );
@@ -1106,7 +1051,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // transition from 1 to 6 via multiplying by 2 and 3 after each player
     // shows their cards
     const streetNew = Provable.if(
-      playerHash.equals(player1Hash),
+      player.equals(player1Key),
       street.mul(this.P1Turn),
       street.mul(this.P2Turn),
     );
