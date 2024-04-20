@@ -104,6 +104,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   Raise = Field(4);
   Check = Field(5);
   PreflopCall = Field(6);
+  PostSB = Field(7);
+  PostBB = Field(8);
 
   NullBoardcard = Field(cardMapping52[""]);
 
@@ -175,7 +177,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Should call this on init too, but want to let players reset the game state
     this.turn.set(this.P1Turn);
     this.street.set(this.Preflop);
-    this.lastAction.set(this.Bet);
+    this.lastAction.set(this.Null);
     this.gameOver.set(Bool(false));
   }
 
@@ -325,6 +327,12 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
   @runtimeMethod()
   public takeAction(action: Field, betSize: Field): void {
+
+    // add handling for these...
+    // PostSB = Field(7);
+    // PostBB = Field(8);
+
+
     // Need to check that it's the current player's turn, 
     // and the action is valid
     const stack1: Field = this.stack1.get().value;
@@ -363,6 +371,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     //isPreflop.or(isFlop).or(isTurn).or(isRiver).assertTrue('Invalid game state street');
     assert(isPreflop.or(isFlop).or(isTurn).or(isRiver), 'Invalid game state street');
 
+    const facingSB = lastAction.equals(this.PostSB);
+    const facingBB = lastAction.equals(this.PostBB);
     const facingNull = lastAction.equals(this.Null);
     const facingBet = lastAction.equals(this.Bet);
     const facingCall = lastAction.equals(this.Call);
@@ -371,30 +381,29 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const facingPreflopCall = lastAction.equals(this.PreflopCall);
     // facingFold is impossible - we'd be in showdown state
     //facingNull.or(facingBet).or(facingCall).or(facingRaise).or(facingCheck).or(facingPreflopCall).assertTrue('Invalid game state action');
-    assert(facingNull.or(facingBet).or(facingCall).or(facingRaise).or(facingCheck).or(facingPreflopCall), 'Invalid game state action');
+    assert(facingSB.or(facingBB).or(facingNull).or(facingBet).or(facingCall).or(facingRaise).or(facingCheck).or(facingPreflopCall), 'Invalid game state action');
 
     // Confirm actions is valid, must be some combination below:
     // actions:
     // Bet - valid when facing [Null, Check]
-    // Call - valid when facing [Bet, Raise]
+    // Call - valid when facing [Bet, Raise, PostBB]
     // Fold - valid when facing [Bet, Raise]
-    // Raise - valid when facing [Bet, Raise, PreflopCall]
+    // Raise - valid when facing [Bet, Raise, PreflopCall, PostBB]
     // Check - valid when facing [Null, Check, PreflopCall]
+    // PostSB - valid when facing [Null] and street==preflop
+    // PostBB - valid when facing [PostSB] and street==preflop
     const act1 = action.equals(this.Bet).and(facingNull.or(facingCheck));
-    const act2 = action.equals(this.Call).and(facingBet.or(facingRaise));
+    const act2 = action.equals(this.Call).and(facingBet.or(facingRaise).or(facingBB));
     const act3 = action.equals(this.Fold).and(facingBet.or(facingRaise));
-    const act4 = action.equals(this.Raise).and(facingBet.or(facingRaise).or(facingPreflopCall));
+    const act4 = action.equals(this.Raise).and(facingBet.or(facingRaise).or(facingPreflopCall).or(facingBB));
     const act5 = action.equals(this.Check).and(facingNull.or(facingCheck).or(facingPreflopCall));
+    // Blinds...
+    const act6 = action.equals(this.PostSB).and(facingNull).and(street.equals(this.Preflop));
+    const act7 = action.equals(this.PostBB).and(facingSB);
+    const act8 = action.equals(this.PreflopCall).and(facingBB);
 
     //act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
-    assert(act1.or(act2).or(act3).or(act4).or(act5), 'Invalid bet!');
-
-    // If action is call, we need to determine if it's actually PreflopCall...
-    // Can only be true if call and pot contains only blinds, so 3...
-    const actionReal: Field = Provable.if(
-      action.equals(this.Call).and(pot.equals(Field(3))),
-      this.PreflopCall,
-      action);
+    assert(act1.or(act2).or(act3).or(act4).or(act5).or(act6).or(act7).or(act8), 'Invalid bet!');
 
     // Amount checks/logic:
     // For calls - we are not passing in amount, so we need to figure it out
@@ -415,7 +424,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Call - betsize should make stacks equal
     // Raise - betsize should be at least equal to diff*2, or all-in
 
-    const foldCheckAmountBool = Provable.if(actionReal.equals(this.Check).or(actionReal.equals(this.Fold)),
+    const foldCheckAmountBool = Provable.if(action.equals(this.Check).or(action.equals(this.Fold)),
       betSize.equals(Field(0)),
       Bool(true)
     )
@@ -423,16 +432,25 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     assert(foldCheckAmountBool, "Bad betsize for check or fold!");
 
     // Bet - betsize should be gt 1 (or whatever minsize is)
-    const actionF: Field = Provable.if(actionReal.equals(this.Bet),
+    const actionF: Field = Provable.if(action.equals(this.Bet),
       betSize,
       Field(1),
     )  // .assertGreaterThanOrEqual(Field(1), "Invalid bet size!")
     assert(actionF.greaterThanOrEqual(Field(1)), "Invalid bet size!");
 
+    // Hardcode sizes for preflop betsize...
+    // TODO - improve this logic, better to not force them to pass it in
+    const preflopBetA = Provable.if(action.equals(this.PostSB),
+      betSize.equals(Field(1)),
+      Bool(true));
+    const preflopBetB = Provable.if(action.equals(this.PostBB),
+      betSize.equals(Field(2)),
+      Bool(true));
+    assert(preflopBetA.and(preflopBetB), "Bad preflop betsize!");
 
     // Call - betsize should make stacks equal
     // So we might need to override the other betsize here
-    const betSizeReal = Provable.if(actionReal.equals(this.Call).or(actionReal.equals(this.PreflopCall)),
+    const betSizeReal = Provable.if(action.equals(this.Call).or(action.equals(this.PreflopCall)),
       stackDiff,
       betSize,
     )
@@ -445,7 +463,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     assert(betSizeReal.lessThanOrEqual(compareStack), "Cannot bet more than stack!");
     const allin: Bool = betSizeReal.equals(compareStack);
 
-    const raiseOk: Bool = Provable.if(actionReal.equals(this.Raise),
+    const raiseOk: Bool = Provable.if(action.equals(this.Raise),
       betSize.greaterThanOrEqual(stackDiff.mul(2)).or(allin),
       Bool(true),
     )
@@ -477,7 +495,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Scenarios for this would be:
     // 1. Either player has called - (but not the PreflopCall)
     // 2. Player 2 has checked
-    const newStreetBool = actionReal.equals(this.Call).or(player.equals(player2Key).and(actionReal.equals(this.Check)));
+    const newStreetBool = action.equals(this.Call).or(player.equals(player2Key).and(action.equals(this.Check)));
 
     // Is there any way we could simplify this with something like:
     // If newStreetBool and (isPreflop or isTurn) -> Add 2
@@ -505,7 +523,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const facingAction = Provable.if(
       newStreetBool,
       this.Null,
-      actionReal
+      action
     );
 
     const playerTurnNow = Provable.if(
@@ -515,7 +533,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     );
 
     const gameOverNow: Bool = Provable.if(
-      actionReal.equals(this.Fold),
+      action.equals(this.Fold),
       Bool(true),
       Bool(false)
     )
@@ -544,7 +562,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     // TODO - double check logic - any other scenarios we should reset lastBetSize?
     const newLastBetSize = Provable.if(
-      actionReal.equals(this.Call),
+      action.equals(this.Call),
       Field(0),
       betSizeReal
     )

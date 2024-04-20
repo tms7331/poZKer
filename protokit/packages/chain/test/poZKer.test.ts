@@ -36,8 +36,37 @@ describe("poZKer", () => {
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
   }
 
-  it.only("allows players to join game (joinTable)", async () => {
+  async function postBlinds(appChain: any, pkr: PoZKerApp, alicePrivateKey: PrivateKey, alice: PublicKey, bobPrivateKey: PrivateKey, bob: PublicKey) {
 
+    // Set table state first?
+    appChain.setSigner(alicePrivateKey);
+    const txn0 = await appChain.transaction(alice, () => {
+      pkr.resetTableState()
+    });
+    await txn0.sign();
+    await txn0.send();
+    const block0 = await appChain.produceBlock();
+    expect(block0?.transactions[0].status.toBoolean()).toBe(true);
+
+    const txn1 = await appChain.transaction(alice, () => {
+      pkr.takeAction(pkr.PostSB, Field(1))
+    });
+    await txn1.sign();
+    await txn1.send();
+    const block = await appChain.produceBlock();
+    expect(block?.transactions[0].status.toBoolean()).toBe(true);
+
+    appChain.setSigner(bobPrivateKey);
+    const txn2 = await appChain.transaction(bob, () => {
+      pkr.takeAction(pkr.PostBB, Field(2))
+    });
+    await txn2.sign();
+    await txn2.send();
+    const block2 = await appChain.produceBlock();
+    expect(block2?.transactions[0].status.toBoolean()).toBe(true);
+  }
+
+  it("allows players to join game (joinTable)", async () => {
     const appChain = await localDeploy();
 
     // Join game with two players
@@ -92,6 +121,61 @@ describe("poZKer", () => {
 
   }, 1_000_000);
 
+  it('lets both players post blinds (takeAction())', async () => {
+    const appChain = await localDeploy();
+    const alicePrivateKey = PrivateKey.random();
+    const bobPrivateKey = PrivateKey.random();
+    const alice = alicePrivateKey.toPublicKey();
+    const bob = bobPrivateKey.toPublicKey();
+    appChain.setSigner(alicePrivateKey);
+    const pkr = appChain.runtime.resolve("PoZKerApp");
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+
+    // Set table state first?
+    appChain.setSigner(alicePrivateKey);
+    const txn0 = await appChain.transaction(alice, () => {
+      pkr.resetTableState()
+    });
+    await txn0.sign();
+    await txn0.send();
+    const block0 = await appChain.produceBlock();
+    expect(block0?.transactions[0].status.toBoolean()).toBe(true);
+
+
+    appChain.setSigner(alicePrivateKey);
+    const txn1 = await appChain.transaction(alice, () => {
+      pkr.takeAction(pkr.PostSB, Field(1))
+    });
+    await txn1.sign();
+    await txn1.send();
+    const block = await appChain.produceBlock();
+    expect(block?.transactions[0].status.toBoolean()).toBe(true);
+
+    // Should have posted sb of 1
+    const stack1 = await appChain.query.runtime.PoZKerApp.stack1.get();
+    const stack2 = await appChain.query.runtime.PoZKerApp.stack2.get();
+    // Make sure deposits were successful
+    expect(stack1).toEqual((Field(99)));
+    expect(stack2).toEqual((Field(100)));
+
+    appChain.setSigner(bobPrivateKey);
+    const txn2 = await appChain.transaction(bob, () => {
+      pkr.takeAction(pkr.PostBB, Field(2))
+    });
+    await txn2.sign();
+    await txn2.send();
+    const block2 = await appChain.produceBlock();
+    expect(block2?.transactions[0].status.toBoolean()).toBe(true);
+
+    // Now should have SB and BB posted
+    const stack1B = await appChain.query.runtime.PoZKerApp.stack1.get();
+    const stack2B = await appChain.query.runtime.PoZKerApp.stack2.get();
+    // Make sure deposits were successful
+    expect(stack1B).toEqual((Field(99)));
+    expect(stack2B).toEqual((Field(98)));
+
+  }, 1_000_000);
 
   it('succeeds on valid p1 actions (takeAction())', async () => {
     const appChain = await localDeploy();
@@ -103,6 +187,7 @@ describe("poZKer", () => {
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
     const stack1 = await appChain.query.runtime.PoZKerApp.stack1.get();
     const stack2 = await appChain.query.runtime.PoZKerApp.stack2.get();
@@ -163,6 +248,7 @@ describe("poZKer", () => {
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // After depositing player 1 should have stack of 99 (SB)
     // Player 2 should have stack of 98 (BB)
@@ -183,6 +269,7 @@ describe("poZKer", () => {
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Player 2 should not be able to act
     appChain.setSigner(bobPrivateKey);
@@ -208,6 +295,7 @@ describe("poZKer", () => {
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
 
     // Preflop - remember we are actually facing a bet!
@@ -247,6 +335,7 @@ describe("poZKer", () => {
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Start facing a call
     appChain.setSigner(alicePrivateKey);
@@ -305,6 +394,7 @@ describe("poZKer", () => {
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Again start facing a call
     appChain.setSigner(alicePrivateKey);
@@ -346,7 +436,7 @@ describe("poZKer", () => {
   });
 
 
-  it('prevents players from betting more than their stack', async () => {
+  it('prevents players from betting more than their stack (takeAction())', async () => {
     const appChain = await localDeploy();
     const alicePrivateKey = PrivateKey.random();
     const bobPrivateKey = PrivateKey.random();
@@ -356,6 +446,7 @@ describe("poZKer", () => {
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Raising to 100 should fail
     appChain.setSigner(alicePrivateKey);
@@ -378,7 +469,7 @@ describe("poZKer", () => {
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
   })
 
-  it('allows players to raise all-in if they have less than a normal raise amount', async () => {
+  it('allows players to raise all-in if they have less than a normal raise amount (takeAction())', async () => {
     const appChain = await localDeploy();
     const alicePrivateKey = PrivateKey.random();
     const bobPrivateKey = PrivateKey.random();
@@ -388,6 +479,7 @@ describe("poZKer", () => {
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Raise to 90 and then p2's raise will be less than 2x
     appChain.setSigner(alicePrivateKey);
@@ -436,7 +528,7 @@ describe("poZKer", () => {
   })
 
 
-  it('fails on bets of 0', async () => {
+  it('fails on bets of 0 (takeAction())', async () => {
     // Just ensure our helper functions for joining+depositing work
     const appChain = await localDeploy();
     const alicePrivateKey = PrivateKey.random();
@@ -447,6 +539,7 @@ describe("poZKer", () => {
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Start with a call and check
 
@@ -482,7 +575,7 @@ describe("poZKer", () => {
   })
 
 
-  it('prevents transition to gameover before showdown is complete', async () => {
+  it('prevents transition to gameover before showdown is complete (takeAction())', async () => {
     const appChain = await localDeploy();
     const alicePrivateKey = PrivateKey.random();
     const bobPrivateKey = PrivateKey.random();
@@ -492,6 +585,7 @@ describe("poZKer", () => {
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Just immediately go all-in to finish betting
     appChain.setSigner(alicePrivateKey);
