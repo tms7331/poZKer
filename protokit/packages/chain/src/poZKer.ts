@@ -143,19 +143,11 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   @state() public showdownValueP0 = State.from<Field>(Field);
   @state() public showdownValueP1 = State.from<Field>(Field);
 
-
-  // Free memory slots for storing data
-  @state() public slot0 = State.from<Field>(Field);
-  @state() public slot1 = State.from<Field>(Field);
-  @state() public slot2 = State.from<Field>(Field);
-  @state() public slot3 = State.from<Field>(Field);
-  @state() public slot4 = State.from<Field>(Field);
-
   // Directly store all cards...
   @state() public p0Hc0 = State.from<Card>(Card);
-  @state() public P0Hc1 = State.from<Card>(Card);
+  @state() public p0Hc1 = State.from<Card>(Card);
   @state() public p1Hc0 = State.from<Card>(Card);
-  @state() public P1Hc1 = State.from<Card>(Card);
+  @state() public p1Hc1 = State.from<Card>(Card);
   @state() public flop0 = State.from<Card>(Card);
   @state() public flop1 = State.from<Card>(Card);
   @state() public flop2 = State.from<Card>(Card);
@@ -197,7 +189,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.player1Key.set(PublicKey.empty());
 
     // Temp - just want to use this to experiment with pulling data
-    this.slot4.set(Field(42));
+    // this.slot4.set(Field(42));
     // Temp - hardcode cards for each player
     // this.storeHardcodedCards();
     // Temp - hardcoding board cards
@@ -207,7 +199,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // "8s": 199,
     // "6s": 193,
     // 163*167*229*199*193 = 239414220863
-    this.slot2.set(Field(239414220863))
+    // this.slot2.set(Field(239414220863))
   }
 
   @runtimeMethod()
@@ -638,12 +630,12 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     // Convention is we'll have stored player0's lookup value for their hand 
     // in slot0, and player1's lookup value in slot1
-    const slot0 = this.slot0.get().value;
-    const slot1 = this.slot1.get().value;
+    const showdownValueP0 = this.showdownValueP0.get().value;
+    const showdownValueP1 = this.showdownValueP1.get().value;
 
     // If we get a tie - split the pot
     const tieAdj = Provable.if(
-      Bool(slot0 === slot1),
+      Bool(showdownValueP0 === showdownValueP1),
       // pot should always be evenly divisible by 2
       pot.div(Field(2)),
       Field(0),
@@ -651,12 +643,12 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     // Lower is better for the hand rankings
     const stack1Final = Provable.if(
-      Bool(slot0.lessThan(slot1)),
+      Bool(showdownValueP0.lessThan(showdownValueP1)),
       p1WinnerBal,
       stack1.add(tieAdj)
     );
     const stack2Final = Provable.if(
-      Bool(slot1.lessThan(slot0)),
+      Bool(showdownValueP1.lessThan(showdownValueP0)),
       p2WinnerBal,
       stack2.add(tieAdj)
     );
@@ -988,6 +980,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     4. check that board cards are the real board cards
     */
 
+
     // const [stack1, stack2, turn, street, lastAction, lastBetSize, handOver, pot] = this.getGamestate();
     const street = this.street.get().value;
     // const gamestate = this.gamestate.getAndRequireEquals();
@@ -995,24 +988,28 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // gamestate.assertLessThanOrEqual(Field(3));
 
     // Player card hash will be stored in slot1 or slot1
-    const slot0 = this.slot0.get().value;
-    const slot1 = this.slot1.get().value;
-    // We are going to be storing the product of all the board card primes here!
-    const slot2 = this.slot2.get().value;
+    // const slot0 = this.slot0.get().value;
+    // const slot1 = this.slot1.get().value;
+    // // We are going to be storing the product of all the board card primes here!
+    // const slot2 = this.slot2.get().value;
 
 
     // CHECK 0. - make sure player is a part of the game...
-    const player: PublicKey = this.transaction.sender.value;
+    const player = this.transaction.sender.value;
+    assert(this.inGame(player), "Player not in game!")
+
     const player0Key = this.player0Key.get().value;
     const player1Key = this.player1Key.get().value;
-    // playerHash.equals(player0Hash).or(playerHash.equals(player1Hash)).assertTrue('Player is not part of this game!');
-    assert(player.equals(player0Key).or(player.equals(player1Key)), 'Player is not part of this game!');
 
-    const holecardsHash = Provable.if(
-      player.equals(player0Key),
-      slot0,
-      slot1
-    );
+    const isP0 = Provable.if(player.equals(player0Key), Bool(false), Bool(true));
+
+    const p0Hc0 = this.p0Hc0.get().value;
+    const p0Hc1 = this.p0Hc1.get().value;
+    const p1Hc0 = this.p1Hc0.get().value;
+    const p1Hc1 = this.p1Hc1.get().value;
+    const card0 = Provable.if(isP0, Card, p0Hc0, p1Hc0);
+    const card1 = Provable.if(isP0, Card, p0Hc1, p1Hc1);
+
 
     // CHECK 2. independently calculate the card lookup key using their cards and confirm the lookup key is valid
     // the lookupVal is the expected key for our merkle map
@@ -1064,7 +1061,9 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // pathValid[0].assertEquals(root);
     // pathValid[1].assertEquals(merkleMapKey);
 
+    // TODO - reenable check, figure out what makes sense
     // CHECK 3. re-hash the cards and confirm it matches their stored hash
+    /*
     const cardPoint1 = this.cardPrimeToCardPoint(holecard0);
     const cardPoint2 = this.cardPrimeToCardPoint(holecard1);
     const cardPoint1F = cardPoint1.toFields()[0]
@@ -1072,8 +1071,11 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleKey);
     //cardHash.assertEquals(holecardsHash, 'Player did not pass in their real cards!');
     assert(cardHash.equals(holecardsHash), 'Player did not pass in their real cards!');
+    */
 
+    // TODO - reenable check, figure out what makes sense
     // CHECK 4. check that board cards are the real board cards
+    /*
     const boardcardMul = boardcard0.mul(boardcard1).mul(boardcard2).mul(boardcard3).mul(boardcard4);
     const boardcardMulReal = Field(slot2);
     // boardcardMul.assertEquals(boardcardMulReal);
@@ -1084,6 +1086,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const evenDiv = divModRes.rest.value.equals(Field(0));
     // evenDiv.assertFalse()
     assert(evenDiv.not(), "Should have five board cards!");
+    */
     // boardcardMulReal.divMod(nullBoardcardUint).rest.equals(Field(0)).assertFalse();
 
     // And now we can store the lookup value in the appropriate slot
@@ -1091,18 +1094,20 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Assuming we made it past all our checks - 
     // We are now storing the merkleMapVal, which represents
     // hand strength in these slots!  Lower is better!
-    const slot0New = Provable.if(
+    const showdownValueP0 = this.showdownValueP0.get().value;
+    const showdownValueP1 = this.showdownValueP1.get().value;
+    const showdownValueP0New = Provable.if(
       player.equals(player0Key),
       merkleMapVal,
-      slot0,
+      showdownValueP0,
     );
-    const slot1New = Provable.if(
+    const showdownValueP1New = Provable.if(
       player.equals(player1Key),
       merkleMapVal,
-      slot1,
+      showdownValueP1,
     );
-    this.slot0.set(slot0New);
-    this.slot1.set(slot1New);
+    this.showdownValueP0.set(showdownValueP0New);
+    this.showdownValueP1.set(showdownValueP1New);
 
     // Description of logic within actionMapping - 
     // transition from 1 to 6 via multiplying by 2 and 3 after each player
@@ -1117,142 +1122,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   }
 
 
-  generateHash(card1: Field, card2: Field, privateKey: PrivateKey): Field {
-    // Apply a double hash to get a single value for both cards
-    // We'll use this to generate the hash for a given card
-    // We'll use the same hash function as the lookup table
-    const pkField = privateKey.toFields()[0];
-    const round1 = Poseidon.hash([pkField, card1]);
-    const round2 = Poseidon.hash([round1, card2]);
-    return round2
-  }
-
-
-  decodeCard(epk: PublicKey, msg: PublicKey, shuffleSecret: PrivateKey): PublicKey {
-    const d1 = PublicKey.fromGroup(epk.toGroup().scale(Scalar.fromFields(shuffleSecret.toFields())));
-    const pubKey = PublicKey.fromGroup(msg.toGroup().sub(d1.toGroup()));
-    return pubKey
-  }
-
-  storeHardcodedCards() {
-    // Just for live testing - store cards directly rather than doing decryption to simplify front end teesting
-    // PrivateKey.empty
-    // const shuffleSecret = PrivateKey.fromFields([Field(1), Field(2), Field(3), Field(4)])
-    const shuffleSecret = PrivateKey.fromBigInt(BigInt(1));
-    // Ah
-    const cardPoint1F = PublicKey.fromBase58("B62qoa5ohnNnFEXfbPshXCzkBkgWSzXk3auy2yS9hyjLma4EkH7xWbs").toFields()[0];
-    // Ad
-    const cardPoint2F = PublicKey.fromBase58("B62qiuLMUJ9xPCYGqAzJY2C8JTwgAFhfgZFTnVRsq3EBksHKAE1G3mX").toFields()[0];
-    // Ks
-    const cardPoint3F = PublicKey.fromBase58("B62qnp98SGKe6dQ2cTMUKJeWGhECfj57vZGS5D5MA9hr5bXFYMo3wDM").toFields()[0];
-    // Ts
-    const cardPoint4F = PublicKey.fromBase58("B62qrdxHXHyuQjDSyYPsWYTEgtZBSEqF5bpTktk5RqSwbdojebLVZLH").toFields()[0];
-
-    const cardHash1 = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
-    const cardHash2 = this.generateHash(cardPoint3F, cardPoint4F, shuffleSecret);
-
-    this.slot0.set(cardHash1);
-    this.slot1.set(cardHash2);
-
-    // We'll store board cards in slot2, initialize with all nul values
-    const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
-    this.slot2.set(noBoardcards);
-  }
-
-
-  @runtimeMethod()
-  public storeCardHash(slotI: Field, shuffleSecret: PrivateKey, epk1: PublicKey, epk2: PublicKey): void {
-    // Used to store a hash of the player's cards
-    // 1. decrypt both cards
-    // 2. double hash the resulting value
-    // 3. and store the hash in a slot
-
-    // For both players their encrypted card will be stored here
-    const slot0 = this.slot0.get().value;
-
-    const msg1F0 = this.slot1.get().value;
-    const msg2F0 = this.slot2.get().value;
-    const msg1F1 = this.slot3.get().value;
-    const msg2F1 = this.slot4.get().value;
-
-    //msg1F.assertEquals(msg1.toFields()[0]);
-    //msg2F.assertEquals(msg2.toFields()[0]);
-    const msg1: PublicKey = PublicKey.fromFields([msg1F0, msg1F1]);
-    const msg2: PublicKey = PublicKey.fromFields([msg2F0, msg2F1]);
-
-    // We are ALWAYS storing the encrypted cards in slots1 and 2
-
-    // Want to decrypt BOTH cards, and multiply them together
-    const cardPoint1 = this.decodeCard(epk1, msg1, shuffleSecret)
-    const cardPoint2 = this.decodeCard(epk2, msg2, shuffleSecret)
-    // This is still a field representation of the card - not the prime52 value!
-    const cardPoint1F = cardPoint1.toFields()[0];
-    const cardPoint2F = cardPoint2.toFields()[0];
-    const cardHash = this.generateHash(cardPoint1F, cardPoint2F, shuffleSecret);
-
-    const slot0New = Provable.if(
-      slotI.equals(0),
-      cardHash,
-      slot0,
-    );
-
-    const slot1New = Provable.if(
-      slotI.equals(1),
-      cardHash,
-      Field(0),
-    );
-
-    this.slot0.set(slot0New);
-    this.slot1.set(slot1New);
-
-    // We'll store board cards in slot2, initialize with all nul values
-    const noBoardcards = this.NullBoardcard.mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard).mul(this.NullBoardcard)
-    this.slot2.set(noBoardcards);
-  }
-
-  @runtimeMethod()
-  public commitCard(slotI: Field, msg: PublicKey): void {
-    // msg corresponds to the field representation of the msg PublicKey in the mentalpoker Card struct
-
-    // The other player should perform their half of the partialUnmask,
-    // and then commit the results here
-
-    // Players can then decrypt their cards, preserving the secrecy of the
-    // cards and avoiding the need for a trusted dealer
-
-    const [msgF0, msgF1] = msg.toFields()
-
-    const slot1 = this.slot1.get().value;
-    const slot2 = this.slot2.get().value;
-    const slot3 = this.slot3.get().value;
-    const slot4 = this.slot4.get().value;
-    const slot1New = Provable.if(
-      slotI.equals(1),
-      msgF0,
-      slot1,
-    );
-    const slot2New = Provable.if(
-      slotI.equals(2),
-      msgF0,
-      slot2,
-    );
-    // And now store the second value too
-    const slot3New = Provable.if(
-      slotI.equals(1),
-      msgF1,
-      slot3,
-    );
-    const slot4New = Provable.if(
-      slotI.equals(2),
-      msgF1,
-      slot4,
-    );
-    this.slot1.set(slot1New);
-    this.slot2.set(slot2New);
-    this.slot3.set(slot3New);
-    this.slot4.set(slot4New);
-  }
-
   private inGame(caller: PublicKey): Bool {
     const player0Key = this.player0Key.get().value;
     const player1Key = this.player1Key.get().value;
@@ -1266,9 +1135,9 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     assert(this.inGame(player), "Player not in game!")
     // If caller is player0 - cards are for player1, and vice versa
     const p0Hc0 = this.p0Hc0.get().value;
-    const p0Hc1 = this.P0Hc1.get().value;
+    const p0Hc1 = this.p0Hc1.get().value;
     const p1Hc0 = this.p1Hc0.get().value;
-    const p1Hc1 = this.P1Hc1.get().value;
+    const p1Hc1 = this.p1Hc1.get().value;
 
     const player0Key = this.player0Key.get().value;
     const player1Key = this.player1Key.get().value;
@@ -1281,9 +1150,9 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const p0Hc1New = Provable.if(player.equals(player1Key), Card, p0Hc1, card1);
 
     this.p0Hc0.set(p0Hc0New);
-    this.P0Hc1.set(p0Hc1New);
+    this.p0Hc1.set(p0Hc1New);
     this.p1Hc0.set(p1Hc0New);
-    this.P1Hc1.set(p1Hc1New);
+    this.p1Hc1.set(p1Hc1New);
   }
 
 
