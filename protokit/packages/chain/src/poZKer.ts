@@ -87,16 +87,16 @@ export const cardMapping52 = {
 @runtimeModule()
 export class PoZKerApp extends RuntimeModule<unknown> {
 
-  // we need P1Turn*P2Turn*ShowdownPending = ShowdownComplete
-  P1Turn = Field(2);
-  P2Turn = Field(3);
+  // we need P0Turn*P1Turn*ShowdownPending = ShowdownComplete
+  P0Turn = Field(2);
+  P1Turn = Field(3);
 
-  ShowdownPending = Field(1);
-  ShowdownComplete = Field(6);
-  Preflop = Field(2);
-  Flop = Field(3);
-  Turn = Field(4);
-  River = Field(5);
+  // ShowdownPending = Field(1);
+  // ShowdownComplete = Field(6);
+  // Preflop = Field(2);
+  // Flop = Field(3);
+  // Turn = Field(4);
+  // River = Field(5);
 
   // Actions
   Null = Field(0);
@@ -154,19 +154,17 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   @state() public turn0 = State.from<Card>(Card);
   @state() public river0 = State.from<Card>(Card);
 
-  //
-
   // Coded game state, contains packed data:
-  // stack1, stack2, playerTurn, street, lastAction, handOver
+  // stack0, stack1, playerTurn, street, lastAction, handOver
   // Store gamestate as a FIELD instead, to address challenges calling .get from frontend
   // @state(Gamestate) gamestate = State<Gamestate>();
+  @state() public stack0 = State.from<Field>(Field);
   @state() public stack1 = State.from<Field>(Field);
-  @state() public stack2 = State.from<Field>(Field);
   @state() public playerTurn = State.from<Field>(Field);
-  @state() public street = State.from<Field>(Field);
+  // @state() public street = State.from<Field>(Field);
   @state() public lastAction = State.from<Field>(Field);
   @state() public lastBetSize = State.from<Field>(Field);
-  @state() public handOver = State.from<Bool>(Bool);
+  // @state() public handOver = State.from<Bool>(Bool);
   @state() public pot = State.from<Field>(Field);
 
   @state() public handStage = State.from<Field>(Field);
@@ -175,12 +173,13 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   init() {
     // super.init();
     // Starting gamestate is always P2's turn preflop, with P1 having posted small blind
+    this.stack0.set(Field(0));
     this.stack1.set(Field(0));
-    this.stack2.set(Field(0));
-    this.playerTurn.set(this.P1Turn);
-    this.street.set(this.Preflop);
+    this.playerTurn.set(this.P0Turn);
+    // this.street.set(this.Preflop);
+    this.handStage.set(this.SBPost);
     this.lastAction.set(this.Bet);
-    this.handOver.set(Bool(false));
+    // this.handOver.set(Bool(false));
     this.pot.set(Field(0));
     this.lastBetSize.set(Field(0));
 
@@ -205,10 +204,11 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   @runtimeMethod()
   public resetTableState(): void {
     // Should call this on init too, but want to let players reset the game state
-    this.playerTurn.set(this.P1Turn);
-    this.street.set(this.Preflop);
+    this.playerTurn.set(this.P0Turn);
+    // this.street.set(this.Preflop);
+    // this.handOver.set(Bool(false));
+    this.handStage.set(this.SBPost);
     this.lastAction.set(this.Null);
-    this.handOver.set(Bool(false));
     this.handStage.set(this.SBPost);
     this.button.set(Field(0));
   }
@@ -247,20 +247,20 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   private deposit(seatI: Field, depositAmount: Field): void {
     // Method is only called when joining table
     // When this is called we will already have verified that seat is free
+    const stack0: Field = this.stack0.get().value;
     const stack1: Field = this.stack1.get().value;
-    const stack2: Field = this.stack2.get().value;
-    const stack1New = Provable.if(
+    const stack0New = Provable.if(
       seatI.equals(Field(0)),
+      depositAmount,
+      stack0
+    );
+    const stack1New = Provable.if(
+      seatI.equals(Field(1)),
       depositAmount,
       stack1
     );
-    const stack2New = Provable.if(
-      seatI.equals(Field(1)),
-      depositAmount,
-      stack2
-    );
+    this.stack0.set(stack0New);
     this.stack1.set(stack1New);
-    this.stack2.set(stack2New);
 
     // From https://github.com/o1-labs/o1js/blob/5ca43684e98af3e4f348f7b035a0ad7320d88f3d/src/examples/zkapps/escrow/escrow.ts
     // const payerUpdate = AccountUpdate.createSigned(player);
@@ -270,50 +270,44 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   }
 
   @runtimeMethod()
-  public withdraw(): void {
-    // Can ONLY withdraw when the hand is over!
-    // const [stack1, stack2, turn, street, lastAction, lastBetSize, handOver, pot] = this.getGamestate();
-    const stack1: Field = this.stack1.get().value;
-    const stack2: Field = this.stack2.get().value;
-    const handOver = this.handOver.get().value;
-    const pot = this.pot.get().value;
-    // handOver.assertTrue('Game is not over!');
-    assert(handOver, 'Game is not over!');
+  public leaveTable(): void {
+    // Can only leave if we're at the blinds posting stage...
+    const handStage = this.handStage.get().value;
+    assert(handStage.equals(this.SBPost), "Cannot leave table now!");
 
-    // Sanity check - pot should have been awarded by this time...
-    // pot.equals(Field(0)).assertTrue("Pot has not been awarded!");
-    assert(pot.equals(Field(0)), "Pot has not been awarded!");
+    const player: PublicKey = this.transaction.sender.value;
+    assert(this.inGame(player), "Player not in game!")
+
+    const player0Key = this.player0Key.get().value;
+    const seatI = Provable.if(player.equals(player0Key), Field(0), Field(1));
+
+    this.withdraw(player, seatI);
+  }
+
+
+  private withdraw(player: PublicKey, seatI: Field): void {
+    // Can ONLY withdraw when the hand is over!
+    const stack0: Field = this.stack0.get().value;
+    const stack1: Field = this.stack1.get().value;
+    const stack = Provable.if(seatI.equals(Field(0)), stack0, stack1);
 
     const player0Key = this.player0Key.get().value;
     const player1Key = this.player1Key.get().value;
 
-    const player: PublicKey = this.transaction.sender.value;
-    const cond0 = player.equals(player0Key).or(player.equals(player1Key));
-    // cond0.assertTrue('Player is not part of this game!')
-    assert(cond0, 'Player is not part of this game!');
-
-    // We'll have tallied up the players winnings into their stack, 
-    // so both players can withdraw whatever is in their stack when hand ends
-    const sendAmount = Provable.if(
-      player.equals(player0Key),
-      stack1,
-      stack2
-    );
-
-    // TEMP - disabling this so we can test game without needing to send funds
+    // TODO - reenable sending funds to player
     // this.send({ to: player, amount: sendAmount.toUInt64() });
 
     // We have to update the stacks so they cannot withdraw multiple times!
-    const stack1New = Provable.if(
+    const stack0New = Provable.if(
       player.equals(player0Key),
       Field(0),
-      stack1
+      stack0
     );
 
-    const stack2New = Provable.if(
+    const stack1New = Provable.if(
       player.equals(player1Key),
       Field(0),
-      stack2
+      stack1
     );
 
     // We want to reset the gamestate once both players have withdrawn,
@@ -331,29 +325,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.player0Key.set(player0KeyNew);
     this.player1Key.set(player1KeyNew);
 
-    const turnReset: Field = this.P1Turn;
-    const streetReset: Field = this.Preflop;
-    const lastActionReset: Field = this.Bet;
-
-    // Check that both players have been reset to reset game
-    // We can't check stack sizes because if one player goes bust, 
-    // both stacks will be 0 after the winner calls
-    const gameShouldReset: Bool = player0KeyNew.equals(PublicKey.empty()).and(player1KeyNew.equals(PublicKey.empty()));
-    const handOverNew = Provable.if(gameShouldReset, Bool(false), Bool(true));
-
-    const newLastBetSize = Field(0);
+    this.stack0.set(stack0New);
     this.stack1.set(stack1New);
-    this.stack2.set(stack2New);
-
-    this.playerTurn.set(turnReset);
-    this.street.set(streetReset);
-    this.lastAction.set(lastActionReset);
-    this.lastBetSize.set(newLastBetSize);
-    this.handOver.set(handOverNew);
-    this.pot.set(pot);
-
-    // TEMP - when game is over, reset player cards for next hand
-    // this.storeHardcodedCards();
   }
 
 
@@ -367,20 +340,20 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     // Need to check that it's the current player's turn, 
     // and the action is valid
+    const stack0: Field = this.stack0.get().value;
     const stack1: Field = this.stack1.get().value;
-    const stack2: Field = this.stack2.get().value;
-    const handOver = this.handOver.get().value;
+    // const handOver = this.handOver.get().value;
     const playerTurn = this.playerTurn.get().value;
-    const street = this.street.get().value;
+    const handStage = this.handStage.get().value;
     const lastAction = this.lastAction.get().value;
     const pot = this.pot.get().value;
 
     // handOver.assertFalse('Game has already finished!');
-    assert(handOver.not(), 'Game has already finished!');
+    // assert(handOver.not(), 'Game has already finished!');
 
     // Want these as bools to simplify checks
-    const p1turn: Bool = playerTurn.equals(this.P1Turn);
-    const p2turn: Bool = playerTurn.equals(this.P2Turn);
+    const p1turn: Bool = playerTurn.equals(this.P0Turn);
+    const p2turn: Bool = playerTurn.equals(this.P1Turn);
     // p1turn.or(p2turn).assertTrue('Invalid game state player');
     assert(p1turn.or(p2turn), 'Invalid game state player');
 
@@ -396,10 +369,10 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     assert(playerOk, 'Player is not allowed to make a move')
     //.assertTrue('Player is not allowed to make a move');
 
-    const isPreflop = street.equals(this.Preflop);
-    const isFlop = street.equals(this.Flop)
-    const isTurn = street.equals(this.Turn)
-    const isRiver = street.equals(this.River)
+    const isPreflop = handStage.equals(this.PreflopBetting);
+    const isFlop = handStage.equals(this.FlopBetting)
+    const isTurn = handStage.equals(this.TurnBetting)
+    const isRiver = handStage.equals(this.RiverBetting)
     //isPreflop.or(isFlop).or(isTurn).or(isRiver).assertTrue('Invalid game state street');
     assert(isPreflop.or(isFlop).or(isTurn).or(isRiver), 'Invalid game state street');
 
@@ -430,7 +403,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const act4 = action.equals(this.Raise).and(facingBet.or(facingRaise).or(facingPreflopCall).or(facingBB));
     const act5 = action.equals(this.Check).and(facingNull.or(facingCheck).or(facingPreflopCall));
     // Blinds...
-    const act6 = action.equals(this.PostSB).and(facingNull).and(street.equals(this.Preflop));
+    const act6 = action.equals(this.PostSB).and(facingNull).and(handStage.equals(this.PreflopBetting));
     const act7 = action.equals(this.PostBB).and(facingSB);
     const act8 = action.equals(this.PreflopCall).and(facingBB);
 
@@ -441,11 +414,11 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // For calls - we are not passing in amount, so we need to figure it out
     // For raises - raise needs to be to a valid size
 
-    // If stack1 99 and stack2 90, returns 9
-    //const stackDiff = this.uint_subtraction(p1turn, stack1, stack2, stack2, stack1);
+    // If stack0 99 and stack1 90, returns 9
+    //const stackDiff = this.uint_subtraction(p1turn, stack0, stack1, stack1, stack0);
     const stackDiff = Provable.if(p1turn,
-      stack1.sub(stack2),
-      stack2.sub(stack1));
+      stack0.sub(stack1),
+      stack1.sub(stack0));
 
     // We get an error on underflows so this is always true
     // stackDiff.assertGreaterThanOrEqual(Field(0), "");
@@ -488,8 +461,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     )
 
     const compareStack = Provable.if(p1turn,
-      stack1,
-      stack2)
+      stack0,
+      stack1)
 
     // betSizeReal.assertLessThanOrEqual(compareStack, "Cannot bet more than stack!");
     assert(betSizeReal.lessThanOrEqual(compareStack), "Cannot bet more than stack!");
@@ -504,24 +477,24 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
 
     // Make sure the player has enough funds to take the action
-    const case1 = player.equals(player0Key).and(betSizeReal.lessThanOrEqual(stack1));
-    const case2 = player.equals(player1Key).and(betSizeReal.lessThanOrEqual(stack2));
+    const case1 = player.equals(player0Key).and(betSizeReal.lessThanOrEqual(stack0));
+    const case2 = player.equals(player1Key).and(betSizeReal.lessThanOrEqual(stack1));
     // case1.or(case2).assertTrue("Not enough balance for bet!");
     assert(case1.or(case2), "Not enough balance for bet!");
 
 
-    // const stack1New = this.uint_subtraction(playerHash.equals(player0Hash),
+    // const stack0New = this.uint_subtraction(playerHash.equals(player0Hash),
+    //   stack0, betSizeReal,
+    //   stack0, UInt32.from(0));
+    // const stack1New = this.uint_subtraction(playerHash.equals(player1Hash),
     //   stack1, betSizeReal,
     //   stack1, UInt32.from(0));
-    // const stack2New = this.uint_subtraction(playerHash.equals(player1Hash),
-    //   stack2, betSizeReal,
-    //   stack2, UInt32.from(0));
-    const stack1New = Provable.if(player.equals(player0Key),
+    const stack0New = Provable.if(player.equals(player0Key),
+      stack0.sub(betSizeReal),
+      stack0.sub(Field(0)));
+    const stack1New = Provable.if(player.equals(player1Key),
       stack1.sub(betSizeReal),
       stack1.sub(Field(0)));
-    const stack2New = Provable.if(player.equals(player1Key),
-      stack2.sub(betSizeReal),
-      stack2.sub(Field(0)));
 
     // Need to check if we've hit the end of the street - transition to next street
     // Scenarios for this would be:
@@ -536,18 +509,20 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Showdown takes priority over other logic
     const nextShowdownEnd = Provable.if(isRiver.and(newStreetBool), Bool(true), Bool(false));
     // Additional scenario where we can have a showdown - both allin
-    const nextShowdownAllin = stack1New.equals(Field(0)).and(stack2New.equals(Field(0)));
+    const nextShowdownAllin = stack0New.equals(Field(0)).and(stack1New.equals(Field(0)));
     const nextShowdown = nextShowdownEnd.or(nextShowdownAllin);
     const nextPreflop = Provable.if(nextShowdown.not().and(isPreflop.and(newStreetBool.not())), Bool(true), Bool(false));
     const nextFlop = Provable.if(nextShowdown.not().and(isFlop.and(newStreetBool.not()).or(isPreflop.and(newStreetBool))), Bool(true), Bool(false));
     const nextTurn = Provable.if(nextShowdown.not().and(isTurn.and(newStreetBool.not()).or(isFlop.and(newStreetBool))), Bool(true), Bool(false));
     const nextRiver = Provable.if(nextShowdown.not().and(isRiver.and(newStreetBool.not()).or(isTurn.and(newStreetBool))), Bool(true), Bool(false));
 
-    const currStreet = Provable.switch(
-      [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
-      Field,
-      [this.Preflop, this.Flop, this.Turn, this.River, this.ShowdownPending]
-    );
+    // TODO - can fix this logic by adding ONE if it's a transition I think?
+    const handStageNew = Field(0);
+    // const currStreet = Provable.switch(
+    //   [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
+    //   Field,
+    //   [this.Preflop, this.Flop, this.Turn, this.River, this.ShowdownPending]
+    // );
 
     // ISSUE - if i's showdown pending, wee want to override value...
 
@@ -560,8 +535,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     const playerTurnNow = Provable.if(
       newStreetBool.or(p2turn),
-      this.P1Turn,
-      this.P2Turn
+      this.P0Turn,
+      this.P1Turn
     );
 
     const handOverNow: Bool = Provable.if(
@@ -571,19 +546,19 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     )
 
     // If game is over from a fold - need to send funds to winner
-    const p1WinnerBal = stack1.add(pot);
-    const p2WinnerBal = stack2.add(pot);
+    const p1WinnerBal = stack0.add(pot);
+    const p2WinnerBal = stack1.add(pot);
 
 
-    const stack1Final = Provable.if(
+    const stack0Final = Provable.if(
       handOverNow.equals(Bool(true)).and(player.equals(player1Key)),
       p1WinnerBal,
-      stack1New
+      stack0New
     );
-    const stack2Final = Provable.if(
+    const stack1Final = Provable.if(
       handOverNow.equals(Bool(true)).and(player.equals(player0Key)),
       p2WinnerBal,
-      stack2New
+      stack1New
     );
 
     const potNew = Provable.if(
@@ -599,68 +574,67 @@ export class PoZKerApp extends RuntimeModule<unknown> {
       betSizeReal
     )
 
+    this.stack0.set(stack0Final);
     this.stack1.set(stack1Final);
-    this.stack2.set(stack2Final);
     this.playerTurn.set(playerTurnNow);
-    this.street.set(currStreet);
+    this.handStage.set(handStageNew);
     this.lastAction.set(facingAction);
     this.lastBetSize.set(newLastBetSize);
-    this.handOver.set(handOverNow);
+    // this.handOver.set(handOverNow);
     this.pot.set(potNew);
   }
 
   @runtimeMethod()
-  public showdown(): void {
+  public settle(): void {
     // We should only call this if we actually made it to showdown
-    // const [stack1, stack2, turn, street, lastAction, lastBetSize, handOver, pot] = this.getGamestate();
+    // const [stack0, stack1, turn, street, lastAction, lastBetSize, handOver, pot] = this.getGamestate();
+    const stack0: Field = this.stack0.get().value;
     const stack1: Field = this.stack1.get().value;
-    const stack2: Field = this.stack2.get().value;
     const pot: Field = this.pot.get().value;
-    const street: Field = this.street.get().value;
+    const handStage: Field = this.handStage.get().value;
 
     //street.equals(this.ShowdownComplete).assertTrue("Invalid showdown gamestate!");
-    assert(street.equals(this.ShowdownComplete), "Invalid showdown gamestate!");
+    assert(handStage.equals(this.Settle), "Invalid settle gamestate!");
 
-    // This is no longer true if players can start with different stacks!
-    // Sanity check - if it's a showdown both stacks must be equal
-    // stack1.equals(stack2).assertTrue("Invalid showdown gamestate!");
+    const p1WinnerBal = stack0.add(pot);
+    const p2WinnerBal = stack1.add(pot);
 
-    const p1WinnerBal = stack1.add(pot);
-    const p2WinnerBal = stack2.add(pot);
-
-    // Convention is we'll have stored player0's lookup value for their hand 
-    // in slot0, and player1's lookup value in slot1
+    //Even if a player folds we'll have stored showdown values
     const showdownValueP0 = this.showdownValueP0.get().value;
     const showdownValueP1 = this.showdownValueP1.get().value;
 
     // If we get a tie - split the pot
     const tieAdj = Provable.if(
       Bool(showdownValueP0 === showdownValueP1),
-      // pot should always be evenly divisible by 2
+      // pot should always be evenly divisible by 2 if it's a tie...
       pot.div(Field(2)),
       Field(0),
     );
 
     // Lower is better for the hand rankings
-    const stack1Final = Provable.if(
+    const stack0Final = Provable.if(
       Bool(showdownValueP0.lessThan(showdownValueP1)),
       p1WinnerBal,
-      stack1.add(tieAdj)
+      stack0.add(tieAdj)
     );
-    const stack2Final = Provable.if(
+    const stack1Final = Provable.if(
       Bool(showdownValueP1.lessThan(showdownValueP0)),
       p2WinnerBal,
-      stack2.add(tieAdj)
+      stack1.add(tieAdj)
     );
 
-    const potNew = Field(0);
-    // this.setGamestate(stack1Final, stack2Final, turn, street, lastAction, lastBetSize, Bool(true), potNew);
-
+    this.stack0.set(stack0Final);
     this.stack1.set(stack1Final);
-    this.stack2.set(stack2Final);
-    this.handOver.set(Bool(true));
-    this.pot.set(potNew);
+    // this.handOver.set(Bool(true));
+    this.pot.set(Field(0));
 
+    // Resetting values for next hand!
+    this.handStage.set(this.SBPost);
+
+    // Need to swap button!
+    const button = this.button.get().value;
+    const newButton = Provable.if(button.equals(Field(0)), Field(1), Field(0));
+    this.button.set(newButton);
   }
 
   cardPrimeToCardPoint(cardPrime: Field): PublicKey {
@@ -981,8 +955,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     */
 
 
-    // const [stack1, stack2, turn, street, lastAction, lastBetSize, handOver, pot] = this.getGamestate();
-    const street = this.street.get().value;
+    // const [stack0, stack1, turn, street, lastAction, lastBetSize, handOver, pot] = this.getGamestate();
+    const handStage = this.handStage.get().value;
     // const gamestate = this.gamestate.getAndRequireEquals();
     // TODO - what was this check again?  Reimplement with new format...
     // gamestate.assertLessThanOrEqual(Field(3));
@@ -1109,16 +1083,18 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.showdownValueP0.set(showdownValueP0New);
     this.showdownValueP1.set(showdownValueP1New);
 
-    // Description of logic within actionMapping - 
+    // If BOTH players have shown their cards (so both values not 0)
     // transition from 1 to 6 via multiplying by 2 and 3 after each player
     // shows their cards
-    const streetNew = Provable.if(
-      player.equals(player0Key),
-      street.mul(this.P1Turn),
-      street.mul(this.P2Turn),
+    // TODO - fix this logic - should we have a default value for showdown value?
+    const showdownDone = showdownValueP0New.equals(0).and(showdownValueP1New.equals(0));
+    const handStageNew = Provable.if(
+      showdownDone,
+      this.Settle,
+      this.Showdown
     );
 
-    this.street.set(streetNew);
+    this.handStage.set(handStageNew);
   }
 
 
