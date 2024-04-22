@@ -1135,12 +1135,42 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   @runtimeMethod()
   public commitBoardcards(card0: Card, card1: Card, card2: Card): void {
     // Only valid if we're in the 'deal' stage of flop/turn/river
+    // Note that for turn and river we will not be using card1 and card2, so those can be empty Card objects
     const handStage: Field = this.handStage.get().value;
     assert(handStage.equals(this.FlopDeal).or(handStage.equals(this.TurnDeal)).or(handStage.equals(this.RiverDeal)), "Not in deal stage!");
 
-    this.flop0.set(card0);
-    this.flop1.set(card1);
-    this.flop2.set(card2);
+    const flop0 = this.flop0.get().value;
+    const flop1 = this.flop1.get().value;
+    const flop2 = this.flop2.get().value;
+    const turn0 = this.turn0.get().value;
+    const river0 = this.river0.get().value;
+
+    const flop0New = Provable.if(handStage.equals(this.FlopDeal),
+      Card,
+      card0,
+      flop0)
+    const flop1New = Provable.if(handStage.equals(this.FlopDeal),
+      Card,
+      card1,
+      flop1)
+    const flop2New = Provable.if(handStage.equals(this.FlopDeal),
+      Card,
+      card2,
+      flop2)
+    const turn0New = Provable.if(handStage.equals(this.TurnDeal),
+      Card,
+      card0,
+      turn0)
+    const river0New = Provable.if(handStage.equals(this.RiverDeal),
+      Card,
+      card0,
+      river0)
+
+    this.flop0.set(flop0New);
+    this.flop1.set(flop1New);
+    this.flop2.set(flop2New);
+    this.turn0.set(turn0New);
+    this.river0.set(river0New);
   }
 
 
@@ -1159,7 +1189,32 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const turn0 = this.turn0.get().value;
     const river0 = this.river0.get().value;
 
-    const cardDecoded: Card = partialUnmask(flop0, decryptKey);
+    const flop0New = Provable.if(handStage.equals(this.FlopDeal),
+      Card,
+      partialUnmask(flop0, decryptKey),
+      flop0)
+    const flop1New = Provable.if(handStage.equals(this.FlopDeal),
+      Card,
+      partialUnmask(flop1, decryptKey),
+      flop1)
+    const flop2New = Provable.if(handStage.equals(this.FlopDeal),
+      Card,
+      partialUnmask(flop2, decryptKey),
+      flop2)
+    const turn0New = Provable.if(handStage.equals(this.TurnDeal),
+      Card,
+      partialUnmask(turn0, decryptKey),
+      turn0)
+    const river0New = Provable.if(handStage.equals(this.RiverDeal),
+      Card,
+      partialUnmask(river0, decryptKey),
+      river0)
+
+    this.flop0.set(flop0New);
+    this.flop1.set(flop1New);
+    this.flop2.set(flop2New);
+    this.turn0.set(turn0New);
+    this.river0.set(river0New);
   }
 
 }
