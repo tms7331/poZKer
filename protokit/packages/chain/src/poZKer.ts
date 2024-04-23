@@ -2,7 +2,7 @@ import { RuntimeModule, runtimeModule, state, runtimeMethod } from "@proto-kit/m
 import { State, assert, StateMap, Option } from "@proto-kit/protocol";
 import { UInt32 } from "@proto-kit/library";
 import { PublicKey, PrivateKey, Poseidon, Field, Bool, Provable, MerkleMapWitness, Scalar } from "o1js";
-import { Card, addPlayerToCardMask, mask, partialUnmask, createNewCard, cardPrimeToPublicKey } from './mentalpoker.js';
+import { Card, addPlayerToCardMask, mask, partialUnmaskProvable, createNewCard, cardPrimeToPublicKey } from './mentalpoker.js';
 
 // Want a mapping for cards, each represented as a prime so we can multiply
 // them together and get a unique value
@@ -203,6 +203,10 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
   @runtimeMethod()
   public resetTableState(): void {
+    // Have a separate resetHandState for when we want to keep players but reset hand?
+    // this.player0Key.set(PublicKey.empty());
+    // this.player1Key.set(PublicKey.empty());
+
     // Should call this on init too, but want to let players reset the game state
     this.playerTurn.set(this.P0Turn);
     // this.street.set(this.Preflop);
@@ -369,12 +373,13 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     assert(playerOk, 'Player is not allowed to make a move')
     //.assertTrue('Player is not allowed to make a move');
 
+    const isBlinds = handStage.equals(this.SBPost).or(handStage.equals(this.BBPost));
     const isPreflop = handStage.equals(this.PreflopBetting);
     const isFlop = handStage.equals(this.FlopBetting)
     const isTurn = handStage.equals(this.TurnBetting)
     const isRiver = handStage.equals(this.RiverBetting)
     //isPreflop.or(isFlop).or(isTurn).or(isRiver).assertTrue('Invalid game state street');
-    assert(isPreflop.or(isFlop).or(isTurn).or(isRiver), 'Invalid game state street');
+    assert(isBlinds.or(isPreflop).or(isFlop).or(isTurn).or(isRiver), 'Invalid game state street');
 
     const facingSB = lastAction.equals(this.PostSB);
     const facingBB = lastAction.equals(this.PostBB);
@@ -403,7 +408,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const act4 = action.equals(this.Raise).and(facingBet.or(facingRaise).or(facingPreflopCall).or(facingBB));
     const act5 = action.equals(this.Check).and(facingNull.or(facingCheck).or(facingPreflopCall));
     // Blinds...
-    const act6 = action.equals(this.PostSB).and(facingNull).and(handStage.equals(this.PreflopBetting));
+    const act6 = action.equals(this.PostSB).and(facingNull).and(handStage.equals(this.SBPost));
     const act7 = action.equals(this.PostBB).and(facingSB);
     const act8 = action.equals(this.PreflopCall).and(facingBB);
 
@@ -1104,7 +1109,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     return caller.equals(player0Key).or(caller.equals(player1Key));
   }
 
-
   @runtimeMethod()
   public commitOpponentHolecards(card0: Card, card1: Card): void {
     const player = this.transaction.sender.value;
@@ -1130,7 +1134,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.p1Hc0.set(p1Hc0New);
     this.p1Hc1.set(p1Hc1New);
   }
-
 
   @runtimeMethod()
   public commitBoardcards(card0: Card, card1: Card, card2: Card): void {
@@ -1191,23 +1194,23 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     const flop0New = Provable.if(handStage.equals(this.FlopDeal),
       Card,
-      partialUnmask(flop0, decryptKey),
+      partialUnmaskProvable(flop0, decryptKey),
       flop0)
     const flop1New = Provable.if(handStage.equals(this.FlopDeal),
       Card,
-      partialUnmask(flop1, decryptKey),
+      partialUnmaskProvable(flop1, decryptKey),
       flop1)
     const flop2New = Provable.if(handStage.equals(this.FlopDeal),
       Card,
-      partialUnmask(flop2, decryptKey),
+      partialUnmaskProvable(flop2, decryptKey),
       flop2)
     const turn0New = Provable.if(handStage.equals(this.TurnDeal),
       Card,
-      partialUnmask(turn0, decryptKey),
+      partialUnmaskProvable(turn0, decryptKey),
       turn0)
     const river0New = Provable.if(handStage.equals(this.RiverDeal),
       Card,
-      partialUnmask(river0, decryptKey),
+      partialUnmaskProvable(river0, decryptKey),
       river0)
 
     this.flop0.set(flop0New);

@@ -37,7 +37,6 @@ describe("poZKer", () => {
   }
 
   async function postBlinds(appChain: any, pkr: PoZKerApp, alicePrivateKey: PrivateKey, alice: PublicKey, bobPrivateKey: PrivateKey, bob: PublicKey) {
-
     // Set table state first?
     appChain.setSigner(alicePrivateKey);
     const txn0 = await appChain.transaction(alice, () => {
@@ -121,6 +120,7 @@ describe("poZKer", () => {
 
   }, 1_000_000);
 
+
   it('lets both players post blinds (takeAction())', async () => {
     const appChain = await localDeploy();
     const alicePrivateKey = PrivateKey.random();
@@ -150,6 +150,8 @@ describe("poZKer", () => {
     await txn1.sign();
     await txn1.send();
     const block = await appChain.produceBlock();
+    const err = block?.transactions[0].statusMessage;
+    console.log(err);
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
 
     // Should have posted sb of 1
@@ -208,7 +210,7 @@ describe("poZKer", () => {
     await txnSucc1.sign();
     // await txnSucc1.send();
     // const block = await appChain.produceBlock();
-
+  
     const txnSucc2 = await appChain.transaction(alice, () => {
       pkr.takeAction(pkr.Fold, Field(0))
     });
@@ -629,5 +631,6 @@ describe("poZKer", () => {
     expect(blockFail?.transactions[0].statusMessage).toBe('Invalid showdown gamestate!');
 
   })
+
 
 });
