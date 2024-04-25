@@ -21,6 +21,9 @@ export default function Component() {
   const wallet = useWalletStore();
   const pkrState = usePoZKerStore();
 
+  const [betAmountInput, setBetAmountInput] = useState(0);
+  const [maxSlider, setMaxSlider] = useState(100);
+  const [minSlider, setMinSlider] = useState(0);
   // Corresponds directly to data pulled from packed 'gamestate'
   // const [stack1, setStack1] = useState<number>(0);
   // const [stack2, setStack2] = useState<number>(0);
@@ -307,24 +310,65 @@ export default function Component() {
                 src="/svg_playing_cards/backs/blue.svg"
                 width={100}
                 height={142.3}
-                alt="Picture of the author"
+                alt="Poker Card"
               />
               <Image
                 src="/svg_playing_cards/backs/blue.svg"
                 width={100}
                 height={142.3}
-                alt="Picture of the author"
+                alt="Poker Card"
               />
             </section>
-            <section className="flex h-[360px] justify-center gap-2">
-              <Image
+            <div className="flex flex-col gap-2.5">
+              <section className="mx-auto flex w-[536px] gap-2">
+                <Image
+                  className="my-auto h-fit"
+                  src="/svg_playing_cards/fronts/hearts_8.svg"
+                  width={100}
+                  height={142.3}
+                  alt="Poker Card"
+                />
+                <Image
+                  className="my-auto h-fit"
+                  src="/svg_playing_cards/fronts/hearts_9.svg"
+                  width={100}
+                  height={142.3}
+                  alt="Poker Card"
+                />
+                <Image
+                  className="my-auto h-fit"
+                  src="/svg_playing_cards/fronts/clubs_8.svg"
+                  width={100}
+                  height={142.3}
+                  alt="Poker Card"
+                />
+                <Image
+                  className="my-auto h-fit"
+                  src="/svg_playing_cards/fronts/diamonds_queen.svg"
+                  width={100}
+                  height={142.3}
+                  alt="Poker Card"
+                />
+                {/* <Image
                 className="my-auto h-fit"
-                src="/svg_playing_cards/fronts/hearts_8.svg"
+                src="/svg_playing_cards/fronts/hearts_3.svg"
                 width={100}
                 height={142.3}
-                alt="Picture of the author"
-              />
-            </section>
+                alt="Poker Card"
+              /> */}
+              </section>
+              {/* pot */}
+              <div className="mx-auto flex w-fit min-w-[60px] gap-1 rounded-full bg-black/60 px-3 py-2 text-center text-white">
+                <Image
+                  className="my-auto h-fit"
+                  src="/svg_playing_cards/red-chip.png"
+                  width={24}
+                  height={24}
+                  alt="Red Casino Chip"
+                />{" "}
+                <span className="font-semibold">{pkrState.pot || "4000"}</span>
+              </div>
+            </div>
             <section className="relative mx-auto flex w-[232px] justify-center gap-2 px-1">
               <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl border-2 border-black bg-[#313390] px-4 py-2 text-white">
                 <div className="flex">
@@ -336,21 +380,38 @@ export default function Component() {
                 src="/svg_playing_cards/fronts/clubs_ace.svg"
                 width={100}
                 height={142.3}
-                alt="Picture of the author"
+                alt="Poker Card"
               />
               <Image
                 src="/svg_playing_cards/fronts/diamonds_queen.svg"
                 width={100}
                 height={142.3}
-                alt="Picture of the author"
+                alt="Poker Card"
               />
             </section>
           </div>
         </div>
         <div className="flex flex-1 flex-col justify-end">
-          <div>
-            <div className="flex gap-2">
-              <input type="number" className="w-[50px]" />
+          <div className="flex w-fit flex-col space-y-3">
+            <div className="flex w-full gap-2 rounded-lg bg-[#313390] p-2 pl-5">
+              <input
+                type="number"
+                className="w-[60px] bg-transparent  text-white"
+                value={betAmountInput}
+                onChange={(event) =>
+                  setBetAmountInput(parseInt(event?.target.value))
+                }
+              />
+              <input
+                type="range"
+                min={maxSlider}
+                max={minSlider}
+                className="custom-range-input w-full"
+                value={betAmountInput}
+                onChange={(event) =>
+                  setBetAmountInput(parseInt(event.target.value))
+                }
+              />
             </div>
             <div className="flex w-fit justify-start gap-2">
               <button className="w-[100px] rounded-lg bg-[#313390] px-4 py-3 text-lg font-medium text-white transition-colors hover:bg-[#313990]">
