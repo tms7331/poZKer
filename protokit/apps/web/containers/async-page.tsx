@@ -26,6 +26,7 @@ export default function Component() {
             Learn more
             <span aria-hidden="true">→</span>
           </Link>
+
         </div>
       </div>
     </main>

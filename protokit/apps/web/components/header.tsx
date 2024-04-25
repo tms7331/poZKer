@@ -58,7 +58,7 @@ export default function Header({
                 {balanceLoading && balance === undefined ? (
                   <Skeleton className="h-4 w-full" />
                 ) : (
-                  <p className="text-xs font-bold">{balance} MINA</p>
+                  <p className="text-xs font-bold">{balance} PZKR</p>
                 )}
               </div>
             </div>

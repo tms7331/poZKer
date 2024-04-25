@@ -29,39 +29,44 @@ export default function Component() {
     // const [gameOver, setGameOver] = useState<string>("false");
     // const [pot, setPot] = useState<number>(0);
 
-    const [holeCards, setHoleCards] = useState<string[]>(["", ""]);
+    const [decryptKey, setDecryptKey] = useState<number>(0);
+
+    const [holeCards, setHoleCards] = useState<string[]>([]);
     const [boardCards, setBoardCards] = useState<string[]>([]);
 
     const [myStack, setMyStack] = useState<string>("0");
     const [opponentStack, setOpponentStack] = useState<string>("0");
+
+    const [myBetThisStreet, setMyBetThisStreet] = useState<string>("12");
+    const [opponentBetThisStreet, opponentMyBetThisStreet] = useState<string>("18");
     // We'll always use these board cards for now - pull them to 'boardCards'
     // based on handStage
     const boardCardsHardcoded = ["Kc", "Ac", "Qs", "8s", "6s"]
 
     // Which player we are...
-    type Player = "player1" | "player2" | "notInGame";
-    const [player, setPlayer] = useState<Player>("notInGame");
+    // type Player = "player1" | "player2" | "notInGame";
+    const [playerI, setPlayer] = useState<number>(-1);
+
 
     useEffect(() => {
-        // TODO - where can we get this?
         const userKey = wallet.wallet;
         console.log("userKey is:", userKey);
 
         // Figure out which player we are...
         if (userKey === pkrState.player0Key) {
             console.log("Matched player 1...")
-            setPlayer("player1");
+            setPlayer(0);
             // Hardcoding player's cards
-            setHoleCards(["Ah", "Ad"]);
+            // setHoleCards(["Ah", "Ad"]);
         }
         else if (userKey === pkrState.player1Key) {
             console.log("Matched player 2...")
-            setPlayer("player2");
-            setHoleCards(["Ks", "Ts"]);
+            setPlayer(1);
+            // setHoleCards(["Ks", "Ts"]);
         }
         else {
             console.log("Not in game...")
-            setPlayer("notInGame");
+            setPlayer(-1);
         }
     }, [pkrState.player0Key, pkrState.player1Key, wallet.wallet]);
 
@@ -85,36 +90,24 @@ export default function Component() {
 
 
     const shuffleAndPass = async () => {
-        // 1. Retrieve deck from API (if we're p1, it will generate an empty deck for us and send that)
-        // 2. Encrypt and shuffle the deck
-        // 3. Post deck back to API backend
-        /*
-        const deck = getDeck(player, handId);
-        encryptDeck(deck);
-        shuffleDeck(deck);
-        postDeck(player, handId, deck)
-        */
+        // 1. getDeck(player, handId) - pull all cards from API (if we're p1, it will generate an empty deck for us and send that) 
+        // 2. encrypt and shuffle them
+        // 3. postDeck(player, handId)
 
-        //////////////////////////
-
-        // Need to:
-        // 1a. If p1 - generate full deck, shuffle and encrypt, and post to server
-        // 1b. If p2 - pull deck from server, shuffle and encrypt, post back to server
-        console.log("POSTING TO API...")
-        const postbody: string = JSON.stringify({ data: 'Your data to write to db' });
         try {
-
-            const response = await fetch('/api', {
-                method: 'POST',
+            const response = await fetch('/api/deck', {
+                method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
                 },
-                body: postbody,
-            })
+            });
             if (response) {
                 const data = await response.json();
                 console.log("GOT API DATA!");
                 console.log(data);
+                // In reality we'll need to do this somewhere else...
+                setHoleCards(data.cards.slice(2))
+                // setBoardCards(data.cards.slice(4))
             }
             else {
                 console.log("NO RESPONSE FROM API...")
@@ -123,24 +116,13 @@ export default function Component() {
             console.log(error);
         }
         console.log("DONE CALLING API...")
-    };
 
-
-    const dealHolecards = async () => {
-        // Pull cards from API endpoint and commit them...
-        /*
-        getCards(handId, 2)
-        commitOpponentHolecards(card0: Card, card1: Card)
-        */
-
-
-        // Need to first:
-        // 1. pull full deck from API endpoint
-        // 2. take two cards and commit them via commitOpponentHolecards(card0: Card, card1: Card)
-        console.log("CALLING API...")
+        // TODO - encrypt and shuffle them
+        // encryptDeck(deck);
+        // shuffleDeck(deck);
         try {
-            const response = await fetch('/api', {
-                method: 'GET',
+            const response = await fetch('/api/deck', {
+                method: 'POST',
                 headers: {
                     Accept: 'application/json',
                 },
@@ -158,6 +140,45 @@ export default function Component() {
         }
         console.log("DONE CALLING API...")
     };
+
+
+    const dealHolecards = async () => {
+        // 1. getCards(handId, n) - pull 2 cards from API endpoint
+        // 2. decode our half of them
+        // 3. commitOpponentHolecards(card0: Card, card1: Card) - commit them to contract
+        try {
+            const response = await fetch('/api/deck', {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                },
+            });
+            if (response) {
+                const data = await response.json();
+                console.log("GOT API DATA!");
+                console.log(data);
+
+                // In reality we'll need to do this somewhere else...
+                // And need awareness of whether it's flop/turn/river...
+                setBoardCards(data.cards);
+            }
+            else {
+                console.log("NO RESPONSE FROM API...")
+            }
+        } catch (error) {
+            console.log(error);
+        }
+        console.log("DONE CALLING API...")
+
+        // TODO - decode...
+
+        // card0: Card, card1: Card
+        //const decryptKeyStr: string =PrivateKey.fromBigInt(BigInt(1)).toBase58();
+        // await commitOpponentHolecards();
+    };
+
+
+
 
 
 
@@ -222,7 +243,7 @@ export default function Component() {
                 let merkleMapKey: number;
                 let merkleMapVal: number;
 
-                if (player === "player1") {
+                if (playerI === 0) {
                     holecard0 = 41;
                     holecard1 = 101;
 
@@ -237,7 +258,7 @@ export default function Component() {
                     merkleMapKey = 79052387;
                     merkleMapVal = 1609;
                 }
-                else if (player === "player2") {
+                else if (playerI === 1) {
                     holecard0 = 233;
                     holecard1 = 223;
 
@@ -289,8 +310,15 @@ export default function Component() {
         }
     }
 
-    // TODO - we'll need multiple functions like this to convert our encoding to strings
     useEffect(() => {
+        // Initialization useEffect...
+        // We need to generate a random BigInt for the shuffle/decrypt key
+        const min: number = 0;
+        const max: number = 10 * 10 ** 18;
+        const range: number = max - min;
+        const randNum: number = Math.random() * range + min;
+        setDecryptKey(randNum);
+
         // Set board based on current handStage...
         // type handStage = "ShowdownPending" | "Preflop" | "Flop" | "Turn" | "River" | "ShowdownComplete";
         const boardStr: string = pkrState.handStage;
@@ -325,18 +353,18 @@ export default function Component() {
         // River = UInt32.from(5);
         if (boardStr === "3") {
             const board = boardCardsHardcoded.slice(0, 3);
-            setBoardCards(board);
+            // setBoardCards(board);
 
         }
         else if (boardStr === "4") {
             const board = boardCardsHardcoded.slice(0, 4);
-            setBoardCards(board);
+            // setBoardCards(board);
         }
         else if (boardStr === "5") {
-            setBoardCards(boardCardsHardcoded);
+            // setBoardCards(boardCardsHardcoded);
         }
         else {
-            setBoardCards([]);
+            // setBoardCards([]);
         }
 
     }, []);
@@ -415,7 +443,7 @@ export default function Component() {
                         </div>
                         <div className="flex items-center">
                             <div>You are player:</div>
-                            <span className="ml-auto font-semibold">{player}</span>
+                            <span className="ml-auto font-semibold">{playerI}</span>
                         </div>
                     </div>
                     <div>
@@ -424,8 +452,11 @@ export default function Component() {
                                 <CardTitle>Board Cards</CardTitle>
                             </CardHeader>
                             <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
-                                {boardCards
-                                    .map((row, index) => { return (<span key={index}>{row}</span>) })}
+                                <span>{boardCards[0]}</span>
+                                <span>{boardCards[1]}</span>
+                                <span>{boardCards[2]}</span>
+                                <span>{boardCards[3]}</span>
+                                <span>{boardCards[4]}</span>
                             </CardContent>
                         </Card>
                     </div>

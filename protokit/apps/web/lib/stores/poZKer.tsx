@@ -3,23 +3,54 @@ import { Client, useClientStore } from "./client";
 import { immer } from "zustand/middleware/immer";
 import { PendingTransaction, UnsignedTransaction } from "@proto-kit/sequencer";
 import { BalancesKey } from "@proto-kit/library";
-import { PublicKey, Field, UInt64, PrivateKey, MerkleMapWitness, Bool } from "o1js";
+import { PublicKey, Field, UInt64, PrivateKey, MerkleMapWitness, Bool, Struct, Group } from "o1js";
 import { useCallback, useEffect } from "react";
 import { useChainStore } from "./chain";
 import { useWalletStore } from "./wallet";
 
+
+export class Card extends Struct({
+  /**
+   * The joint ephemeral key for this card, resulting from all the masking operations.
+   * New cards should have this set to the zero point (For example `Group.generator.sub(Group.generator)`)
+   */
+  epk: Group,
+
+  /**
+   * The card value( or masked value) represented as a Group element.
+   *
+   * Mapping to and from actual game cards and group elements must be done at the application level.
+   */
+  msg: Group,
+
+  /**
+   * The elliptic curve point representing the sum of the public keys of all players masking this card.
+   */
+  pk: Group,
+}) {
+  constructor(c1: Group, c2: Group, h: Group) {
+    super({ epk: c1, msg: c2, pk: h });
+  }
+}
+
+
 export interface PoZKerState {
   loading: boolean;
+  player0Key: string;
   player1Key: string;
-  player2Key: string;
+  stack0: string;
   stack1: string;
-  stack2: string;
-  turn: string,
-  street: string,
-  gameOver: string,
+  playerTurn: string,
+  handStage: string,
   pot: string,
+  handId: string,
   loadState: (client: Client, address: string) => Promise<void>;
   joinTable: (client: Client, address: string, seatI: number, depositAmount: number) => Promise<PendingTransaction>;
+  leaveTable: (client: Client, address: string) => Promise<PendingTransaction>;
+  commitBoardcards: (client: Client, address: string) => Promise<PendingTransaction>;
+  decodeBoardcards: (client: Client, address: string, decryptKey: PrivateKey) => Promise<PendingTransaction>;
+  commitOpponentHolecards: (client: Client, address: string) => Promise<PendingTransaction>;
+
   showCards: (client: Client, address: string, holecard0: number,
     holecard1: number,
     boardcard0: number,
@@ -40,8 +71,7 @@ export interface PoZKerState {
     merkleMapVal: number,
     path: string,
   ) => Promise<PendingTransaction>;
-  showdown: (client: Client, address: string) => Promise<PendingTransaction>;
-  withdraw: (client: Client, address: string) => Promise<PendingTransaction>;
+  settle: (client: Client, address: string) => Promise<PendingTransaction>;
   takeAction: (client: Client, address: string, action: number, betSize: number) => Promise<PendingTransaction>;
 }
 
@@ -58,13 +88,13 @@ export const usePoZKerStore = create<
 >(
   immer((set) => ({
     loading: Boolean(false),
+    player0Key: "0",
     player1Key: "0",
-    player2Key: "0",
+    stack0: "0",
     stack1: "0",
-    stack2: "0",
-    turn: "0",
-    street: "0",
-    gameOver: "0",
+    playerTurn: "0",
+    handStage: "0",
+    handId: "0",
     pot: "0",
 
     async loadState(client: Client, address: string) {
@@ -73,36 +103,37 @@ export const usePoZKerStore = create<
       });
 
       console.log("Calleed useBalanceStore loadBalance...");
-      const player1Key = await client.query.runtime.PoZKerApp.player1Key.get();
+      const player0Key = await client.query.runtime.PoZKerApp.player0Key.get();
       console.log("MADE player1Hash CALL AND GOT");
-      console.log(player1Key?.toBase58());
-      const player2Key = await client.query.runtime.PoZKerApp.player2Key.get();
+      console.log(player0Key?.toBase58());
+      const player1Key = await client.query.runtime.PoZKerApp.player1Key.get();
       console.log("MADE player2Hash CALL AND GOT");
-      console.log(player2Key?.toBase58());
+      console.log(player1Key?.toBase58());
       console.log("empty key?", PublicKey.empty().toBase58());
+      const stack0 = await client.query.runtime.PoZKerApp.stack0.get();
       const stack1 = await client.query.runtime.PoZKerApp.stack1.get();
-      const stack2 = await client.query.runtime.PoZKerApp.stack2.get();
 
-      const turn = await client.query.runtime.PoZKerApp.turn.get();
-      const street = await client.query.runtime.PoZKerApp.street.get();
-      const gameOver = await client.query.runtime.PoZKerApp.gameOver.get();
+      const playerTurn = await client.query.runtime.PoZKerApp.playerTurn.get();
+      const handStage = await client.query.runtime.PoZKerApp.handStage.get();
       const pot = await client.query.runtime.PoZKerApp.pot.get();
 
+      const handId = await client.query.runtime.PoZKerApp.handId.get();
+
       // So if key is null OR equalty to empty public key, display 0...
-      const p1Empty = player1Key?.toBase58() === PublicKey.empty().toBase58();
-      const p2Empty = player2Key?.toBase58() === PublicKey.empty().toBase58();
-      const player1Key_ = p1Empty ? "0" : player1Key?.toBase58();
-      const player2Key_ = p2Empty ? "0" : player2Key?.toBase58();
+      const p1Empty = player0Key?.toBase58() === PublicKey.empty().toBase58();
+      const p2Empty = player1Key?.toBase58() === PublicKey.empty().toBase58();
+      const player0Key_ = p1Empty ? "0" : player0Key?.toBase58();
+      const player1Key_ = p2Empty ? "0" : player1Key?.toBase58();
 
       set((state) => {
+        state.player0Key = player0Key_ ?? "0";
         state.player1Key = player1Key_ ?? "0";
-        state.player2Key = player2Key_ ?? "0";
+        state.stack0 = stack0?.toString() ?? "0";
         state.stack1 = stack1?.toString() ?? "0";
-        state.stack2 = stack2?.toString() ?? "0";
-        state.turn = turn?.toString() ?? "0";
-        state.street = street?.toString() ?? "0";
-        state.gameOver = gameOver?.toString() ?? "0";
+        state.playerTurn = playerTurn?.toString() ?? "0";
+        state.handStage = handStage?.toString() ?? "0";
         state.pot = pot?.toString() ?? "0";
+        state.handId = handId?.toString() ?? "0";
         state.loading = false;
       });
     },
@@ -176,40 +207,34 @@ export const usePoZKerStore = create<
           path_,
         );
       });
-
       await tx.sign();
       await tx.send();
-
       isPendingTransaction(tx.transaction);
       return tx.transaction;
     },
 
-    async showdown(client: Client, address: string) {
+    async settle(client: Client, address: string) {
       const pkr = client.runtime.resolve("PoZKerApp");
       const sender = PublicKey.fromBase58(address);
 
       const tx = await client.transaction(sender, () => {
-        pkr.showdown()
+        pkr.settle()
       });
-
       await tx.sign();
       await tx.send();
-
       isPendingTransaction(tx.transaction);
       return tx.transaction;
     },
 
-    async withdraw(client: Client, address: string) {
+    async leaveTable(client: Client, address: string) {
       const pkr = client.runtime.resolve("PoZKerApp");
       const sender = PublicKey.fromBase58(address);
 
       const tx = await client.transaction(sender, () => {
-        pkr.withdraw()
+        pkr.leaveTable()
       });
-
       await tx.sign();
       await tx.send();
-
       isPendingTransaction(tx.transaction);
       return tx.transaction;
     },
@@ -221,14 +246,62 @@ export const usePoZKerStore = create<
       const tx = await client.transaction(sender, () => {
         pkr.takeAction(Field(action), Field(betSize))
       });
-
       await tx.sign();
       await tx.send();
-
       isPendingTransaction(tx.transaction);
       return tx.transaction;
     },
 
+    async commitBoardcards(client: Client, address: string) {
+      const pkr = client.runtime.resolve("PoZKerApp");
+      const sender = PublicKey.fromBase58(address);
+
+      const g0: Group = Group.generator;
+      const g1: Group = Group.generator;
+      const g2: Group = Group.generator;
+      const card0: Card = new Card(g0, g1, g2);
+      const card1: Card = new Card(g0, g1, g2);
+      const card2: Card = new Card(g0, g1, g2);
+      const tx = await client.transaction(sender, () => {
+        pkr.commitBoardcards(card0, card1, card2)
+      });
+      await tx.sign();
+      await tx.send();
+      isPendingTransaction(tx.transaction);
+      return tx.transaction;
+    },
+
+    async decodeBoardcards(client: Client, address: string, decryptKey: PrivateKey) {
+      const pkr = client.runtime.resolve("PoZKerApp");
+      const sender = PublicKey.fromBase58(address);
+
+      const tx = await client.transaction(sender, () => {
+        pkr.decodeBoardcards(decryptKey)
+      });
+      await tx.sign();
+      await tx.send();
+      isPendingTransaction(tx.transaction);
+      return tx.transaction;
+    },
+
+    async commitOpponentHolecards(client: Client, address: string) {
+      const pkr = client.runtime.resolve("PoZKerApp");
+      const sender = PublicKey.fromBase58(address);
+
+      const g0: Group = Group.generator;
+      const g1: Group = Group.generator;
+      const g2: Group = Group.generator;
+      const card0: Card = new Card(g0, g1, g2);
+      const card1: Card = new Card(g0, g1, g2);
+      const tx = await client.transaction(sender, () => {
+        pkr.commitOpponentHolecards(card0, card1)
+      })
+
+      await tx.sign();
+      await tx.send();
+      isPendingTransaction(tx.transaction);
+      return tx.transaction;
+    },
 
   })),
 );
@@ -319,7 +392,7 @@ export const useShowCards = () => {
 };
 
 
-export const useShowdown = () => {
+export const useSettle = () => {
   const client = useClientStore();
   const pkrState = usePoZKerStore();
   const wallet = useWalletStore();
@@ -327,7 +400,7 @@ export const useShowdown = () => {
   return useCallback(async () => {
     if (!client.client || !wallet.wallet) return;
 
-    const pendingTransaction = await pkrState.showdown(
+    const pendingTransaction = await pkrState.settle(
       client.client,
       wallet.wallet,
     );
@@ -337,7 +410,7 @@ export const useShowdown = () => {
 };
 
 
-export const useWithdraw = () => {
+export const useLeaveTable = () => {
   const client = useClientStore();
   const pkrState = usePoZKerStore();
   const wallet = useWalletStore();
@@ -345,7 +418,7 @@ export const useWithdraw = () => {
   return useCallback(async () => {
     if (!client.client || !wallet.wallet) return;
 
-    const pendingTransaction = await pkrState.withdraw(
+    const pendingTransaction = await pkrState.leaveTable(
       client.client,
       wallet.wallet,
     );
@@ -370,6 +443,59 @@ export const useTakeAction = () => {
       betSize
     );
 
+    wallet.addPendingTransaction(pendingTransaction);
+  }, [client.client, wallet.wallet]);
+};
+
+
+export const useCommitBoardcards = () => {
+  const client = useClientStore();
+  const pkrState = usePoZKerStore();
+  const wallet = useWalletStore();
+
+  return useCallback(async (decryptKey: PrivateKey) => {
+    if (!client.client || !wallet.wallet) return;
+
+    const pendingTransaction = await pkrState.commitBoardcards(
+      client.client,
+      wallet.wallet,
+    );
+
+    wallet.addPendingTransaction(pendingTransaction);
+  }, [client.client, wallet.wallet]);
+};
+
+
+export const useDecodeBoardcards = () => {
+  const client = useClientStore();
+  const pkrState = usePoZKerStore();
+  const wallet = useWalletStore();
+
+  return useCallback(async (decryptKeyStr: string) => {
+    if (!client.client || !wallet.wallet) return;
+
+    const decryptKey = PrivateKey.fromBase58(decryptKeyStr);
+    const pendingTransaction = await pkrState.decodeBoardcards(
+      client.client,
+      wallet.wallet,
+      decryptKey,
+    );
+
+    wallet.addPendingTransaction(pendingTransaction);
+  }, [client.client, wallet.wallet]);
+};
+
+export const useCommitOpponentHolecards = () => {
+  const client = useClientStore();
+  const pkrState = usePoZKerStore();
+  const wallet = useWalletStore();
+
+  return useCallback(async () => {
+    if (!client.client || !wallet.wallet) return;
+    const pendingTransaction = await pkrState.commitOpponentHolecards(
+      client.client,
+      wallet.wallet,
+    );
     wallet.addPendingTransaction(pendingTransaction);
   }, [client.client, wallet.wallet]);
 };
