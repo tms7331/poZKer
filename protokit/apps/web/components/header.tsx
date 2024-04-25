@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
 import protokit from "@/public/protokit-zinc.svg";
 import Image from "next/image";
-import Link from "next/link"
+import Link from "next/link";
 // @ts-ignore
 import truncateMiddle from "truncate-middle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Chain } from "./chain";
 import { Separator } from "./ui/separator";
+import { usePathname } from "next/navigation";
 
 export interface HeaderProps {
   loading: boolean;
@@ -25,28 +26,52 @@ export default function Header({
   balanceLoading,
   blockHeight,
 }: HeaderProps) {
-  return (
-    <div className="flex items-center justify-between border-b p-2 shadow-sm">
-      <div className="container flex">
+  const pathname = usePathname();
 
-        <div className="flex basis-6/12 items-center justify-start">
-          <Link className="text-sm font-medium hover:underline underline-offset-4" href="/">
+  return (
+    <div className="flex items-center justify-between border-b border-zinc-900 bg-[#313390] p-2 shadow-sm">
+      <div className="container flex">
+        <div className="flex basis-6/12 items-center justify-start gap-6 text-white">
+          <Link
+            className="text-sm font-medium underline-offset-4 hover:underline"
+            href="/"
+          >
             Home
           </Link>
 
-          <Link className="text-sm font-medium hover:underline underline-offset-4" href="join">
+          <Link
+            className={`text-sm ${
+              pathname === "/join" ? "font-bold" : ""
+            } font-medium underline-offset-4 hover:underline`}
+            href="/join"
+          >
             Join
           </Link>
 
-          <Link className="text-sm font-medium hover:underline underline-offset-4" href="playgame">
+          <Link
+            className={`text-sm ${
+              pathname === "/playgame" ? "font-bold" : ""
+            } font-medium underline-offset-4 hover:underline`}
+            href="/playgame"
+          >
             Play
           </Link>
 
-          <Link className="text-sm font-medium hover:underline underline-offset-4" href="gettokens">
+          <Link
+            className={`text-sm ${
+              pathname === "/gettokens" ? "font-bold" : ""
+            } font-medium underline-offset-4 hover:underline`}
+            href="/gettokens"
+          >
             Get Tokens
           </Link>
 
-          <Link className="text-sm font-medium hover:underline underline-offset-4" href="about">
+          <Link
+            className={`text-sm font-medium ${
+              pathname === "/about" ? "underline" : ""
+            } underline-offset-4 hover:underline`}
+            href="/about"
+          >
             About
           </Link>
         </div>
@@ -68,7 +93,11 @@ export default function Header({
             </div>
           )}
           {/* connect wallet */}
-          <Button loading={loading} className="w-44" onClick={onConnectWallet}>
+          <Button
+            loading={loading}
+            className="w-44 border border-gray-400 bg-transparent   "
+            onClick={onConnectWallet}
+          >
             <div>
               {wallet ? truncateMiddle(wallet, 7, 7, "...") : "Connect wallet"}
             </div>
