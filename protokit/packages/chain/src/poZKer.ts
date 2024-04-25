@@ -170,6 +170,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   @state() public handStage = State.from<Field>(Field);
   @state() public button = State.from<Field>(Field);
 
+  @state() public handId = State.from<Field>(Field);
+
   init() {
     // super.init();
     // Starting gamestate is always P2's turn preflop, with P1 having posted small blind
@@ -215,6 +217,9 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.lastAction.set(this.Null);
     this.handStage.set(this.SBPost);
     this.button.set(Field(0));
+
+    // Todo - want better logic for setting this
+    this.handId.set(Field(1000));
   }
 
   @runtimeMethod()
@@ -640,6 +645,10 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const button = this.button.get().value;
     const newButton = Provable.if(button.equals(Field(0)), Field(1), Field(0));
     this.button.set(newButton);
+
+    // And increment handId
+    const handId = this.handId.get().value;
+    this.handId.set(handId.add(1));
   }
 
   cardPrimeToCardPoint(cardPrime: Field): PublicKey {
