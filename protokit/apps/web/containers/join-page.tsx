@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button"
 import { Field, PublicKey } from 'o1js';
-import { useJoinTable, usePoZKerStore, useObservePoZKer } from "@/lib/stores/poZKer";
+import { useJoinTable, usePoZKerStore, useResetTableState, useObservePoZKer } from "@/lib/stores/poZKer";
 import css from 'styled-jsx/css';
 
 export default function Home() {
@@ -10,6 +10,7 @@ export default function Home() {
     const [numPlayers, setNumPlayers] = useState<number>(0);
 
     const joinTable = useJoinTable();
+    const resetTableState = useResetTableState();
     const pkrState = usePoZKerStore();
 
 
@@ -68,11 +69,13 @@ export default function Home() {
                                 <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Game ID</div>
                                 <div className="text-sm font-medium">Players</div>
                                 <div className="text-sm font-medium">Join</div>
+                                <div className="text-sm font-medium">Reset</div>
                             </div>
                             <div className="flex items-center justify-between p-4">
                                 <div className="text-sm font-medium">Game01</div>
                                 <div className="text-sm font-medium">{numPlayers} / 2</div>
                                 <div className="text-sm font-medium"><Button variant="secondary" onClick={() => handleJoinTable()}>Join Game</Button></div>
+                                <div className="text-sm font-medium"><Button variant="secondary" onClick={() => resetTableState()}>Reset Table</Button></div>
                             </div>
                         </div>
                     </div>

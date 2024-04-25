@@ -47,6 +47,7 @@ export interface PoZKerState {
   loadState: (client: Client, address: string) => Promise<void>;
   joinTable: (client: Client, address: string, seatI: number, depositAmount: number) => Promise<PendingTransaction>;
   leaveTable: (client: Client, address: string) => Promise<PendingTransaction>;
+  resetTableState: (client: Client, address: string) => Promise<PendingTransaction>;
   commitBoardcards: (client: Client, address: string) => Promise<PendingTransaction>;
   decodeBoardcards: (client: Client, address: string, decryptKey: PrivateKey) => Promise<PendingTransaction>;
   commitOpponentHolecards: (client: Client, address: string) => Promise<PendingTransaction>;
@@ -232,6 +233,19 @@ export const usePoZKerStore = create<
 
       const tx = await client.transaction(sender, () => {
         pkr.leaveTable()
+      });
+      await tx.sign();
+      await tx.send();
+      isPendingTransaction(tx.transaction);
+      return tx.transaction;
+    },
+
+    async resetTableState(client: Client, address: string) {
+      const pkr = client.runtime.resolve("PoZKerApp");
+      const sender = PublicKey.fromBase58(address);
+
+      const tx = await client.transaction(sender, () => {
+        pkr.resetTableState()
       });
       await tx.sign();
       await tx.send();
@@ -493,6 +507,21 @@ export const useCommitOpponentHolecards = () => {
   return useCallback(async () => {
     if (!client.client || !wallet.wallet) return;
     const pendingTransaction = await pkrState.commitOpponentHolecards(
+      client.client,
+      wallet.wallet,
+    );
+    wallet.addPendingTransaction(pendingTransaction);
+  }, [client.client, wallet.wallet]);
+};
+
+export const useResetTableState = () => {
+  const client = useClientStore();
+  const pkrState = usePoZKerStore();
+  const wallet = useWalletStore();
+
+  return useCallback(async () => {
+    if (!client.client || !wallet.wallet) return;
+    const pendingTransaction = await pkrState.resetTableState(
       client.client,
       wallet.wallet,
     );
