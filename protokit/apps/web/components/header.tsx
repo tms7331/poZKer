@@ -30,11 +30,9 @@ export default function Header({
       <div className="container flex">
 
         <div className="flex basis-6/12 items-center justify-start">
-          <Image className="h-8 w-8" src={protokit} alt={"Protokit logo"} />
-          <Separator className="mx-4 h-8" orientation={"vertical"} />
-          <div className="flex grow">
-            <Chain height={blockHeight} />
-          </div>
+          <Link className="text-sm font-medium hover:underline underline-offset-4" href="/">
+            Home
+          </Link>
 
           <Link className="text-sm font-medium hover:underline underline-offset-4" href="join">
             Join
