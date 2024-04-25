@@ -2,61 +2,184 @@
 import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button"
 import { Field, PublicKey, PrivateKey } from 'o1js';
-import { usePoZKerStore, useShowCards, useShowdown, useWithdraw, useTakeAction } from "@/lib/stores/poZKer";
+import { usePoZKerStore, useShowCards, useSettle, useLeaveTable, useTakeAction, useCommitOpponentHolecards, useDecodeBoardcards, useCommitBoardcards } from "@/lib/stores/poZKer";
 import { useWalletStore } from "@/lib/stores/wallet";
 import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 
 export default function Component() {
 
     const showCards = useShowCards();
-    const showdown = useShowdown();
-    const withdraw = useWithdraw();
+    const settle = useSettle();
+    const leaveTable = useLeaveTable();
     const takeAction = useTakeAction();
+    const commitOpponentHolecards = useCommitOpponentHolecards();
+    const decodeBoardcards = useDecodeBoardcards();
+    const commitBoardcards = useCommitBoardcards();
+
     const wallet = useWalletStore();
     const pkrState = usePoZKerStore();
 
     // Corresponds directly to data pulled from packed 'gamestate'
-    // const [stack1, setStack1] = useState<number>(0);
-    // const [stack2, setStack2] = useState<number>(0);
+    // const [stack0, setstack0] = useState<number>(0);
+    // const [stack1, setstack1] = useState<number>(0);
     // const [turn, setTurn] = useState<number | "">("");
-    // const [street, setStreet] = useState<string>("");
+    // const [handStage, sethandStage] = useState<string>("");
     // const [lastAction, setLastAction] = useState<string>("");
     // const [lastBetSize, setLastBetSize] = useState<number>(0);
     // const [gameOver, setGameOver] = useState<string>("false");
     // const [pot, setPot] = useState<number>(0);
 
-    const [holeCards, setHoleCards] = useState<string[]>(["", ""]);
+    const [decryptKey, setDecryptKey] = useState<number>(0);
+
+    const [holeCards, setHoleCards] = useState<string[]>([]);
     const [boardCards, setBoardCards] = useState<string[]>([]);
+
+    const [myStack, setMyStack] = useState<string>("0");
+    const [opponentStack, setOpponentStack] = useState<string>("0");
+
+    const [myBetThisStreet, setMyBetThisStreet] = useState<string>("12");
+    const [opponentBetThisStreet, opponentMyBetThisStreet] = useState<string>("18");
     // We'll always use these board cards for now - pull them to 'boardCards'
-    // based on street
+    // based on handStage
     const boardCardsHardcoded = ["Kc", "Ac", "Qs", "8s", "6s"]
 
     // Which player we are...
-    type Player = "player1" | "player2" | "notInGame";
-    const [player, setPlayer] = useState<Player>("notInGame");
+    // type Player = "player1" | "player2" | "notInGame";
+    const [playerI, setPlayer] = useState<number>(-1);
+
 
     useEffect(() => {
-        // TODO - where can we get this?
         const userKey = wallet.wallet;
         console.log("userKey is:", userKey);
 
         // Figure out which player we are...
-        if (userKey === pkrState.player1Key) {
+        if (userKey === pkrState.player0Key) {
             console.log("Matched player 1...")
-            setPlayer("player1");
+            setPlayer(0);
             // Hardcoding player's cards
-            setHoleCards(["Ah", "Ad"]);
+            // setHoleCards(["Ah", "Ad"]);
         }
-        else if (userKey === pkrState.player2Key) {
+        else if (userKey === pkrState.player1Key) {
             console.log("Matched player 2...")
-            setPlayer("player2");
-            setHoleCards(["Ks", "Ts"]);
+            setPlayer(1);
+            // setHoleCards(["Ks", "Ts"]);
         }
         else {
             console.log("Not in game...")
-            setPlayer("notInGame");
+            setPlayer(-1);
         }
-    }, [pkrState.player1Key, pkrState.player2Key, wallet.wallet]);
+    }, [pkrState.player0Key, pkrState.player1Key, wallet.wallet]);
+
+    useEffect(() => {
+        // Keep stacks updated
+        const userKey = wallet.wallet;
+        // Figure out which player we are...
+        if (userKey === pkrState.player0Key) {
+            setMyStack(pkrState.stack0);
+            setOpponentStack(pkrState.stack1);
+        }
+        else if (userKey === pkrState.player1Key) {
+            setMyStack(pkrState.stack1);
+            setOpponentStack(pkrState.stack0);
+        }
+        else {
+            setMyStack("0");
+            setOpponentStack("0");
+        }
+    }, [pkrState.stack0, pkrState.stack1, wallet.wallet]);
+
+
+    const shuffleAndPass = async () => {
+        // 1. getDeck(player, handId) - pull all cards from API (if we're p1, it will generate an empty deck for us and send that) 
+        // 2. encrypt and shuffle them
+        // 3. postDeck(player, handId)
+
+        try {
+            const response = await fetch('/api/deck', {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                },
+            });
+            if (response) {
+                const data = await response.json();
+                console.log("GOT API DATA!");
+                console.log(data);
+                // In reality we'll need to do this somewhere else...
+                setHoleCards(data.cards.slice(2))
+                // setBoardCards(data.cards.slice(4))
+            }
+            else {
+                console.log("NO RESPONSE FROM API...")
+            }
+        } catch (error) {
+            console.log(error);
+        }
+        console.log("DONE CALLING API...")
+
+        // TODO - encrypt and shuffle them
+        // encryptDeck(deck);
+        // shuffleDeck(deck);
+        try {
+            const response = await fetch('/api/deck', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                },
+            });
+            if (response) {
+                const data = await response.json();
+                console.log("GOT API DATA!");
+                console.log(data);
+            }
+            else {
+                console.log("NO RESPONSE FROM API...")
+            }
+        } catch (error) {
+            console.log(error);
+        }
+        console.log("DONE CALLING API...")
+    };
+
+
+    const dealHolecards = async () => {
+        // 1. getCards(handId, n) - pull 2 cards from API endpoint
+        // 2. decode our half of them
+        // 3. commitOpponentHolecards(card0: Card, card1: Card) - commit them to contract
+        try {
+            const response = await fetch('/api/deck', {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                },
+            });
+            if (response) {
+                const data = await response.json();
+                console.log("GOT API DATA!");
+                console.log(data);
+
+                // In reality we'll need to do this somewhere else...
+                // And need awareness of whether it's flop/turn/river...
+                setBoardCards(data.cards);
+            }
+            else {
+                console.log("NO RESPONSE FROM API...")
+            }
+        } catch (error) {
+            console.log(error);
+        }
+        console.log("DONE CALLING API...")
+
+        // TODO - decode...
+
+        // card0: Card, card1: Card
+        //const decryptKeyStr: string =PrivateKey.fromBigInt(BigInt(1)).toBase58();
+        // await commitOpponentHolecards();
+    };
+
+
+
+
 
 
     const onSendTransaction = async (methodStr: string, actionStr: string) => {
@@ -82,11 +205,11 @@ export default function Component() {
                 await takeAction(action, betSize);
                 // await globalState.zkappWorkerClient!.createTakeActionTx(senderB58, action, betSize);
                 break;
-            case 'showdown':
-                await showdown();
+            case 'settle':
+                await settle();
                 break;
-            case "withdraw":
-                await withdraw();
+            case "leaveTable":
+                await leaveTable();
                 break;
             case 'tallyBoardCards':
                 const cardPrime52: number = 0;
@@ -120,7 +243,7 @@ export default function Component() {
                 let merkleMapKey: number;
                 let merkleMapVal: number;
 
-                if (player === "player1") {
+                if (playerI === 0) {
                     holecard0 = 41;
                     holecard1 = 101;
 
@@ -135,7 +258,7 @@ export default function Component() {
                     merkleMapKey = 79052387;
                     merkleMapVal = 1609;
                 }
-                else if (player === "player2") {
+                else if (playerI === 1) {
                     holecard0 = 233;
                     holecard1 = 223;
 
@@ -187,12 +310,19 @@ export default function Component() {
         }
     }
 
-    // TODO - we'll need multiple functions like this to convert our encoding to strings
     useEffect(() => {
-        // Set board based on current street...
-        // type Street = "ShowdownPending" | "Preflop" | "Flop" | "Turn" | "River" | "ShowdownComplete";
-        const boardStr: string = pkrState.street;
-        const streetMap: { [key: string]: string } = {
+        // Initialization useEffect...
+        // We need to generate a random BigInt for the shuffle/decrypt key
+        const min: number = 0;
+        const max: number = 10 * 10 ** 18;
+        const range: number = max - min;
+        const randNum: number = Math.random() * range + min;
+        setDecryptKey(randNum);
+
+        // Set board based on current handStage...
+        // type handStage = "ShowdownPending" | "Preflop" | "Flop" | "Turn" | "River" | "ShowdownComplete";
+        const boardStr: string = pkrState.handStage;
+        const handStageMap: { [key: string]: string } = {
             "1": "ShowdownPending",
             "2": "Preflop",
             "3": "Flop",
@@ -200,8 +330,8 @@ export default function Component() {
             "5": "River",
             "6": "ShowdownComplete",
         };
-        const streetStr = streetMap[boardStr];
-        // setStreet(streetStr);
+        const handStageStr = handStageMap[boardStr];
+        // sethandStage(handStageStr);
 
         // const lastActionStr: string = lastAction_.toJSON()
         const actionMap: { [key: string]: string } = {
@@ -216,25 +346,25 @@ export default function Component() {
         // const actionStr = actionMap[lastActionStr];
         // setLastAction(actionStr);;
 
-        // Street encoding
+        // handStage encoding
         // Preflop = UInt32.from(2);
         // Flop = UInt32.from(3);
         // Turn = UInt32.from(4);
         // River = UInt32.from(5);
         if (boardStr === "3") {
             const board = boardCardsHardcoded.slice(0, 3);
-            setBoardCards(board);
+            // setBoardCards(board);
 
         }
         else if (boardStr === "4") {
             const board = boardCardsHardcoded.slice(0, 4);
-            setBoardCards(board);
+            // setBoardCards(board);
         }
         else if (boardStr === "5") {
-            setBoardCards(boardCardsHardcoded);
+            // setBoardCards(boardCardsHardcoded);
         }
         else {
-            setBoardCards([]);
+            // setBoardCards([]);
         }
 
     }, []);
@@ -296,28 +426,24 @@ export default function Component() {
                 <div className="grid gap-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="flex items-center">
-                            <div>Stack 1</div>
-                            <span className="ml-auto font-semibold">${pkrState.stack1}</span>
+                            <div>My stack</div>
+                            <span className="ml-auto font-semibold">${myStack}</span>
                         </div>
                         <div className="flex items-center">
-                            <div>Stack 2</div>
-                            <span className="ml-auto font-semibold">${pkrState.stack2}</span>
+                            <div>Opponent stack</div>
+                            <span className="ml-auto font-semibold">${opponentStack}</span>
                         </div>
                         <div className="flex items-center">
-                            <div>Turn</div>
-                            <span className="ml-auto font-semibold">player{pkrState.turn}</span>
+                            <div>Player Turn</div>
+                            <span className="ml-auto font-semibold">player{pkrState.playerTurn}</span>
                         </div>
                         <div className="flex items-center">
-                            <div>Street</div>
-                            <span className="ml-auto font-semibold">{pkrState.street}</span>
-                        </div>
-                        <div className="flex items-center">
-                            <div>Game Over?</div>
-                            <span className="ml-auto font-semibold">{pkrState.gameOver}</span>
+                            <div>handStage</div>
+                            <span className="ml-auto font-semibold">{pkrState.handStage}</span>
                         </div>
                         <div className="flex items-center">
                             <div>You are player:</div>
-                            <span className="ml-auto font-semibold">{player}</span>
+                            <span className="ml-auto font-semibold">{playerI}</span>
                         </div>
                     </div>
                     <div>
@@ -326,8 +452,11 @@ export default function Component() {
                                 <CardTitle>Board Cards</CardTitle>
                             </CardHeader>
                             <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
-                                {boardCards
-                                    .map((row, index) => { return (<span key={index}>{row}</span>) })}
+                                <span>{boardCards[0]}</span>
+                                <span>{boardCards[1]}</span>
+                                <span>{boardCards[2]}</span>
+                                <span>{boardCards[3]}</span>
+                                <span>{boardCards[4]}</span>
                             </CardContent>
                         </Card>
                     </div>
@@ -367,8 +496,10 @@ export default function Component() {
                             </CardHeader>
                             <CardContent className="p-0 flex items-center justify-center space-x-4 h-24">
                                 <Button variant="secondary" onClick={() => onSendTransaction('showCards', "")}>Show Cards</Button>
-                                <Button variant="secondary" onClick={() => onSendTransaction('showdown', "")}>Showdown</Button>
-                                <Button variant="secondary" onClick={() => onSendTransaction('withdraw', "")}>Withdraw</Button>
+                                <Button variant="secondary" onClick={() => onSendTransaction('settle', "")}>Showdown</Button>
+                                <Button variant="secondary" onClick={() => onSendTransaction('leaveTable', "")}>Leave Table</Button>
+                                <Button variant="secondary" onClick={() => dealHolecards()}>Deal Holecards</Button>
+                                <Button variant="secondary" onClick={() => shuffleAndPass()}>Shuffle and Pass</Button>
                             </CardContent>
                         </Card>
                     </div>

@@ -45,6 +45,10 @@ export default function Header({
           <Link className="text-sm font-medium hover:underline underline-offset-4" href="gettokens">
             Get Tokens
           </Link>
+
+          <Link className="text-sm font-medium hover:underline underline-offset-4" href="about">
+            About
+          </Link>
         </div>
 
         <div className="flex basis-6/12 flex-row items-center justify-end">
@@ -58,7 +62,7 @@ export default function Header({
                 {balanceLoading && balance === undefined ? (
                   <Skeleton className="h-4 w-full" />
                 ) : (
-                  <p className="text-xs font-bold">{balance} MINA</p>
+                  <p className="text-xs font-bold">{balance} PZKR</p>
                 )}
               </div>
             </div>

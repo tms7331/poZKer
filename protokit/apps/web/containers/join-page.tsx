@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button"
 import { Field, PublicKey } from 'o1js';
 import { useJoinTable, usePoZKerStore, useObservePoZKer } from "@/lib/stores/poZKer";
+import css from 'styled-jsx/css';
 
 export default function Home() {
 
@@ -11,25 +12,32 @@ export default function Home() {
     const joinTable = useJoinTable();
     const pkrState = usePoZKerStore();
 
+
+
+
     useEffect(() => {
         // Hashes will be overwritten when we have players, so track it here
-        if (pkrState.player1Key === '0') {
+        if (pkrState.player0Key === '0') {
             setNumPlayers(0);
         }
-        else if (pkrState.player2Key === '0') {
+        else if (pkrState.player1Key === '0') {
             setNumPlayers(1);
         }
         else {
             setNumPlayers(2);
         }
-    }, [pkrState.player1Key, pkrState.player2Key]);
+
+
+
+
+    }, [pkrState.player0Key, pkrState.player1Key]);
 
     const handleJoinTable = async () => {
         let seat: number;
         if (numPlayers === 0) {
             seat = 0;
         }
-        else if (pkrState.player2Key === '0') {
+        else if (pkrState.player1Key === '0') {
             seat = 1;
         }
         else {
@@ -47,10 +55,10 @@ export default function Home() {
                 <div className="container px-4 md:px-6">
                     <div className="grid gap-4">
 
-                        <p>P1Hash: {pkrState.player1Key}</p>
-                        <p>P2Hash: {pkrState.player2Key}</p>
-                        <p>Stack1: {pkrState.stack1}</p>
-                        <p>Stack2: {pkrState.stack2}</p>
+                        <p>P1Hash: {pkrState.player0Key}</p>
+                        <p>P2Hash: {pkrState.player1Key}</p>
+                        <p>stack0: {pkrState.stack0}</p>
+                        <p>stack1: {pkrState.stack1}</p>
 
                         <div className="grid grid-cols-[1fr_200px] items-center">
                             <h2 className="text-2xl font-bold">Available Games</h2>
