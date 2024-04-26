@@ -289,106 +289,118 @@ export default function Component() {
   return (
     <div className="min-h-[calc(100dvh-57px)]">
       {/* overall green background */}
-      <main className="flex min-h-[calc(100dvh-57px)] bg-[#181f39] px-8 py-12">
-        <div className="flex-1"></div>
+      <main className="flex min-h-[calc(100dvh-57px)] flex-col justify-between gap-4 bg-[#181f39] py-4 sm:flex-row sm:gap-0 sm:px-8 sm:py-8">
+        <div className="hidden flex-1 sm:block"></div>
         {/* poker board border */}
-        <div className="mx-auto w-[650px] overflow-hidden rounded-[50%/350px] border-4 border-[#000201] bg-[#3f3d3d] p-4">
-          {/* poker board */}
-          <div className="poker-board mx-auto flex h-[calc(100dvh-57px-136px)] w-full flex-col justify-between overflow-hidden rounded-[50%/350px] border-4 border-[#000201] px-4 py-12">
-            <section className="relative mx-auto flex w-[232px] justify-center gap-2 px-1">
-              <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl border-2 border-black bg-[#313390] px-4 py-2 text-white">
-                <div className="flex">
-                  <span className="font-bold">Opponent</span>
-                  <span className="flex-1 text-center">${"0"}</span>
-                  {/* pkrState.stack2 || */}
+        <div className="flex h-full w-full flex-1 sm:h-auto sm:flex-none md:w-[650px] md:flex-shrink-0">
+          <div className="mx-auto flex w-full max-w-[650px] flex-1 flex-col overflow-hidden rounded-[50%/200px] border-4 border-[#000201] bg-[#3f3d3d] p-2 sm:h-full sm:rounded-[60%/500px] sm:p-4">
+            {/* poker board */}
+            <div className="poker-board mx-auto flex w-full flex-1 flex-col justify-between overflow-hidden rounded-[50%/200px] border-4 border-[#000201] px-[5px] py-12 sm:h-[calc(100dvh-57px-136px)] sm:rounded-[60%/500px]">
+              <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 sm:max-w-[232px]">
+                <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl border border-zinc-800 bg-[#313390] px-4 py-2 text-white shadow-lg">
+                  <div className="flex">
+                    <span className="text-sm font-bold sm:text-base">
+                      Opponent
+                    </span>
+                    <span className="flex-1 text-center">${"0"}</span>
+                    {/* pkrState.stack2 || */}
+                  </div>
+                </div>
+                <Image
+                  className="max-w-[80px] sm:max-w-[100px]"
+                  src="/svg_playing_cards/backs/blue.svg"
+                  width={100}
+                  height={142.3}
+                  alt="Poker Card"
+                />
+                <Image
+                  className="max-w-[80px] sm:max-w-[100px]"
+                  src="/svg_playing_cards/backs/blue.svg"
+                  width={100}
+                  height={142.3}
+                  alt="Poker Card"
+                />
+              </section>
+              <div className="flex flex-col gap-2 sm:gap-2.5">
+                <section className="mx-auto flex w-full max-w-[536px] gap-2">
+                  <Image
+                    className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                    src="/svg_playing_cards/fronts/hearts_8.svg"
+                    width={100}
+                    height={142.3}
+                    alt="Poker Card"
+                  />
+                  <Image
+                    className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                    src="/svg_playing_cards/fronts/hearts_9.svg"
+                    width={100}
+                    height={142.3}
+                    alt="Poker Card"
+                  />
+                  <Image
+                    className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                    src="/svg_playing_cards/fronts/clubs_8.svg"
+                    width={100}
+                    height={142.3}
+                    alt="Poker Card"
+                  />
+                  <Image
+                    className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                    src="/svg_playing_cards/fronts/diamonds_queen.svg"
+                    width={100}
+                    height={142.3}
+                    alt="Poker Card"
+                  />
+                  <Image
+                    className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                    src="/svg_playing_cards/fronts/hearts_3.svg"
+                    width={100}
+                    height={142.3}
+                    alt="Poker Card"
+                  />
+                </section>
+                {/* pot */}
+                <div className="mx-auto flex w-fit min-w-[60px] gap-1 rounded-full bg-black/60 px-3 py-2 text-center text-white">
+                  <Image
+                    className="my-auto h-fit max-w-[80px] sm:max-w-[100px]"
+                    src="/svg_playing_cards/red-chip.png"
+                    width={24}
+                    height={24}
+                    alt="Red Casino Chip"
+                  />{" "}
+                  <span className="font-semibold">
+                    {pkrState.pot || "4000"}
+                  </span>
                 </div>
               </div>
-              <Image
-                src="/svg_playing_cards/backs/blue.svg"
-                width={100}
-                height={142.3}
-                alt="Poker Card"
-              />
-              <Image
-                src="/svg_playing_cards/backs/blue.svg"
-                width={100}
-                height={142.3}
-                alt="Poker Card"
-              />
-            </section>
-            <div className="flex flex-col gap-2.5">
-              <section className="mx-auto flex w-[536px] gap-2">
+              <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 sm:max-w-[232px]">
+                <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl border border-zinc-800 bg-[#313390] px-4 py-2 text-white">
+                  <div className="flex">
+                    <span className="text-sm font-bold sm:text-base">You</span>
+                    <span className="flex-1 text-center">
+                      ${pkrState.stack1}
+                    </span>
+                  </div>
+                </div>
                 <Image
-                  className="my-auto h-fit"
-                  src="/svg_playing_cards/fronts/hearts_8.svg"
+                  className="max-w-[80px] sm:max-w-[100px]"
+                  src="/svg_playing_cards/fronts/clubs_ace.svg"
                   width={100}
                   height={142.3}
                   alt="Poker Card"
                 />
                 <Image
-                  className="my-auto h-fit"
-                  src="/svg_playing_cards/fronts/hearts_9.svg"
-                  width={100}
-                  height={142.3}
-                  alt="Poker Card"
-                />
-                <Image
-                  className="my-auto h-fit"
-                  src="/svg_playing_cards/fronts/clubs_8.svg"
-                  width={100}
-                  height={142.3}
-                  alt="Poker Card"
-                />
-                <Image
-                  className="my-auto h-fit"
+                  className="max-w-[80px] sm:max-w-[100px]"
                   src="/svg_playing_cards/fronts/diamonds_queen.svg"
                   width={100}
                   height={142.3}
                   alt="Poker Card"
                 />
-                {/* <Image
-                className="my-auto h-fit"
-                src="/svg_playing_cards/fronts/hearts_3.svg"
-                width={100}
-                height={142.3}
-                alt="Poker Card"
-              /> */}
               </section>
-              {/* pot */}
-              <div className="mx-auto flex w-fit min-w-[60px] gap-1 rounded-full bg-black/60 px-3 py-2 text-center text-white">
-                <Image
-                  className="my-auto h-fit"
-                  src="/svg_playing_cards/red-chip.png"
-                  width={24}
-                  height={24}
-                  alt="Red Casino Chip"
-                />{" "}
-                <span className="font-semibold">{pkrState.pot || "4000"}</span>
-              </div>
             </div>
-            <section className="relative mx-auto flex w-[232px] justify-center gap-2 px-1">
-              <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl border-2 border-black bg-[#313390] px-4 py-2 text-white">
-                <div className="flex">
-                  <span className="font-bold">You</span>
-                  <span className="flex-1 text-center">${pkrState.stack1}</span>
-                </div>
-              </div>
-              <Image
-                src="/svg_playing_cards/fronts/clubs_ace.svg"
-                width={100}
-                height={142.3}
-                alt="Poker Card"
-              />
-              <Image
-                src="/svg_playing_cards/fronts/diamonds_queen.svg"
-                width={100}
-                height={142.3}
-                alt="Poker Card"
-              />
-            </section>
           </div>
         </div>
-        <div className="flex flex-1 flex-col justify-end">
+        <div className="flex justify-center sm:flex-1 sm:flex-col sm:justify-end">
           <div className="flex w-fit flex-col space-y-3">
             <div className="flex w-full gap-2 rounded-lg bg-[#313390] p-2 pl-5">
               <input
