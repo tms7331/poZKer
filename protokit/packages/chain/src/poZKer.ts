@@ -344,11 +344,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   @runtimeMethod()
   public takeAction(action: Field, betSize: Field): void {
 
-    // add handling for these...
-    // PostSB = Field(7);
-    // PostBB = Field(8);
-
-
     // Need to check that it's the current player's turn, 
     // and the action is valid
     const stack0: Field = this.stack0.get().value;
@@ -554,26 +549,24 @@ export class PoZKerApp extends RuntimeModule<unknown> {
       Bool(false)
     )
 
-    // If game is over from a fold - need to send funds to winner
-    const p1WinnerBal = stack0.add(pot);
-    const p2WinnerBal = stack1.add(pot);
+    // If game is over from a fold - we only need to set showdownValuePx - 
+    // we'll still have to call settle and that will update stacks
+    // Remember - lower value is BETTER!
 
-    const stack0Final = Provable.if(
+    // So if p1 folded - p0 is winner, so set p1's showdown value to 1
+    const showdownValueP1New = Provable.if(
       handOverNow.equals(Bool(true)).and(player.equals(player1Key)),
-      p1WinnerBal,
-      stack0New
+      Field(1),
+      Field(0)
     );
-    const stack1Final = Provable.if(
+    // If p0 folded - p1 is winner, set p0's showdown value to 1
+    const showdownValueP0New = Provable.if(
       handOverNow.equals(Bool(true)).and(player.equals(player0Key)),
-      p2WinnerBal,
-      stack1New
+      Field(1),
+      Field(0)
     );
-
-    const potNew = Provable.if(
-      handOverNow.equals(Bool(true)),
-      Field(0),
-      pot.add(betSizeReal)
-    );
+    this.showdownValueP0.set(showdownValueP0New);
+    this.showdownValueP1.set(showdownValueP1New);
 
     // TODO - double check logic - any other scenarios we should reset lastBetSize?
     const newLastBetSize = Provable.if(
@@ -582,14 +575,13 @@ export class PoZKerApp extends RuntimeModule<unknown> {
       betSizeReal
     )
 
-    this.stack0.set(stack0Final);
-    this.stack1.set(stack1Final);
+    this.stack0.set(stack0New);
+    this.stack1.set(stack1New);
     this.playerTurn.set(playerTurnNow);
     this.handStage.set(handStageNew);
     this.lastAction.set(facingAction);
     this.lastBetSize.set(newLastBetSize);
-    // this.handOver.set(handOverNow);
-    this.pot.set(potNew);
+    this.pot.set(pot.add(betSizeReal));
   }
 
   @runtimeMethod()
