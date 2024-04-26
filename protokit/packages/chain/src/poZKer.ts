@@ -1,7 +1,7 @@
 import { RuntimeModule, runtimeModule, state, runtimeMethod } from "@proto-kit/module";
 import { State, assert, StateMap, Option } from "@proto-kit/protocol";
 import { UInt32 } from "@proto-kit/library";
-import { PublicKey, PrivateKey, Poseidon, Field, Bool, Provable, MerkleMapWitness, Scalar } from "o1js";
+import { PublicKey, PrivateKey, Group, Field, Bool, Provable, MerkleMapWitness, Scalar } from "o1js";
 import { Card, addPlayerToCardMask, mask, partialUnmaskProvable, createNewCard, cardPrimeToPublicKey } from './mentalpoker.js';
 
 // Want a mapping for cards, each represented as a prime so we can multiply
@@ -174,62 +174,54 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
   @state() public handId = State.from<Field>(Field);
 
-  init() {
-    // super.init();
-    // Starting gamestate is always P2's turn preflop, with P1 having posted small blind
-    this.stack0.set(Field(0));
-    this.stack1.set(Field(0));
-    this.playerTurn.set(this.P0Turn);
-    // this.street.set(this.Preflop);
-    this.handStage.set(this.SBPost);
-    this.lastAction.set(this.Bet);
-    // this.handOver.set(Bool(false));
-    this.pot.set(Field(0));
-    this.lastBetSize.set(Field(0));
-
-    // Initialize with 0s so we can tell when two players have joined
-    this.player0Key.set(PublicKey.empty());
-    this.player1Key.set(PublicKey.empty());
-
-    // Temp - just want to use this to experiment with pulling data
-    // this.slot4.set(Field(42));
-    // Temp - hardcode cards for each player
-    // this.storeHardcodedCards();
-    // Temp - hardcoding board cards
-    // "Kc": 163,
-    // "Ac": 167,
-    // "Qs": 229,
-    // "8s": 199,
-    // "6s": 193,
-    // 163*167*229*199*193 = 239414220863
-    // this.slot2.set(Field(239414220863))
-  }
-
-  @runtimeMethod()
-  public resetHandState(): void {
+  private resetHandState(button: Field): void {
     // Should call this on init too, but want to let players reset the game state
     // this.street.set(this.Preflop);
     // this.handOver.set(Bool(false));
     this.handStage.set(this.SBPost);
     this.lastAction.set(this.Null);
     this.handStage.set(this.SBPost);
+    this.pot.set(Field(0));
 
     this.showdownValueP0.set(Field(0));
     this.showdownValueP1.set(Field(0));
 
-    // this.playerTurn.set(this.P0Turn);
-    // this.button.set(Field(0));
+    this.lastBetSize.set(Field(0));
+
+    this.button.set(button);
+
+    // So if button is 0 - it's P0's turn, else p1?
+    const pTurn = Provable.if(button.equals(Field(0)),
+      this.P0Turn,
+      this.P1Turn,
+    )
+    this.playerTurn.set(pTurn);
+
+    const nullCard = new Card(Group.generator, Group.generator, Group.generator);
+    this.p0Hc0.set(nullCard);
+    this.p0Hc1.set(nullCard);
+    this.p1Hc0.set(nullCard);
+    this.p1Hc1.set(nullCard);
+    this.flop0.set(nullCard);
+    this.flop1.set(nullCard);
+    this.flop2.set(nullCard);
+    this.turn0.set(nullCard);
+    this.river0.set(nullCard);
   }
 
   @runtimeMethod()
   public resetTableState(): void {
-    // Have a separate resetHandState for when we want to keep players but reset hand?
+    // This method can be called externally to kick everyone off the table and get
+    // contract to a state where a new game can be played
     this.player0Key.set(PublicKey.empty());
     this.player1Key.set(PublicKey.empty());
 
+    this.stack0.set(Field(0));
+    this.stack1.set(Field(0));
 
-    // Todo - want better logic for setting this
     this.handId.set(Field(1000));
+
+    this.resetHandState(Field(0));
   }
 
   @runtimeMethod()
@@ -641,20 +633,15 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     this.stack0.set(stack0Final);
     this.stack1.set(stack1Final);
-    // this.handOver.set(Bool(true));
-    this.pot.set(Field(0));
 
-    // Resetting values for next hand!
-    this.handStage.set(this.SBPost);
-
-    // Need to swap button!
-    const button = this.button.get().value;
-    const newButton = Provable.if(button.equals(Field(0)), Field(1), Field(0));
-    this.button.set(newButton);
-
-    // And increment handId
+    // Increment handId by one each hand
     const handId = this.handId.get().value;
     this.handId.set(handId.add(1));
+
+    // Need to swap button and then reset hand state!
+    const button = this.button.get().value;
+    const newButton = Provable.if(button.equals(Field(0)), Field(1), Field(0));
+    this.resetHandState(newButton);
   }
 
   cardPrimeToCardPoint(cardPrime: Field): PublicKey {
