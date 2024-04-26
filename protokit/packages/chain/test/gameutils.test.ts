@@ -1,7 +1,7 @@
-import { cardMapping52 } from './PoZKer';
-import { PrivateKey, PublicKey, UInt64 } from 'o1js';
-import { getShowdownData, shuffleCards } from './gameutils.js';
-import { Card, addPlayerToCardMask, mask, partialUnmask, createNewCard, cardPrimeToPublicKey, buildCardMapping, } from './mentalpoker.js';
+import { cardMapping52 } from '../src/poZKer';
+import { PrivateKey, PublicKey, Field } from 'o1js';
+import { getShowdownData, shuffleCards } from '../src/gameutils.js';
+import { Card, addPlayerToCardMask, mask, partialUnmask, createNewCard, cardPrimeToPublicKey, buildCardMapping, } from '../src/mentalpoker.js';
 
 
 describe('PoZKer', () => {
@@ -20,10 +20,10 @@ describe('PoZKer', () => {
         const boardcard3 = cardMapping52["8s"];
         const boardcard4 = cardMapping52["6s"];
 
-        const allCardsP1: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card1prime52), UInt64.from(card2prime52), UInt64.from(boardcard0), UInt64.from(boardcard1), UInt64.from(boardcard2), UInt64.from(boardcard3), UInt64.from(boardcard4)]
+        const allCardsP1: [Field, Field, Field, Field, Field, Field, Field] = [Field(card1prime52), Field(card2prime52), Field(boardcard0), Field(boardcard1), Field(boardcard2), Field(boardcard3), Field(boardcard4)]
         const [useCardsP1, isFlushP1, merkleMapKeyP1, merkleMapValP1] = getShowdownData(allCardsP1);
 
-        const allCardsP2: [UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64] = [UInt64.from(card3prime52), UInt64.from(card4prime52), UInt64.from(boardcard0), UInt64.from(boardcard1), UInt64.from(boardcard2), UInt64.from(boardcard3), UInt64.from(boardcard4)]
+        const allCardsP2: [Field, Field, Field, Field, Field, Field, Field] = [Field(card3prime52), Field(card4prime52), Field(boardcard0), Field(boardcard1), Field(boardcard2), Field(boardcard3), Field(boardcard4)]
         const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
 
         const merkleMapKeyP1_: number = Number(merkleMapKeyP1) as number;
