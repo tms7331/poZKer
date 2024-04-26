@@ -175,9 +175,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   @state() public handId = State.from<Field>(Field);
 
   private resetHandState(button: Field): void {
-    // Should call this on init too, but want to let players reset the game state
-    // this.street.set(this.Preflop);
-    // this.handOver.set(Bool(false));
     this.handStage.set(this.SBPost);
     this.lastAction.set(this.Null);
     this.handStage.set(this.SBPost);
@@ -241,16 +238,16 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     )
     assert(seatFree, "Seat is not available!");
 
-    const p1KeyWrite: PublicKey = Provable.if(seatI.equals(Field(0)),
+    const p0KeyWrite: PublicKey = Provable.if(seatI.equals(Field(0)),
       player,
       player0Key
     )
-    const p2KeyWrite: PublicKey = Provable.if(seatI.equals(Field(1)),
+    const p1KeyWrite: PublicKey = Provable.if(seatI.equals(Field(1)),
       player,
       player1Key
     )
-    this.player0Key.set(p1KeyWrite);
-    this.player1Key.set(p2KeyWrite);
+    this.player0Key.set(p0KeyWrite);
+    this.player1Key.set(p1KeyWrite);
 
     this.deposit(seatI, depositAmount);
   }
@@ -287,9 +284,11 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     assert(handStage.equals(this.SBPost), "Cannot leave table now!");
 
     const player: PublicKey = this.transaction.sender.value;
-    assert(this.inGame(player), "Player not in game!")
-
     const player0Key = this.player0Key.get().value;
+    const player1Key = this.player1Key.get().value;
+    const playerInGame = player.equals(player0Key).or(player.equals(player1Key));
+    assert(playerInGame, "Player not in game!")
+
     const seatI = Provable.if(player.equals(player0Key), Field(0), Field(1));
 
     this.withdraw(player, seatI);
@@ -368,12 +367,14 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Logic modified from https://github.com/betterclever/zk-chess/blob/main/src/Chess.ts
     const player0Key = this.player0Key.get().value;
     const player1Key = this.player1Key.get().value;
+    const playerInGame: Bool = player.equals(player0Key).or(player.equals(player1Key))
+    assert(playerInGame, "Player not in game!");
+
     const playerOk: Bool = player
       .equals(player0Key)
       .and(p1turn)
       .or(player.equals(player1Key).and(p2turn))
     assert(playerOk, 'Player is not allowed to make a move')
-    //.assertTrue('Player is not allowed to make a move');
 
     const isBlinds = handStage.equals(this.SBPost).or(handStage.equals(this.BBPost));
     const isPreflop = handStage.equals(this.PreflopBetting);
@@ -405,7 +406,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // PostSB - valid when facing [Null] and street==preflop
     // PostBB - valid when facing [PostSB] and street==preflop
     const act1 = action.equals(this.Bet).and(facingNull.or(facingCheck));
-    const act2 = action.equals(this.Call).and(facingBet.or(facingRaise).or(facingBB));
+    const act2 = action.equals(this.Call).and(facingBet.or(facingRaise));
     const act3 = action.equals(this.Fold).and(facingBet.or(facingRaise));
     const act4 = action.equals(this.Raise).and(facingBet.or(facingRaise).or(facingPreflopCall).or(facingBB));
     const act5 = action.equals(this.Check).and(facingNull.or(facingCheck).or(facingPreflopCall));
@@ -583,6 +584,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.lastBetSize.set(newLastBetSize);
     this.pot.set(pot.add(betSizeReal));
   }
+
 
   @runtimeMethod()
   public settle(): void {
