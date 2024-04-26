@@ -112,16 +112,18 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   // HandStage values
   SBPost = Field(0);
   BBPost = Field(1);
-  DealHolecards = Field(2);
-  PreflopBetting = Field(3);
-  FlopDeal = Field(4);
-  FlopBetting = Field(5);
-  TurnDeal = Field(6);
-  TurnBetting = Field(7);
-  RiverDeal = Field(8);
-  RiverBetting = Field(9);
-  Showdown = Field(10);
-  Settle = Field(11);
+  DealHolecardsA = Field(2);
+  DealHolecardsB = Field(3);
+  PreflopBetting = Field(4);
+  FlopDeal = Field(5);
+  FlopBetting = Field(6);
+  TurnDeal = Field(7);
+  TurnBetting = Field(8);
+  RiverDeal = Field(9);
+  RiverBetting = Field(10);
+  ShowdownA = Field(11);
+  ShowdownB = Field(12);
+  Settle = Field(13);
 
   NullBoardcard = Field(cardMapping52[""]);
 
@@ -204,19 +206,27 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   }
 
   @runtimeMethod()
-  public resetTableState(): void {
-    // Have a separate resetHandState for when we want to keep players but reset hand?
-    // this.player0Key.set(PublicKey.empty());
-    // this.player1Key.set(PublicKey.empty());
-
+  public resetHandState(): void {
     // Should call this on init too, but want to let players reset the game state
-    this.playerTurn.set(this.P0Turn);
     // this.street.set(this.Preflop);
     // this.handOver.set(Bool(false));
     this.handStage.set(this.SBPost);
     this.lastAction.set(this.Null);
     this.handStage.set(this.SBPost);
-    this.button.set(Field(0));
+
+    this.showdownValueP0.set(Field(0));
+    this.showdownValueP1.set(Field(0));
+
+    // this.playerTurn.set(this.P0Turn);
+    // this.button.set(Field(0));
+  }
+
+  @runtimeMethod()
+  public resetTableState(): void {
+    // Have a separate resetHandState for when we want to keep players but reset hand?
+    this.player0Key.set(PublicKey.empty());
+    this.player1Key.set(PublicKey.empty());
+
 
     // Todo - want better logic for setting this
     this.handId.set(Field(1000));
@@ -526,15 +536,12 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const nextTurn = Provable.if(nextShowdown.not().and(isTurn.and(newStreetBool.not()).or(isFlop.and(newStreetBool))), Bool(true), Bool(false));
     const nextRiver = Provable.if(nextShowdown.not().and(isRiver.and(newStreetBool.not()).or(isTurn.and(newStreetBool))), Bool(true), Bool(false));
 
-    // TODO - can fix this logic by adding ONE if it's a transition I think?
-    const handStageNew = Field(0);
-    // const currStreet = Provable.switch(
-    //   [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
-    //   Field,
-    //   [this.Preflop, this.Flop, this.Turn, this.River, this.ShowdownPending]
-    // );
-
-    // ISSUE - if i's showdown pending, wee want to override value...
+    // TODO - can we simplify this logic by adding ONE if it's a transition?
+    const handStageNew = Provable.switch(
+      [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
+      Field,
+      [this.DealHolecardsA, this.FlopDeal, this.TurnDeal, this.RiverDeal, this.ShowdownA]
+    );
 
     // If we did go to the next street, previous action should be 'Null'
     const facingAction = Provable.if(
@@ -558,7 +565,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // If game is over from a fold - need to send funds to winner
     const p1WinnerBal = stack0.add(pot);
     const p2WinnerBal = stack1.add(pot);
-
 
     const stack0Final = Provable.if(
       handOverNow.equals(Bool(true)).and(player.equals(player1Key)),
@@ -968,12 +974,9 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     4. check that board cards are the real board cards
     */
 
-
     // const [stack0, stack1, turn, street, lastAction, lastBetSize, handOver, pot] = this.getGamestate();
     const handStage = this.handStage.get().value;
-    // const gamestate = this.gamestate.getAndRequireEquals();
-    // TODO - what was this check again?  Reimplement with new format...
-    // gamestate.assertLessThanOrEqual(Field(3));
+    assert(handStage.equals(this.ShowdownA).or(handStage.equals(this.ShowdownB)));
 
     // Player card hash will be stored in slot1 or slot1
     // const slot0 = this.slot0.get().value;
@@ -1079,11 +1082,22 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     // And now we can store the lookup value in the appropriate slot
 
+
+
     // Assuming we made it past all our checks - 
     // We are now storing the merkleMapVal, which represents
     // hand strength in these slots!  Lower is better!
     const showdownValueP0 = this.showdownValueP0.get().value;
     const showdownValueP1 = this.showdownValueP1.get().value;
+
+    // Make sure they can only showdown once
+    const confirm0 = Provable.if(
+      player.equals(player1Key),
+      showdownValueP0,
+      showdownValueP1,
+    );
+    assert(confirm0.equals(0), "Player already showed cards!")
+
     const showdownValueP0New = Provable.if(
       player.equals(player0Key),
       merkleMapVal,
@@ -1097,18 +1111,9 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.showdownValueP0.set(showdownValueP0New);
     this.showdownValueP1.set(showdownValueP1New);
 
-    // If BOTH players have shown their cards (so both values not 0)
-    // transition from 1 to 6 via multiplying by 2 and 3 after each player
-    // shows their cards
-    // TODO - fix this logic - should we have a default value for showdown value?
-    const showdownDone = showdownValueP0New.equals(0).and(showdownValueP1New.equals(0));
-    const handStageNew = Provable.if(
-      showdownDone,
-      this.Settle,
-      this.Showdown
-    );
+    // Handstage should ALWAYS increment - takes two increments to transition to Settle
+    this.handStage.set(handStage.add(1));
 
-    this.handStage.set(handStageNew);
   }
 
 
@@ -1120,6 +1125,9 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
   @runtimeMethod()
   public commitOpponentHolecards(card0: Card, card1: Card): void {
+    const handStage: Field = this.handStage.get().value;
+    assert(handStage.equals(this.DealHolecardsA).or(handStage.equals(this.DealHolecardsA)));
+
     const player = this.transaction.sender.value;
     assert(this.inGame(player), "Player not in game!")
     // If caller is player0 - cards are for player1, and vice versa
@@ -1142,6 +1150,10 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.p0Hc1.set(p0Hc1New);
     this.p1Hc0.set(p1Hc0New);
     this.p1Hc1.set(p1Hc1New);
+
+    // Handstage should ALWAYS increment - takes two increments to transition to PreflopBetting
+    this.handStage.set(handStage.add(1));
+
   }
 
   @runtimeMethod()
@@ -1227,6 +1239,9 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.flop2.set(flop2New);
     this.turn0.set(turn0New);
     this.river0.set(river0New);
+
+    // Handstage should ALWAYS increment - transition from "Deal" to "Betting"
+    this.handStage.set(handStage.add(1));
   }
 
 }
