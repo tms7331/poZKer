@@ -106,24 +106,27 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   Raise = Field(4);
   Check = Field(5);
   PreflopCall = Field(6);
-  PostSB = Field(7);
-  PostBB = Field(8);
+  PostSBAct = Field(7);
+  PostBBAct = Field(8);
 
   // HandStage values
-  SBPost = Field(0);
-  BBPost = Field(1);
+  SBPostStage = Field(0);
+  BBPostStage = Field(1);
   DealHolecardsA = Field(2);
   DealHolecardsB = Field(3);
   PreflopBetting = Field(4);
   FlopDeal = Field(5);
-  FlopBetting = Field(6);
-  TurnDeal = Field(7);
-  TurnBetting = Field(8);
-  RiverDeal = Field(9);
-  RiverBetting = Field(10);
-  ShowdownA = Field(11);
-  ShowdownB = Field(12);
-  Settle = Field(13);
+  FlopDealDec = Field(6); // 'Dec' ones are decode stage
+  FlopBetting = Field(7);
+  TurnDeal = Field(8);
+  TurnDealDec = Field(9);
+  TurnBetting = Field(10);
+  RiverDeal = Field(11);
+  RiverDealDec = Field(12);
+  RiverBetting = Field(13);
+  ShowdownA = Field(14);
+  ShowdownB = Field(15);
+  Settle = Field(16);
 
   NullBoardcard = Field(cardMapping52[""]);
 
@@ -150,11 +153,17 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   @state() public p0Hc1 = State.from<Card>(Card);
   @state() public p1Hc0 = State.from<Card>(Card);
   @state() public p1Hc1 = State.from<Card>(Card);
-  @state() public flop0 = State.from<Card>(Card);
-  @state() public flop1 = State.from<Card>(Card);
-  @state() public flop2 = State.from<Card>(Card);
-  @state() public turn0 = State.from<Card>(Card);
-  @state() public river0 = State.from<Card>(Card);
+  @state() public flop0C = State.from<Card>(Card);
+  @state() public flop1C = State.from<Card>(Card);
+  @state() public flop2C = State.from<Card>(Card);
+  @state() public turn0C = State.from<Card>(Card);
+  @state() public river0C = State.from<Card>(Card);
+  // Decrypted board cards
+  @state() public flop0 = State.from<Field>(Field);
+  @state() public flop1 = State.from<Field>(Field);
+  @state() public flop2 = State.from<Field>(Field);
+  @state() public turn0 = State.from<Field>(Field);
+  @state() public river0 = State.from<Field>(Field);
 
   // Coded game state, contains packed data:
   // stack0, stack1, playerTurn, street, lastAction, handOver
@@ -175,9 +184,9 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   @state() public handId = State.from<Field>(Field);
 
   private resetHandState(button: Field): void {
-    this.handStage.set(this.SBPost);
+    this.handStage.set(this.SBPostStage);
     this.lastAction.set(this.Null);
-    this.handStage.set(this.SBPost);
+    this.handStage.set(this.SBPostStage);
     this.pot.set(Field(0));
 
     this.showdownValueP0.set(Field(0));
@@ -199,11 +208,17 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.p0Hc1.set(nullCard);
     this.p1Hc0.set(nullCard);
     this.p1Hc1.set(nullCard);
-    this.flop0.set(nullCard);
-    this.flop1.set(nullCard);
-    this.flop2.set(nullCard);
-    this.turn0.set(nullCard);
-    this.river0.set(nullCard);
+    this.flop0C.set(nullCard);
+    this.flop1C.set(nullCard);
+    this.flop2C.set(nullCard);
+    this.turn0C.set(nullCard);
+    this.river0C.set(nullCard);
+
+    this.flop0.set(Field(0));
+    this.flop1.set(Field(0));
+    this.flop2.set(Field(0));
+    this.turn0.set(Field(0));
+    this.river0.set(Field(0));
   }
 
   @runtimeMethod()
@@ -281,7 +296,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   public leaveTable(): void {
     // Can only leave if we're at the blinds posting stage...
     const handStage = this.handStage.get().value;
-    assert(handStage.equals(this.SBPost), "Cannot leave table now!");
+    assert(handStage.equals(this.SBPostStage), "Cannot leave table now!");
 
     const player: PublicKey = this.transaction.sender.value;
     const player0Key = this.player0Key.get().value;
@@ -376,7 +391,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
       .or(player.equals(player1Key).and(p2turn))
     assert(playerOk, 'Player is not allowed to make a move')
 
-    const isBlinds = handStage.equals(this.SBPost).or(handStage.equals(this.BBPost));
+    const isBlinds = handStage.equals(this.SBPostStage).or(handStage.equals(this.BBPostStage));
     const isPreflop = handStage.equals(this.PreflopBetting);
     const isFlop = handStage.equals(this.FlopBetting)
     const isTurn = handStage.equals(this.TurnBetting)
@@ -384,8 +399,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     //isPreflop.or(isFlop).or(isTurn).or(isRiver).assertTrue('Invalid game state street');
     assert(isBlinds.or(isPreflop).or(isFlop).or(isTurn).or(isRiver), 'Invalid game state street');
 
-    const facingSB = lastAction.equals(this.PostSB);
-    const facingBB = lastAction.equals(this.PostBB);
+    const facingSB = lastAction.equals(this.PostSBAct);
+    const facingBB = lastAction.equals(this.PostBBAct);
     const facingNull = lastAction.equals(this.Null);
     const facingBet = lastAction.equals(this.Bet);
     const facingCall = lastAction.equals(this.Call);
@@ -399,23 +414,22 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Confirm actions is valid, must be some combination below:
     // actions:
     // Bet - valid when facing [Null, Check]
-    // Call - valid when facing [Bet, Raise, PostBB]
+    // Call - valid when facing [Bet, Raise, PostBBAct]
     // Fold - valid when facing [Bet, Raise]
-    // Raise - valid when facing [Bet, Raise, PreflopCall, PostBB]
+    // Raise - valid when facing [Bet, Raise, PreflopCall, PostBBAct]
     // Check - valid when facing [Null, Check, PreflopCall]
-    // PostSB - valid when facing [Null] and street==preflop
-    // PostBB - valid when facing [PostSB] and street==preflop
+    // PostSBAct - valid when facing [Null] and street==preflop
+    // PostBBAct - valid when facing [PostSBAct] and street==preflop
     const act1 = action.equals(this.Bet).and(facingNull.or(facingCheck));
     const act2 = action.equals(this.Call).and(facingBet.or(facingRaise));
-    const act3 = action.equals(this.Fold).and(facingBet.or(facingRaise));
+    const act3 = action.equals(this.Fold).and(facingBet.or(facingRaise).or(facingBB));
     const act4 = action.equals(this.Raise).and(facingBet.or(facingRaise).or(facingPreflopCall).or(facingBB));
     const act5 = action.equals(this.Check).and(facingNull.or(facingCheck).or(facingPreflopCall));
     // Blinds...
-    const act6 = action.equals(this.PostSB).and(facingNull).and(handStage.equals(this.SBPost));
-    const act7 = action.equals(this.PostBB).and(facingSB);
+    const act6 = action.equals(this.PostSBAct).and(facingNull).and(handStage.equals(this.SBPostStage));
+    const act7 = action.equals(this.PostBBAct).and(facingSB);
     const act8 = action.equals(this.PreflopCall).and(facingBB);
 
-    //act1.or(act2).or(act3).or(act4).or(act5).assertTrue('Invalid bet!');
     assert(act1.or(act2).or(act3).or(act4).or(act5).or(act6).or(act7).or(act8), 'Invalid bet!');
 
     // Amount checks/logic:
@@ -453,10 +467,10 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     // Hardcode sizes for preflop betsize...
     // TODO - improve this logic, better to not force them to pass it in
-    const preflopBetA = Provable.if(action.equals(this.PostSB),
+    const preflopBetA = Provable.if(action.equals(this.PostSBAct),
       betSize.equals(Field(1)),
       Bool(true));
-    const preflopBetB = Provable.if(action.equals(this.PostBB),
+    const preflopBetB = Provable.if(action.equals(this.PostBBAct),
       betSize.equals(Field(2)),
       Bool(true));
     assert(preflopBetA.and(preflopBetB), "Bad preflop betsize!");
@@ -515,21 +529,30 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // If newStreetBool and (isFlop or isRiver) -> Add 4
     // Else keep same street
     // Showdown takes priority over other logic
-    const nextShowdownEnd = Provable.if(isRiver.and(newStreetBool), Bool(true), Bool(false));
+    // const nextShowdownEnd = Provable.if(isRiver.and(newStreetBool), Bool(true), Bool(false));
     // Additional scenario where we can have a showdown - both allin
-    const nextShowdownAllin = stack0New.equals(Field(0)).and(stack1New.equals(Field(0)));
-    const nextShowdown = nextShowdownEnd.or(nextShowdownAllin);
-    const nextPreflop = Provable.if(nextShowdown.not().and(isPreflop.and(newStreetBool.not())), Bool(true), Bool(false));
-    const nextFlop = Provable.if(nextShowdown.not().and(isFlop.and(newStreetBool.not()).or(isPreflop.and(newStreetBool))), Bool(true), Bool(false));
-    const nextTurn = Provable.if(nextShowdown.not().and(isTurn.and(newStreetBool.not()).or(isFlop.and(newStreetBool))), Bool(true), Bool(false));
-    const nextRiver = Provable.if(nextShowdown.not().and(isRiver.and(newStreetBool.not()).or(isTurn.and(newStreetBool))), Bool(true), Bool(false));
+    // const nextShowdownAllin = stack0New.equals(Field(0)).and(stack1New.equals(Field(0)));
+    // const nextShowdown = nextShowdownEnd.or(nextShowdownAllin);
+    // const nextPreflop = Provable.if(nextShowdown.not().and(isPreflop.and(newStreetBool.not())), Bool(true), Bool(false));
+    // const nextFlop = Provable.if(nextShowdown.not().and(isFlop.and(newStreetBool.not()).or(isPreflop.and(newStreetBool))), Bool(true), Bool(false));
+    // const nextTurn = Provable.if(nextShowdown.not().and(isTurn.and(newStreetBool.not()).or(isFlop.and(newStreetBool))), Bool(true), Bool(false));
+    // const nextRiver = Provable.if(nextShowdown.not().and(isRiver.and(newStreetBool.not()).or(isTurn.and(newStreetBool))), Bool(true), Bool(false));
 
-    // TODO - can we simplify this logic by adding ONE if it's a transition?
-    const handStageNew = Provable.switch(
-      [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
-      Field,
-      [this.DealHolecardsA, this.FlopDeal, this.TurnDeal, this.RiverDeal, this.ShowdownA]
-    );
+    // handStage transitions:
+    // action was SBPostStage - add 1
+    // action was BBPostStage - add 1
+    // action ENDED action on that street - add 1
+    // action was FOLD - set to Settle
+    const handStageNew: Field = Provable.if(newStreetBool.or(action.equals(this.PostSBAct).or(action.equals(this.PostBBAct)).or(action.equals(this.Fold))),
+      handStage.add(1),
+      handStage);
+    const handStageNewF: Field = Provable.if(action.equals(this.Fold), this.Settle, handStageNew);
+
+    // const handStageNew = Provable.switch(
+    //   [nextPreflop, nextFlop, nextTurn, nextRiver, nextShowdown],
+    //   Field,
+    //   [this.DealHolecardsA, this.FlopDeal, this.TurnDeal, this.RiverDeal, this.ShowdownA]
+    // );
 
     // If we did go to the next street, previous action should be 'Null'
     const facingAction = Provable.if(
@@ -579,7 +602,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.stack0.set(stack0New);
     this.stack1.set(stack1New);
     this.playerTurn.set(playerTurnNow);
-    this.handStage.set(handStageNew);
+    this.handStage.set(handStageNewF);
     this.lastAction.set(facingAction);
     this.lastBetSize.set(newLastBetSize);
     this.pot.set(pot.add(betSizeReal));
@@ -1094,9 +1117,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     // Handstage should ALWAYS increment - takes two increments to transition to Settle
     this.handStage.set(handStage.add(1));
-
   }
-
 
   private inGame(caller: PublicKey): Bool {
     const player0Key = this.player0Key.get().value;
@@ -1107,7 +1128,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   @runtimeMethod()
   public commitOpponentHolecards(card0: Card, card1: Card): void {
     const handStage: Field = this.handStage.get().value;
-    assert(handStage.equals(this.DealHolecardsA).or(handStage.equals(this.DealHolecardsA)));
+
+    assert(handStage.equals(this.DealHolecardsA).or(handStage.equals(this.DealHolecardsB)), "Can't deal cards now!");
 
     const player = this.transaction.sender.value;
     assert(this.inGame(player), "Player not in game!")
@@ -1134,7 +1156,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     // Handstage should ALWAYS increment - takes two increments to transition to PreflopBetting
     this.handStage.set(handStage.add(1));
-
   }
 
   @runtimeMethod()
@@ -1144,56 +1165,61 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const handStage: Field = this.handStage.get().value;
     assert(handStage.equals(this.FlopDeal).or(handStage.equals(this.TurnDeal)).or(handStage.equals(this.RiverDeal)), "Not in deal stage!");
 
-    const flop0 = this.flop0.get().value;
-    const flop1 = this.flop1.get().value;
-    const flop2 = this.flop2.get().value;
-    const turn0 = this.turn0.get().value;
-    const river0 = this.river0.get().value;
+    const flop0C = this.flop0C.get().value;
+    const flop1C = this.flop1C.get().value;
+    const flop2C = this.flop2C.get().value;
+    const turn0C = this.turn0C.get().value;
+    const river0C = this.river0C.get().value;
 
     const flop0New = Provable.if(handStage.equals(this.FlopDeal),
       Card,
       card0,
-      flop0)
+      flop0C)
     const flop1New = Provable.if(handStage.equals(this.FlopDeal),
       Card,
       card1,
-      flop1)
+      flop1C)
     const flop2New = Provable.if(handStage.equals(this.FlopDeal),
       Card,
       card2,
-      flop2)
+      flop2C)
     const turn0New = Provable.if(handStage.equals(this.TurnDeal),
       Card,
       card0,
-      turn0)
+      turn0C)
     const river0New = Provable.if(handStage.equals(this.RiverDeal),
       Card,
       card0,
-      river0)
+      river0C)
 
-    this.flop0.set(flop0New);
-    this.flop1.set(flop1New);
-    this.flop2.set(flop2New);
-    this.turn0.set(turn0New);
-    this.river0.set(river0New);
+    this.flop0C.set(flop0New);
+    this.flop1C.set(flop1New);
+    this.flop2C.set(flop2New);
+    this.turn0C.set(turn0New);
+    this.river0C.set(river0New);
+    // Now transitioning to decoding stage
+    this.handStage.set(handStage.add(1));
   }
 
 
   @runtimeMethod()
-  public decodeBoardcards(decryptKey: PrivateKey): void {
-    // TODO - big security issue, this is actually public so it will expose
-    // the other player's card, we'd need to replace this with a proof to keep it private
+  public decodeBoardcards(cardVal0: Field, cardVal1: Field, cardVal2: Field): void {
+    // TODO - security issue
+    // cannot have them pass in private key to decrypt here because it's public
+    // Right now just having them pass in cards directly, but that is clearly
+    // exploitable too, change it so they pass in a proof instead
 
     // We should still be in the handStage phase... if cards aren't committed this will just fail
     const handStage: Field = this.handStage.get().value;
-    assert(handStage.equals(this.FlopDeal).or(handStage.equals(this.TurnDeal)).or(handStage.equals(this.RiverDeal)), "Not in deal stage!");
+    assert(handStage.equals(this.FlopDealDec).or(handStage.equals(this.TurnDealDec)).or(handStage.equals(this.RiverDealDec)), "Not in decode stage!");
+
 
     const flop0 = this.flop0.get().value;
     const flop1 = this.flop1.get().value;
     const flop2 = this.flop2.get().value;
     const turn0 = this.turn0.get().value;
     const river0 = this.river0.get().value;
-
+    /*
     const flop0New = Provable.if(handStage.equals(this.FlopDeal),
       Card,
       partialUnmaskProvable(flop0, decryptKey),
@@ -1213,6 +1239,23 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const river0New = Provable.if(handStage.equals(this.RiverDeal),
       Card,
       partialUnmaskProvable(river0, decryptKey),
+      river0)
+    */
+
+    const flop0New = Provable.if(handStage.equals(this.FlopDealDec),
+      cardVal0,
+      flop0)
+    const flop1New = Provable.if(handStage.equals(this.FlopDealDec),
+      cardVal1,
+      flop1)
+    const flop2New = Provable.if(handStage.equals(this.FlopDealDec),
+      cardVal2,
+      flop2)
+    const turn0New = Provable.if(handStage.equals(this.TurnDealDec),
+      cardVal0,
+      turn0)
+    const river0New = Provable.if(handStage.equals(this.RiverDealDec),
+      cardVal0,
       river0)
 
     this.flop0.set(flop0New);
