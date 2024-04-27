@@ -3,12 +3,12 @@ import Link from "next/link";
 
 export default function Component() {
   return (
-    <main className="min-h-[calc(100dvh-57px)] bg-[#181f39] text-white">
+    <main className="min-h-[calc(100dvh-56px)] bg-[#111] text-white">
       <div className="mx-auto max-w-[800px] px-4 pt-20 sm:px-6 lg:px-8">
         <h1 className="pb-3 text-center text-4xl font-bold">
-          poZKer - ZK Mental Poker
+          Zero Knowledge Mental Poker
         </h1>
-        <h2 className="pb-10 text-center text-2xl font-semibold">
+        <h2 className="pb-10 text-center text-2xl font-semibold text-indigo-400">
           Powered by o1js, a Mina zkApp
         </h2>
         <div className="space-y-4">

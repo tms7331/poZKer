@@ -287,17 +287,17 @@ export default function Component() {
   }, [actionHistory]);
 
   return (
-    <div className="min-h-[calc(100dvh-57px)]">
+    <div className="min-h-[calc(100dvh-56px)]">
       {/* overall green background */}
-      <main className="flex min-h-[calc(100dvh-57px)] flex-col justify-between gap-4 bg-[#181f39] py-4 sm:flex-row sm:gap-0 sm:px-8 sm:py-8">
+      <main className="flex min-h-[calc(100dvh-56px)] flex-col justify-between gap-4 bg-[#111] py-4 sm:flex-row sm:gap-0 sm:px-8">
         <div className="hidden flex-1 sm:block"></div>
         {/* poker board border */}
-        <div className="flex h-full w-full flex-1 sm:h-auto sm:flex-none md:w-[650px] md:flex-shrink-0">
-          <div className="mx-auto flex w-full max-w-[650px] flex-1 flex-col overflow-hidden rounded-[50%/200px] border-4 border-[#000201] bg-[#3f3d3d] p-2 sm:h-full sm:rounded-[60%/500px] sm:p-4">
+        <div className="flex h-full w-full flex-1 sm:h-auto sm:flex-none md:w-[750px] md:flex-shrink-0">
+          <div className="mx-auto flex w-full max-w-[750px] flex-1 flex-col overflow-hidden rounded-[50%/200px] border-4 border-[#000201] bg-[#3f3d3d] p-2 sm:h-full sm:p-4 md:rounded-[40%/300px] 2xl:rounded-[60%/500px]">
             {/* poker board */}
-            <div className="poker-board mx-auto flex w-full flex-1 flex-col justify-between overflow-hidden rounded-[50%/200px] border-4 border-[#000201] px-[5px] py-12 sm:h-[calc(100dvh-57px-136px)] sm:rounded-[60%/500px]">
+            <div className="poker-board mx-auto flex w-full flex-1 flex-col justify-between overflow-hidden rounded-[50%/200px] border-4 border-[#000201] px-[5px] py-8 sm:h-[calc(100dvh-56px-136px)] md:rounded-[40%/300px] 2xl:rounded-[60%/500px] 2xl:py-12">
               <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 sm:max-w-[232px]">
-                <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl border border-zinc-800 bg-[#313390] px-4 py-2 text-white shadow-lg">
+                <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl bg-zinc-800 px-4 py-2 text-white shadow-lg">
                   <div className="flex">
                     <span className="text-sm font-bold sm:text-base">
                       Opponent
@@ -374,7 +374,7 @@ export default function Component() {
                 </div>
               </div>
               <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 sm:max-w-[232px]">
-                <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl border border-zinc-800 bg-[#313390] px-4 py-2 text-white">
+                <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl bg-zinc-800 px-4 py-2 text-white">
                   <div className="flex">
                     <span className="text-sm font-bold sm:text-base">You</span>
                     <span className="flex-1 text-center">
@@ -402,7 +402,7 @@ export default function Component() {
         </div>
         <div className="flex justify-center sm:flex-1 sm:flex-col sm:justify-end">
           <div className="flex w-fit flex-col space-y-3">
-            <div className="flex w-full gap-2 rounded-lg bg-[#313390] p-2 pl-5">
+            <div className="flex w-full gap-2 rounded-lg bg-zinc-800 p-2 pl-5">
               <input
                 type="number"
                 className="w-[60px] bg-transparent  text-white"
@@ -413,8 +413,8 @@ export default function Component() {
               />
               <input
                 type="range"
-                min={maxSlider}
-                max={minSlider}
+                min={minSlider}
+                max={maxSlider}
                 className="custom-range-input w-full"
                 value={betAmountInput}
                 onChange={(event) =>
@@ -423,13 +423,13 @@ export default function Component() {
               />
             </div>
             <div className="flex w-fit justify-start gap-2">
-              <button className="w-[100px] rounded-lg bg-[#313390] px-4 py-3 text-lg font-medium text-white transition-colors hover:bg-[#313990]">
+              <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80">
                 Call
               </button>
-              <button className="w-[100px] rounded-lg bg-[#313390] px-4 py-3 text-lg font-medium text-white transition-colors hover:bg-[#313990]">
+              <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80">
                 Fold
               </button>
-              <button className="w-[100px] rounded-lg bg-[#313390] px-4 py-3 text-lg font-medium text-white transition-colors hover:bg-[#313990]">
+              <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80">
                 Raise
               </button>
             </div>

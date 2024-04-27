@@ -51,7 +51,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex min-h-[calc(100dvh-57px)] flex-col bg-[#181f39]">
+    <div className="flex min-h-[calc(100dvh-56px)] flex-col bg-[#111]">
       <main className="flex-1">
         <div className="container px-4 md:px-6">
           <div className="grid gap-4">
@@ -76,7 +76,7 @@ export default function Home() {
                   <Button
                     disabled={!canJoin}
                     onClick={() => handleJoinTable()}
-                    className="bg-[#313390] px-2 py-1 text-xs sm:px-3 sm:py-2 sm:text-sm"
+                    className="bg-indigo-500 px-2 py-1 text-xs hover:bg-indigo-600 sm:px-3 sm:py-2 sm:text-sm"
                   >
                     Join Game
                   </Button>
@@ -87,7 +87,7 @@ export default function Home() {
                       <TooltipTrigger asChild>
                         <Button
                           onClick={() => resetTableState()}
-                          className="bg-[#313390] px-2 py-1 text-xs sm:px-3 sm:py-2 sm:text-sm"
+                          className="bg-indigo-500 px-2 py-1 text-xs hover:bg-indigo-600 sm:px-3 sm:py-2 sm:text-sm"
                         >
                           Reset Table
                         </Button>

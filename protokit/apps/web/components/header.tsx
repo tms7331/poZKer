@@ -33,14 +33,11 @@ export default function Header({
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div
-      className={`flex items-center justify-between border-b
-       border-zinc-900 bg-[#313390] p-2 shadow-sm`}
-    >
+    <div className={`flex items-center justify-between bg-[#111] shadow-lg`}>
       <div
         className={`absolute inset-x-0  left-0 top-[56px] z-50 flex flex-col gap-4 px-4 pb-6 pt-4 shadow-lg transition-all ${
           isOpen ? "" : "hidden"
-        } h-fit bg-[#313390] text-white`}
+        } h-fit  text-white`}
       >
         <HeaderLinks />
       </div>
@@ -75,7 +72,7 @@ export default function Header({
           {/* connect wallet */}
           <Button
             loading={loading}
-            className="w-fit border border-gray-400 bg-transparent px-2 sm:w-44 sm:px-0"
+            className="shadow-bright mt-4 w-fit border border-gray-400 bg-transparent px-2 sm:w-44 sm:px-0"
             onClick={onConnectWallet}
           >
             <div>
