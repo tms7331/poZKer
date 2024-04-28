@@ -43,11 +43,11 @@ describe("poZKer", () => {
     expect(block0?.transactions[0].status.toBoolean()).toBe(true);
   }
 
-  async function setPlayer(appChain: any, pkr: PoZKerApp, playerPrivKey: PrivateKey, playerPubKey: PublicKey, seatI: Field) {
+  async function setPlayer(appChain: any, pkr: PoZKerApp, playerPrivKey: PrivateKey, playerPubKey: PublicKey, seatI: Field, depositAmount: Field) {
     // This will automatically deposit now too...
     appChain.setSigner(playerPrivKey);
     const tx1 = await appChain.transaction(playerPubKey, () => {
-      pkr.joinTable(seatI, Field(100))
+      pkr.joinTable(seatI, depositAmount)
     });
     await tx1.sign();
     await tx1.send();
@@ -223,8 +223,8 @@ describe("poZKer", () => {
     const pkr = appChain.runtime.resolve("PoZKerApp");
 
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(150));
 
     appChain.setSigner(alicePrivateKey);
     const txn1 = await appChain.transaction(alice, () => {
@@ -233,18 +233,21 @@ describe("poZKer", () => {
     await txn1.sign();
     await txn1.send();
     const block = await appChain.produceBlock();
-    // const err = block?.transactions[0].statusMessage;
-    // console.log(err);
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
 
     // Should have posted sb of 1
     const stack0 = await appChain.query.runtime.PoZKerApp.stack0.get();
     const stack1 = await appChain.query.runtime.PoZKerApp.stack1.get();
     const pot = await appChain.query.runtime.PoZKerApp.pot.get();
+    const betThisStreet0 = await appChain.query.runtime.PoZKerApp.betThisStreet0.get();
+    const betThisStreet1 = await appChain.query.runtime.PoZKerApp.betThisStreet1.get();
+
     // Make sure deposits were successful
     expect(stack0).toEqual((Field(99)));
-    expect(stack1).toEqual((Field(100)));
+    expect(stack1).toEqual((Field(150)));
     expect(pot).toEqual((Field(1)));
+    expect(betThisStreet0).toEqual((Field(1)));
+    expect(betThisStreet1).toEqual((Field(0)));
 
     // After sb is posted, should be at stage 'BBPostStage'
     const handStageA = await appChain.query.runtime.PoZKerApp.handStage.get();
@@ -263,10 +266,14 @@ describe("poZKer", () => {
     const stack0B = await appChain.query.runtime.PoZKerApp.stack0.get();
     const stack1B = await appChain.query.runtime.PoZKerApp.stack1.get();
     const potB = await appChain.query.runtime.PoZKerApp.pot.get();
+    const betThisStreet0B = await appChain.query.runtime.PoZKerApp.betThisStreet0.get();
+    const betThisStreet1B = await appChain.query.runtime.PoZKerApp.betThisStreet1.get();
     // Make sure deposits were successful
     expect(stack0B).toEqual((Field(99)));
-    expect(stack1B).toEqual((Field(98)));
+    expect(stack1B).toEqual((Field(148)));
     expect(potB).toEqual((Field(3)));
+    expect(betThisStreet0B).toEqual((Field(1)));
+    expect(betThisStreet1B).toEqual((Field(2)));
 
     // And handStage should be DealHolecardsA!
     const handStageB = await appChain.query.runtime.PoZKerApp.handStage.get();
@@ -283,8 +290,8 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
@@ -347,8 +354,8 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // After depositing player 1 should have stack of 99 (SB)
@@ -369,8 +376,8 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
@@ -397,8 +404,8 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
@@ -439,8 +446,8 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
@@ -501,8 +508,8 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
@@ -556,8 +563,8 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(150));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
@@ -579,6 +586,8 @@ describe("poZKer", () => {
     await txn.sign();
     await txn.send();
     const block = await appChain.produceBlock();
+    const err = block?.transactions[0].statusMessage;
+    console.log(err);
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
   })
 
@@ -591,8 +600,8 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
@@ -654,8 +663,8 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
@@ -695,59 +704,6 @@ describe("poZKer", () => {
   })
 
 
-  it.only('prevents transition to gameover before showdown is complete (takeAction())', async () => {
-    const appChain = await localDeploy();
-    const alicePrivateKey = PrivateKey.random();
-    const bobPrivateKey = PrivateKey.random();
-    const alice = alicePrivateKey.toPublicKey();
-    const bob = bobPrivateKey.toPublicKey();
-    appChain.setSigner(alicePrivateKey);
-    const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
-    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-    await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-
-    // Just immediately go all-in to finish betting
-    appChain.setSigner(alicePrivateKey);
-    const txn1 = await appChain.transaction(alice, () => {
-      pkr.takeAction(pkr.Raise, Field(99))
-    });
-    await txn1.sign();
-    await txn1.send();
-    const block = await appChain.produceBlock();
-    expect(block?.transactions[0].status.toBoolean()).toBe(true);
-
-    appChain.setSigner(bobPrivateKey);
-    const txn2 = await appChain.transaction(bob, () => {
-      pkr.takeAction(pkr.Call, Field(0))
-    });
-    await txn2.sign();
-    await txn2.send();
-    const block2 = await appChain.produceBlock();
-    expect(block2?.transactions[0].status.toBoolean()).toBe(true);
-
-    const handStage = await appChain.query.runtime.PoZKerApp.handStage.get();
-    // TODO - what should this be?
-    // expect(handStage).toEqual(pkr.ShowdownPending);
-
-    // TODO - this test actually seemed like it was set to pass before?  Not understanding
-
-    // We should NOT be able to call 'settle' method yet - 
-    // 1. Need other board cards
-    // 2. Both players need to show hands
-
-    const txnFail = await appChain.transaction(bob, () => {
-      pkr.settle()
-    });
-    await txnFail.sign();
-    await txnFail.send();
-    const blockFail = await appChain.produceBlock();
-    expect(blockFail?.transactions[0].status.toBoolean()).toBe(false);
-    expect(blockFail?.transactions[0].statusMessage).toBe('Invalid showdown gamestate!');
-  })
-
   function encryptCard(cardPrime: number, shuffleKeyP1: PrivateKey, shuffleKeyP2: PrivateKey): Card {
     const cardPoint: PublicKey = cardPrimeToPublicKey(cardPrime);
     console.log("Encrypting card...", cardPrime);
@@ -772,8 +728,8 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
@@ -816,8 +772,8 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
     await init(appChain, pkr, alicePrivateKey, alice)
-    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0));
-    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1));
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 

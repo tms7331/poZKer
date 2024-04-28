@@ -4,6 +4,9 @@ import { UInt32 } from "@proto-kit/library";
 import { PublicKey, PrivateKey, Group, Field, Bool, Provable, MerkleMapWitness, Scalar } from "o1js";
 import { Card, addPlayerToCardMask, mask, partialUnmaskProvable, createNewCard, cardPrimeToPublicKey } from './mentalpoker.js';
 
+// import { inject } from "tsyringe";
+// import { Balances } from "./balances";
+
 // Want a mapping for cards, each represented as a prime so we can multiply
 // them together and get a unique value
 export const cardMapping13 = {
@@ -178,10 +181,21 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   // @state() public handOver = State.from<Bool>(Bool);
   @state() public pot = State.from<Field>(Field);
 
+  @state() public betThisStreet0 = State.from<Field>(Field);
+  @state() public betThisStreet1 = State.from<Field>(Field);
+
   @state() public handStage = State.from<Field>(Field);
   @state() public button = State.from<Field>(Field);
 
   @state() public handId = State.from<Field>(Field);
+
+
+  // public constructor(@inject("Balances") public balances: Balances) {
+  //   super();
+  // }
+
+
+  // this.balances.mint(this.transaction.sender, UInt64.from(1000));
 
   private resetHandState(button: Field): void {
     this.handStage.set(this.SBPostStage);
@@ -191,6 +205,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     this.showdownValueP0.set(Field(0));
     this.showdownValueP1.set(Field(0));
+    this.betThisStreet0.set(Field(0));
+    this.betThisStreet1.set(Field(0));
 
     this.lastBetSize.set(Field(0));
 
@@ -357,7 +373,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
   @runtimeMethod()
   public takeAction(action: Field, betSize: Field): void {
-
     // Need to check that it's the current player's turn, 
     // and the action is valid
     const stack0: Field = this.stack0.get().value;
@@ -372,10 +387,10 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // assert(handOver.not(), 'Game has already finished!');
 
     // Want these as bools to simplify checks
-    const p1turn: Bool = playerTurn.equals(this.P0Turn);
-    const p2turn: Bool = playerTurn.equals(this.P1Turn);
-    // p1turn.or(p2turn).assertTrue('Invalid game state player');
-    assert(p1turn.or(p2turn), 'Invalid game state player');
+    const p0turn: Bool = playerTurn.equals(this.P0Turn);
+    const p1turn: Bool = playerTurn.equals(this.P1Turn);
+    // p0turn.or(p1turn).assertTrue('Invalid game state player');
+    assert(p0turn.or(p1turn), 'Invalid game state player');
 
     const player: PublicKey = this.transaction.sender.value;
 
@@ -387,8 +402,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     const playerOk: Bool = player
       .equals(player0Key)
-      .and(p1turn)
-      .or(player.equals(player1Key).and(p2turn))
+      .and(p0turn)
+      .or(player.equals(player1Key).and(p1turn))
     assert(playerOk, 'Player is not allowed to make a move')
 
     const isBlinds = handStage.equals(this.SBPostStage).or(handStage.equals(this.BBPostStage));
@@ -432,91 +447,149 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     assert(act1.or(act2).or(act3).or(act4).or(act5).or(act6).or(act7).or(act8), 'Invalid bet!');
 
-    // Amount checks/logic:
-    // For calls - we are not passing in amount, so we need to figure it out
-    // For raises - raise needs to be to a valid size
+    ///////  betSize checks/logic:
+    // PostSBAct/PostBBAct - assert 1/2
+    // Fold = assert 0
+    // Check = assert 0
+    // Bet = at least 1
+    // Call/PreflopCall - set it so betThisStreet0 == betThisStreet1
+    // Raise = get difference between the betThisStreet vals, should be 2x that OR all-in
 
-    // If stack0 99 and stack1 90, returns 9
-    //const stackDiff = this.uint_subtraction(p1turn, stack0, stack1, stack1, stack0);
-    const stackDiff = Provable.if(p1turn,
-      stack0.sub(stack1),
-      stack1.sub(stack0));
+    // Other checks/considerations:
+    // If they bet more than the other player has, round it down
+    // Make sure they never bet more than their stack
 
-    // We get an error on underflows so this is always true
-    // stackDiff.assertGreaterThanOrEqual(Field(0), "");
+    // Final adjustments:
+    // pot += betAmountReal
+    // betThisStreet0/1 += betAmountReal
+    // stack0/1 -= betAmountReal
 
-    // Betsize constraints:
-    // Fold/Check - betsize should be 0
-    // Bet - betsize should be gt 1 (or whatever minsize is)
-    // Call - betsize should make stacks equal
-    // Raise - betsize should be at least equal to diff*2, or all-in
+    // Start by calculating final betsize...
 
-    const foldCheckAmountBool = Provable.if(action.equals(this.Check).or(action.equals(this.Fold)),
-      betSize.equals(Field(0)),
-      Bool(true)
-    )
-    //foldCheckAmountBool.assertTrue("Bad betsize for check or fold!");
-    assert(foldCheckAmountBool, "Bad betsize for check or fold!");
+    // Need stackdiffs for calls and raises checks
+    // Should ONLY be on this specific street
+    const betThisStreet0 = this.betThisStreet0.get().value;
+    const betThisStreet1 = this.betThisStreet1.get().value;
+    // If it's player0's turn - p1 MUST have bet at least as much as them
+    const stackDiff = Provable.if(p0turn,
+      betThisStreet1.sub(betThisStreet0),
+      betThisStreet0.sub(betThisStreet1));
+    assert(stackDiff.greaterThanOrEqual(Field(0)), "Invalid stack diff!");
 
-    // Bet - betsize should be gt 1 (or whatever minsize is)
-    const actionF: Field = Provable.if(action.equals(this.Bet),
-      betSize,
-      Field(1),
-    )  // .assertGreaterThanOrEqual(Field(1), "Invalid bet size!")
-    assert(actionF.greaterThanOrEqual(Field(1)), "Invalid bet size!");
-
-    // Hardcode sizes for preflop betsize...
-    // TODO - improve this logic, better to not force them to pass it in
-    const preflopBetA = Provable.if(action.equals(this.PostSBAct),
-      betSize.equals(Field(1)),
-      Bool(true));
-    const preflopBetB = Provable.if(action.equals(this.PostBBAct),
-      betSize.equals(Field(2)),
-      Bool(true));
-    assert(preflopBetA.and(preflopBetB), "Bad preflop betsize!");
-
-    // Call - betsize should make stacks equal
-    // So we might need to override the other betsize here
+    // For calls we need to infer betsize
     const betSizeReal = Provable.if(action.equals(this.Call).or(action.equals(this.PreflopCall)),
       stackDiff,
       betSize,
     )
 
-    const compareStack = Provable.if(p1turn,
+    // If they bet more than the other player has, round it down so the other player
+    // can call to be all-in
+    // This will simplify some of the other checks
+    // So if stacks are 100 and 200, and player 0 has bet 50, player 1 can bet
+    // enough to get that to 100
+    const maxBet = Provable.if(p0turn,
+      stackDiff.add(stack1),
+      stackDiff.add(stack0),
+    )
+    console.log("Figuring out max sizes...")
+    Provable.log(betSize)
+    Provable.log(betSizeReal)
+    console.log("From stack diff...")
+    Provable.log(stackDiff);
+    console.log("And max bet is:")
+    Provable.log(maxBet)
+    console.log("Bet on this street...")
+    Provable.log(betThisStreet0)
+    Provable.log(betThisStreet1)
+
+    // We'll only need to cap our betsize amount if it's a bet or a raise
+    const capAction = Provable.if(
+      action.equals(this.Bet).or(action.equals(this.Raise)),
+      Bool(true),
+      Bool(false))
+    const betSizeFinal = Provable.if(
+      betSizeReal.greaterThan(maxBet).and(capAction),
+      maxBet,
+      betSizeReal
+    )
+    Provable.log(betSizeFinal)
+
+    const foldCheckOk: Bool = Provable.if(action.equals(this.Check).or(action.equals(this.Fold)),
+      betSizeFinal.equals(Field(0)),
+      Bool(true)
+    )
+    assert(foldCheckOk, "Bad betsize for check or fold!");
+
+    const betOk: Bool = Provable.if(action.equals(this.Bet),
+      betSizeFinal.greaterThanOrEqual(Field(1)),
+      Bool(true)
+    )
+    assert(betOk, "Invalid bet size!");
+
+    const sbOk = Provable.if(action.equals(this.PostSBAct),
+      betSizeFinal.equals(Field(1)),
+      Bool(true));
+    const bbOk = Provable.if(action.equals(this.PostBBAct),
+      betSizeFinal.equals(Field(2)),
+      Bool(true));
+    assert(sbOk.and(bbOk), "Invalid blind bet size!");
+
+
+    // And for raises - make sure it's at least 2x the stackdiff, unless it's all-in
+    const compareStack = Provable.if(p0turn,
       stack0,
       stack1)
 
-    // betSizeReal.assertLessThanOrEqual(compareStack, "Cannot bet more than stack!");
-    assert(betSizeReal.lessThanOrEqual(compareStack), "Cannot bet more than stack!");
-    const allin: Bool = betSizeReal.equals(compareStack);
+    console.log("COMPARING BET AMOUNTS...")
+    Provable.log(betSizeFinal)
+    Provable.log(compareStack)
+    console.log("STACKS...")
+    Provable.log(stack0)
+    Provable.log(stack1)
+    assert(betSizeFinal.lessThanOrEqual(compareStack), "Cannot bet more than stack!");
 
-    const raiseOk: Bool = Provable.if(action.equals(this.Raise),
-      betSize.greaterThanOrEqual(stackDiff.mul(2)).or(allin),
+    const allin: Bool = betSizeFinal.equals(compareStack);
+    // raise amount should ALWAYS be greater than the difference - otherwise it's a call
+    const raiseOkA: Bool = Provable.if(action.equals(this.Raise),
+      betSizeFinal.greaterThanOrEqual(stackDiff),
       Bool(true),
     )
-    //.assertTrue("Invalid raise amount!");
-    assert(raiseOk, "Invalid raise amount!");
+    // And otherwise - should either be all-in, or 2x the difference
+    const raiseOkB: Bool = Provable.if(action.equals(this.Raise),
+      betSizeFinal.greaterThanOrEqual(stackDiff.mul(2)).or(allin),
+      Bool(true),
+    )
+    console.log("Invalid raise amount check...")
+    Provable.log(betSizeFinal.greaterThanOrEqual(stackDiff))
+    Provable.log(betSizeFinal.greaterThanOrEqual(stackDiff.mul(2)))
+    Provable.log(allin)
+    assert(raiseOkA.and(raiseOkB), "Invalid raise amount!");
 
+    // Make sure they never bet more than their stack
+    const finalBetOk = Provable.if(
+      p0turn,
+      betSizeFinal.lessThanOrEqual(stack0),
+      betSizeFinal.lessThanOrEqual(stack1),
+    )
+    assert(finalBetOk, "Cannot bet more than stack!");
 
-    // Make sure the player has enough funds to take the action
-    const case1 = player.equals(player0Key).and(betSizeReal.lessThanOrEqual(stack0));
-    const case2 = player.equals(player1Key).and(betSizeReal.lessThanOrEqual(stack1));
-    // case1.or(case2).assertTrue("Not enough balance for bet!");
-    assert(case1.or(case2), "Not enough balance for bet!");
+    // Final adjustments to pot, betThisStreet, stack...
+    const p0Amount = Provable.if(p0turn, betSizeFinal, Field(0));
+    const p1Amount = Provable.if(p1turn, betSizeFinal, Field(0));
+    console.log("BETTING AMOUNTS...")
+    Provable.log(p0Amount)
+    Provable.log(p1Amount)
+    console.log("ALREADY BET AMOUNTS...")
+    Provable.log(betThisStreet0)
+    Provable.log(betThisStreet1)
+    this.stack0.set(stack0.sub(p0Amount));
+    this.stack1.set(stack1.sub(p1Amount));
+    this.pot.set(pot.add(betSizeFinal));
+    this.betThisStreet0.set(betThisStreet0.add(p0Amount));
+    this.betThisStreet1.set(betThisStreet1.add(p1Amount));
+    // We just want to track this for front end...
+    this.lastBetSize.set(betSizeFinal);
 
-
-    // const stack0New = this.uint_subtraction(playerHash.equals(player0Hash),
-    //   stack0, betSizeReal,
-    //   stack0, UInt32.from(0));
-    // const stack1New = this.uint_subtraction(playerHash.equals(player1Hash),
-    //   stack1, betSizeReal,
-    //   stack1, UInt32.from(0));
-    const stack0New = Provable.if(player.equals(player0Key),
-      stack0.sub(betSizeReal),
-      stack0.sub(Field(0)));
-    const stack1New = Provable.if(player.equals(player1Key),
-      stack1.sub(betSizeReal),
-      stack1.sub(Field(0)));
 
     // Need to check if we've hit the end of the street - transition to next street
     // Scenarios for this would be:
@@ -562,7 +635,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     );
 
     const playerTurnNow = Provable.if(
-      newStreetBool.or(p2turn),
+      newStreetBool.or(p1turn),
       this.P0Turn,
       this.P1Turn
     );
@@ -592,27 +665,16 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.showdownValueP0.set(showdownValueP0New);
     this.showdownValueP1.set(showdownValueP1New);
 
-    // TODO - double check logic - any other scenarios we should reset lastBetSize?
-    const newLastBetSize = Provable.if(
-      action.equals(this.Call),
-      Field(0),
-      betSizeReal
-    )
-
-    this.stack0.set(stack0New);
-    this.stack1.set(stack1New);
     this.playerTurn.set(playerTurnNow);
     this.handStage.set(handStageNewF);
     this.lastAction.set(facingAction);
-    this.lastBetSize.set(newLastBetSize);
-    this.pot.set(pot.add(betSizeReal));
   }
 
 
   @runtimeMethod()
   public settle(): void {
     // We should only call this if we actually made it to showdown
-    // const [stack0, stack1, turn, street, lastAction, lastBetSize, handOver, pot] = this.getGamestate();
+    // const [stack0, stack1, turn, street, lastAction, handOver, pot] = this.getGamestate();
     const stack0: Field = this.stack0.get().value;
     const stack1: Field = this.stack1.get().value;
     const pot: Field = this.pot.get().value;
@@ -659,6 +721,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const button = this.button.get().value;
     const newButton = Provable.if(button.equals(Field(0)), Field(1), Field(0));
     this.resetHandState(newButton);
+
   }
 
   cardPrimeToCardPoint(cardPrime: Field): PublicKey {
@@ -978,7 +1041,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     4. check that board cards are the real board cards
     */
 
-    // const [stack0, stack1, turn, street, lastAction, lastBetSize, handOver, pot] = this.getGamestate();
     const handStage = this.handStage.get().value;
     assert(handStage.equals(this.ShowdownA).or(handStage.equals(this.ShowdownB)));
 
@@ -1264,8 +1326,16 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.turn0.set(turn0New);
     this.river0.set(river0New);
 
-    // Handstage should ALWAYS increment - transition from "Deal" to "Betting"
-    this.handStage.set(handStage.add(1));
+    const stack0 = this.stack0.get().value;
+    const stack1 = this.stack1.get().value;
+    const allIn = stack0.equals(0).or(stack1.equals(0));
+    // If someone is all-in we should skip the betting round
+    const handStageNew = Provable.if(allIn,
+      handStage.add(2),
+      handStage.add(1)
+    )
+
+    this.handStage.set(handStageNew);
   }
 
 }
