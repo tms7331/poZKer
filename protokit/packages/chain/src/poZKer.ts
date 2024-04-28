@@ -198,7 +198,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   // this.balances.mint(this.transaction.sender, UInt64.from(1000));
 
   private resetHandState(button: Field): void {
-    this.handStage.set(this.SBPostStage);
     this.lastAction.set(this.Null);
     this.handStage.set(this.SBPostStage);
     this.pot.set(Field(0));
@@ -491,16 +490,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
       stackDiff.add(stack1),
       stackDiff.add(stack0),
     )
-    console.log("Figuring out max sizes...")
-    Provable.log(betSize)
-    Provable.log(betSizeReal)
-    console.log("From stack diff...")
-    Provable.log(stackDiff);
-    console.log("And max bet is:")
-    Provable.log(maxBet)
-    console.log("Bet on this street...")
-    Provable.log(betThisStreet0)
-    Provable.log(betThisStreet1)
 
     // We'll only need to cap our betsize amount if it's a bet or a raise
     const capAction = Provable.if(
@@ -512,7 +501,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
       maxBet,
       betSizeReal
     )
-    Provable.log(betSizeFinal)
 
     const foldCheckOk: Bool = Provable.if(action.equals(this.Check).or(action.equals(this.Fold)),
       betSizeFinal.equals(Field(0)),
@@ -540,12 +528,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
       stack0,
       stack1)
 
-    console.log("COMPARING BET AMOUNTS...")
-    Provable.log(betSizeFinal)
-    Provable.log(compareStack)
-    console.log("STACKS...")
-    Provable.log(stack0)
-    Provable.log(stack1)
     assert(betSizeFinal.lessThanOrEqual(compareStack), "Cannot bet more than stack!");
 
     const allin: Bool = betSizeFinal.equals(compareStack);
@@ -559,10 +541,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
       betSizeFinal.greaterThanOrEqual(stackDiff.mul(2)).or(allin),
       Bool(true),
     )
-    console.log("Invalid raise amount check...")
-    Provable.log(betSizeFinal.greaterThanOrEqual(stackDiff))
-    Provable.log(betSizeFinal.greaterThanOrEqual(stackDiff.mul(2)))
-    Provable.log(allin)
     assert(raiseOkA.and(raiseOkB), "Invalid raise amount!");
 
     // Make sure they never bet more than their stack
@@ -576,12 +554,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Final adjustments to pot, betThisStreet, stack...
     const p0Amount = Provable.if(p0turn, betSizeFinal, Field(0));
     const p1Amount = Provable.if(p1turn, betSizeFinal, Field(0));
-    console.log("BETTING AMOUNTS...")
-    Provable.log(p0Amount)
-    Provable.log(p1Amount)
-    console.log("ALREADY BET AMOUNTS...")
-    Provable.log(betThisStreet0)
-    Provable.log(betThisStreet1)
     this.stack0.set(stack0.sub(p0Amount));
     this.stack1.set(stack1.sub(p1Amount));
     this.pot.set(pot.add(betSizeFinal));
@@ -1158,7 +1130,7 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     // Make sure they can only showdown once
     const confirm0 = Provable.if(
-      player.equals(player1Key),
+      player.equals(player0Key),
       showdownValueP0,
       showdownValueP1,
     );

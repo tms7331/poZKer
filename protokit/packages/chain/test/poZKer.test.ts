@@ -76,16 +76,13 @@ describe("poZKer", () => {
     expect(block2?.transactions[0].status.toBoolean()).toBe(true);
   }
 
-  async function commitHolecards(appChain: any, pkr: PoZKerApp, alicePrivateKey: PrivateKey, alice: PublicKey, bobPrivateKey: PrivateKey, bob: PublicKey) {
+  async function commitHolecards(appChain: any, pkr: PoZKerApp, shuffleKeyP1: PrivateKey, shuffleKeyP2: PrivateKey, alicePrivateKey: PrivateKey, alice: PublicKey, bobPrivateKey: PrivateKey, bob: PublicKey) {
     // Sticking with same hand/cards as old tests
     const card0prime52 = cardMapping52["Ah"];
     const card1prime52 = cardMapping52["Ad"];
     // we'll give p2 a flush
     const card2prime52 = cardMapping52["Ks"];
     const card3prime52 = cardMapping52["Ts"];
-
-    const shuffleKeyP1: PrivateKey = PrivateKey.random();
-    const shuffleKeyP2: PrivateKey = PrivateKey.random();
 
     // p0 cards...
     const card0 = encryptCard(card0prime52, shuffleKeyP1, shuffleKeyP2);
@@ -114,24 +111,58 @@ describe("poZKer", () => {
     expect(block2?.transactions[0].status.toBoolean()).toBe(true);
   }
 
-  async function commitFlop(appChain: any, pkr: PoZKerApp, alicePrivateKey: PrivateKey, alice: PublicKey, bobPrivateKey: PrivateKey, bob: PublicKey) {
+  async function commitFlop(appChain: any, pkr: PoZKerApp, shuffleKeyP0: PrivateKey, shuffleKeyP1: PrivateKey, alicePrivateKey: PrivateKey, alice: PublicKey, bobPrivateKey: PrivateKey, bob: PublicKey) {
     // It's flop now so we have to commit flop
     const boardcard0 = cardMapping52["Kc"];
     const boardcard1 = cardMapping52["Ac"];
     const boardcard2 = cardMapping52["Qs"];
-    // For these we're actually using a different encryption key, but it's fine for the test
-    const encryptKeyAlice: PrivateKey = PrivateKey.random();
-    const encryptKeyBob: PrivateKey = PrivateKey.random();
 
     // p0 cards...
-    const card0Enc = encryptCard(boardcard0, encryptKeyAlice, encryptKeyBob);
-    const card1Enc = encryptCard(boardcard1, encryptKeyAlice, encryptKeyBob);
-    const card2Enc = encryptCard(boardcard2, encryptKeyAlice, encryptKeyBob);
+    const card0Enc = encryptCard(boardcard0, shuffleKeyP0, shuffleKeyP1);
+    const card1Enc = encryptCard(boardcard1, shuffleKeyP0, shuffleKeyP1);
+    const card2Enc = encryptCard(boardcard2, shuffleKeyP0, shuffleKeyP1);
 
     // alice should decrypt her half of the cards before committing them...
-    const card0 = partialUnmask(card0Enc, encryptKeyAlice);
-    const card1 = partialUnmask(card1Enc, encryptKeyAlice);
-    const card2 = partialUnmask(card2Enc, encryptKeyAlice);
+    const card0 = partialUnmask(card0Enc, shuffleKeyP0);
+    const card1 = partialUnmask(card1Enc, shuffleKeyP0);
+    const card2 = partialUnmask(card2Enc, shuffleKeyP0);
+
+    appChain.setSigner(alicePrivateKey);
+    const txn3 = await appChain.transaction(alice, () => {
+      pkr.commitBoardcards(card0, card1, card2)
+    });
+    await txn3.sign();
+    await txn3.send();
+    const block3 = await appChain.produceBlock();
+    expect(block3?.transactions[0].status.toBoolean()).toBe(true);
+
+    appChain.setSigner(bobPrivateKey);
+    const txn4 = await appChain.transaction(bob, () => {
+      pkr.decodeBoardcards(Field(boardcard0), Field(boardcard1), Field(boardcard2))
+    });
+    await txn4.sign();
+    await txn4.send();
+    const block4 = await appChain.produceBlock();
+    expect(block4?.transactions[0].status.toBoolean()).toBe(true);
+  }
+
+  async function commitTurn(appChain: any, pkr: PoZKerApp, shuffleKeyP0: PrivateKey, shuffleKeyP1: PrivateKey, alicePrivateKey: PrivateKey, alice: PublicKey, bobPrivateKey: PrivateKey, bob: PublicKey) {
+    // It's flop now so we have to commit flop
+
+    // This is turn - other two cards will NOT be committed
+    const boardcard0 = cardMapping52["8s"];
+    const boardcard1 = cardMapping52["Ac"];
+    const boardcard2 = cardMapping52["Qs"];
+
+    // p0 cards...
+    const card0Enc = encryptCard(boardcard0, shuffleKeyP0, shuffleKeyP1);
+    const card1Enc = encryptCard(boardcard1, shuffleKeyP0, shuffleKeyP1);
+    const card2Enc = encryptCard(boardcard2, shuffleKeyP0, shuffleKeyP1);
+
+    // alice should decrypt her half of the cards before committing them...
+    const card0 = partialUnmask(card0Enc, shuffleKeyP0);
+    const card1 = partialUnmask(card1Enc, shuffleKeyP0);
+    const card2 = partialUnmask(card2Enc, shuffleKeyP0);
 
     appChain.setSigner(alicePrivateKey);
     const txn3 = await appChain.transaction(alice, () => {
@@ -151,9 +182,43 @@ describe("poZKer", () => {
     const block4 = await appChain.produceBlock();
     expect(block4?.transactions[0].status.toBoolean()).toBe(true);
 
-    // And at this point cards should be fully committed, and it should be turn betting
-    const handStageB = await appChain.query.runtime.PoZKerApp.handStage.get();
-    expect(handStageB).toEqual(pkr.FlopBetting);
+  }
+
+  async function commitRiver(appChain: any, pkr: PoZKerApp, shuffleKeyP0: PrivateKey, shuffleKeyP1: PrivateKey, alicePrivateKey: PrivateKey, alice: PublicKey, bobPrivateKey: PrivateKey, bob: PublicKey) {
+    // This is river, other cards will be ignored
+    const boardcard0 = cardMapping52["6s"];
+    // const boardcard0 = cardMapping52["Kc"];
+    const boardcard1 = cardMapping52["Ac"];
+    const boardcard2 = cardMapping52["Qs"];
+
+    // p0 cards...
+    const card0Enc = encryptCard(boardcard0, shuffleKeyP0, shuffleKeyP1);
+    const card1Enc = encryptCard(boardcard1, shuffleKeyP0, shuffleKeyP1);
+    const card2Enc = encryptCard(boardcard2, shuffleKeyP0, shuffleKeyP1);
+
+    // alice should decrypt her half of the cards before committing them...
+    const card0 = partialUnmask(card0Enc, shuffleKeyP0);
+    const card1 = partialUnmask(card1Enc, shuffleKeyP0);
+    const card2 = partialUnmask(card2Enc, shuffleKeyP0);
+
+    appChain.setSigner(alicePrivateKey);
+    const txn3 = await appChain.transaction(alice, () => {
+      pkr.commitBoardcards(card0, card1, card2)
+    });
+    await txn3.sign();
+    await txn3.send();
+    const block3 = await appChain.produceBlock();
+    expect(block3?.transactions[0].status.toBoolean()).toBe(true);
+
+    appChain.setSigner(bobPrivateKey);
+    const txn4 = await appChain.transaction(bob, () => {
+      pkr.decodeBoardcards(Field(boardcard0), Field(boardcard1), Field(boardcard2))
+    });
+    await txn4.sign();
+    await txn4.send();
+    const block4 = await appChain.produceBlock();
+    expect(block4?.transactions[0].status.toBoolean()).toBe(true);
+
   }
 
   it("allows players to join game (joinTable)", async () => {
@@ -293,7 +358,9 @@ describe("poZKer", () => {
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-    await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+    const shuffleKeyP1: PrivateKey = PrivateKey.random();
+    const shuffleKeyP2: PrivateKey = PrivateKey.random();
+    await commitHolecards(appChain, pkr, shuffleKeyP1, shuffleKeyP2, alicePrivateKey, alice, bobPrivateKey, bob);
 
     const stack0 = await appChain.query.runtime.PoZKerApp.stack0.get();
     const stack1 = await appChain.query.runtime.PoZKerApp.stack1.get();
@@ -334,8 +401,8 @@ describe("poZKer", () => {
     const handStage = await appChain.query.runtime.PoZKerApp.handStage.get();
     const lastAction = await appChain.query.runtime.PoZKerApp.lastAction.get();
 
-    const err = block?.transactions[0].statusMessage;
-    console.log(err);
+    // const err = block?.transactions[0].statusMessage;
+    // console.log(err);
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
     expect(playerTurn).toEqual(pkr.P1Turn);
     // Handstage is STILL preflop betting round...
@@ -379,7 +446,9 @@ describe("poZKer", () => {
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-    await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+    const shuffleKeyP1: PrivateKey = PrivateKey.random();
+    const shuffleKeyP2: PrivateKey = PrivateKey.random();
+    await commitHolecards(appChain, pkr, shuffleKeyP1, shuffleKeyP2, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Player 2 should not be able to act
     appChain.setSigner(bobPrivateKey);
@@ -407,7 +476,9 @@ describe("poZKer", () => {
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-    await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+    const shuffleKeyP1: PrivateKey = PrivateKey.random();
+    const shuffleKeyP2: PrivateKey = PrivateKey.random();
+    await commitHolecards(appChain, pkr, shuffleKeyP1, shuffleKeyP2, alicePrivateKey, alice, bobPrivateKey, bob);
 
 
     // Preflop - remember we are actually facing a bet!
@@ -449,7 +520,9 @@ describe("poZKer", () => {
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-    await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+    const shuffleKeyP1: PrivateKey = PrivateKey.random();
+    const shuffleKeyP2: PrivateKey = PrivateKey.random();
+    await commitHolecards(appChain, pkr, shuffleKeyP1, shuffleKeyP2, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Start facing a call
     appChain.setSigner(alicePrivateKey);
@@ -511,7 +584,9 @@ describe("poZKer", () => {
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-    await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+    const shuffleKeyP1: PrivateKey = PrivateKey.random();
+    const shuffleKeyP2: PrivateKey = PrivateKey.random();
+    await commitHolecards(appChain, pkr, shuffleKeyP1, shuffleKeyP2, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Again start facing a call
     appChain.setSigner(alicePrivateKey);
@@ -566,7 +641,9 @@ describe("poZKer", () => {
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(150));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-    await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+    const shuffleKeyP1: PrivateKey = PrivateKey.random();
+    const shuffleKeyP2: PrivateKey = PrivateKey.random();
+    await commitHolecards(appChain, pkr, shuffleKeyP1, shuffleKeyP2, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Raising to 100 should fail
     appChain.setSigner(alicePrivateKey);
@@ -586,8 +663,8 @@ describe("poZKer", () => {
     await txn.sign();
     await txn.send();
     const block = await appChain.produceBlock();
-    const err = block?.transactions[0].statusMessage;
-    console.log(err);
+    // const err = block?.transactions[0].statusMessage;
+    // console.log(err);
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
   })
 
@@ -603,7 +680,9 @@ describe("poZKer", () => {
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-    await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+    const shuffleKeyP1: PrivateKey = PrivateKey.random();
+    const shuffleKeyP2: PrivateKey = PrivateKey.random();
+    await commitHolecards(appChain, pkr, shuffleKeyP1, shuffleKeyP2, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Raise to 90 and then p2's raise will be less than 2x
     appChain.setSigner(alicePrivateKey);
@@ -666,7 +745,9 @@ describe("poZKer", () => {
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-    await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+    const shuffleKeyP0: PrivateKey = PrivateKey.random();
+    const shuffleKeyP1: PrivateKey = PrivateKey.random();
+    await commitHolecards(appChain, pkr, shuffleKeyP0, shuffleKeyP1, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Start with a call and check
     appChain.setSigner(alicePrivateKey);
@@ -688,7 +769,7 @@ describe("poZKer", () => {
     expect(block2?.transactions[0].status.toBoolean()).toBe(true);
 
     // It's flop now so we have to commit flop
-    await commitFlop(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob)
+    await commitFlop(appChain, pkr, shuffleKeyP0, shuffleKeyP1, alicePrivateKey, alice, bobPrivateKey, bob)
 
     // Betting 0 should fail
     appChain.setSigner(alicePrivateKey);
@@ -706,8 +787,8 @@ describe("poZKer", () => {
 
   function encryptCard(cardPrime: number, shuffleKeyP1: PrivateKey, shuffleKeyP2: PrivateKey): Card {
     const cardPoint: PublicKey = cardPrimeToPublicKey(cardPrime);
-    console.log("Encrypting card...", cardPrime);
-    console.log(cardPoint.toBase58())
+    // console.log("Encrypting card...", cardPrime);
+    // console.log(cardPoint.toBase58())
     let card: Card = createNewCard(cardPoint.toGroup())
 
     card = addPlayerToCardMask(card, shuffleKeyP1);
@@ -731,7 +812,9 @@ describe("poZKer", () => {
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-    await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+    const shuffleKeyP1: PrivateKey = PrivateKey.random();
+    const shuffleKeyP2: PrivateKey = PrivateKey.random();
+    await commitHolecards(appChain, pkr, shuffleKeyP1, shuffleKeyP2, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // p1 folds
     appChain.setSigner(alicePrivateKey);
@@ -741,8 +824,8 @@ describe("poZKer", () => {
     await txn3.sign();
     await txn3.send();
     const block3 = await appChain.produceBlock();
-    const err = block3?.transactions[0].statusMessage;
-    console.log(err);
+    // const err = block3?.transactions[0].statusMessage;
+    // console.log(err);
     expect(block3?.transactions[0].status.toBoolean()).toBe(true);
 
     // Do NOT have to call showCards - should go straight to settle
@@ -775,7 +858,9 @@ describe("poZKer", () => {
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
-    await commitHolecards(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+    const shuffleKeyP1: PrivateKey = PrivateKey.random();
+    const shuffleKeyP2: PrivateKey = PrivateKey.random();
+    await commitHolecards(appChain, pkr, shuffleKeyP1, shuffleKeyP2, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // Start with a call and check
     appChain.setSigner(alicePrivateKey);
@@ -846,6 +931,250 @@ describe("poZKer", () => {
     expect(flop1).toEqual(Field(boardcard1));
     expect(flop2).toEqual(Field(boardcard2));
   })
+
+
+  it('allows players to show cards and settle showCards() settle()', async () => {
+    const appChain = await localDeploy();
+    const alicePrivateKey = PrivateKey.random();
+    const bobPrivateKey = PrivateKey.random();
+    const alice = alicePrivateKey.toPublicKey();
+    const bob = bobPrivateKey.toPublicKey();
+    appChain.setSigner(alicePrivateKey);
+    const pkr = appChain.runtime.resolve("PoZKerApp");
+    await init(appChain, pkr, alicePrivateKey, alice)
+    await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
+    await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(150));
+    await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+    const shuffleKeyP0: PrivateKey = PrivateKey.random();
+    const shuffleKeyP1: PrivateKey = PrivateKey.random();
+    await commitHolecards(appChain, pkr, shuffleKeyP0, shuffleKeyP1, alicePrivateKey, alice, bobPrivateKey, bob);
+
+    // Just immediately go all-in to finish betting
+    appChain.setSigner(alicePrivateKey);
+    const txn1 = await appChain.transaction(alice, () => {
+      pkr.takeAction(pkr.Raise, Field(99))
+    });
+    await txn1.sign();
+    await txn1.send();
+    const block = await appChain.produceBlock();
+    expect(block?.transactions[0].status.toBoolean()).toBe(true);
+
+    appChain.setSigner(bobPrivateKey);
+    const txn2 = await appChain.transaction(bob, () => {
+      pkr.takeAction(pkr.Call, Field(0))
+    });
+    await txn2.sign();
+    await txn2.send();
+    const block2 = await appChain.produceBlock();
+    expect(block2?.transactions[0].status.toBoolean()).toBe(true);
+
+    // These are what we're committing
+    const card1prime52 = cardMapping52["Ah"];
+    const card2prime52 = cardMapping52["Ad"];
+    // // we'll give p2 a flush
+    const card3prime52 = cardMapping52["Ks"];
+    const card4prime52 = cardMapping52["Ts"];
+
+    const boardcard0 = cardMapping52["Kc"];
+    const boardcard1 = cardMapping52["Ac"];
+    const boardcard2 = cardMapping52["Qs"];
+    const boardcard3 = cardMapping52["8s"];
+    const boardcard4 = cardMapping52["6s"];
+    await commitFlop(appChain, pkr, shuffleKeyP0, shuffleKeyP1, alicePrivateKey, alice, bobPrivateKey, bob)
+    // Because we're all in, we should immediately skip to deal stage of next street
+    const handStageA = await appChain.query.runtime.PoZKerApp.handStage.get();
+    expect(handStageA).toEqual(pkr.TurnDeal);
+    await commitTurn(appChain, pkr, shuffleKeyP0, shuffleKeyP1, alicePrivateKey, alice, bobPrivateKey, bob)
+    const handStageB = await appChain.query.runtime.PoZKerApp.handStage.get();
+    expect(handStageB).toEqual(pkr.RiverDeal);
+    await commitRiver(appChain, pkr, shuffleKeyP0, shuffleKeyP1, alicePrivateKey, alice, bobPrivateKey, bob)
+    const handStageC = await appChain.query.runtime.PoZKerApp.handStage.get();
+    expect(handStageC).toEqual(pkr.ShowdownA);
+
+    // const street = await appChain.query.runtime.PoZKerApp.street.get();
+    // expect(street).toEqual(pkr.ShowdownPending);
+
+    // Loading map
+    const merkleMapBasicFn = "merkleMapBasic.json"
+    const merkleMapFlushFn = "merkleMapFlush.json"
+
+    const jsonDataBasic = fs.readFileSync(merkleMapBasicFn, 'utf8');
+    const merkleMapBasic: MerkleMapSerializable = deserialize(jsonDataBasic);
+
+    const jsonDataFlush = fs.readFileSync(merkleMapFlushFn, 'utf8');
+    const merkleMapFlush: MerkleMapSerializable = deserialize(jsonDataFlush);
+
+    const allCardsP1: [Field, Field, Field, Field, Field, Field, Field] = [Field(card1prime52), Field(card2prime52), Field(boardcard0), Field(boardcard1), Field(boardcard2), Field(boardcard3), Field(boardcard4)]
+    const [useCardsP1, isFlushP1, merkleMapKeyP1, merkleMapValP1] = getShowdownData(allCardsP1);
+    const pathP1: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP1.toBoolean(), merkleMapKeyP1)
+    // console.log("---- p1 info")
+    // console.log(useCardsP1[0].toJSON());
+    // console.log(useCardsP1[1].toJSON());
+    // console.log(useCardsP1[2].toJSON());
+    // console.log(useCardsP1[3].toJSON());
+    // console.log(useCardsP1[4].toJSON());
+    // console.log(useCardsP1[5].toJSON());
+    // console.log(useCardsP1[6].toJSON());
+    // console.log(isFlushP1.toJSON());
+    // console.log(merkleMapKeyP1.toJSON())
+    // console.log(merkleMapValP1.toJSON())
+
+    const allCardsP2: [Field, Field, Field, Field, Field, Field, Field] = [Field(card3prime52), Field(card4prime52), Field(boardcard0), Field(boardcard1), Field(boardcard2), Field(boardcard3), Field(boardcard4)]
+    const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
+    const pathP2: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP2.toBoolean(), merkleMapKeyP2)
+    // console.log("---- p2 info")
+    // console.log(useCardsP2[0].toJSON());
+    // console.log(useCardsP2[1].toJSON());
+    // console.log(useCardsP2[2].toJSON());
+    // console.log(useCardsP2[3].toJSON());
+    // console.log(useCardsP2[4].toJSON());
+    // console.log(useCardsP2[5].toJSON());
+    // console.log(useCardsP2[6].toJSON());
+    // console.log(isFlushP2.toJSON());
+    // console.log(merkleMapKeyP2.toJSON())
+    // console.log(merkleMapValP2.toJSON())
+
+    appChain.setSigner(alicePrivateKey);
+    const txnA = await appChain.transaction(alice, () => {
+      pkr.showCards(allCardsP1[0],
+        allCardsP1[1],
+        allCardsP1[2],
+        allCardsP1[3],
+        allCardsP1[4],
+        allCardsP1[5],
+        allCardsP1[6],
+        useCardsP1[0],
+        useCardsP1[1],
+        useCardsP1[2],
+        useCardsP1[3],
+        useCardsP1[4],
+        useCardsP1[5],
+        useCardsP1[6],
+        isFlushP1,
+        shuffleKeyP0,
+        merkleMapKeyP1,
+        merkleMapValP1,
+        pathP1,
+      )
+    });
+    await txnA.sign();
+    await txnA.send();
+    const blockA = await appChain.produceBlock();
+    expect(blockA?.transactions[0].status.toBoolean()).toBe(true);
+
+    appChain.setSigner(bobPrivateKey);
+    const txnB = await appChain.transaction(bob, () => {
+      pkr.showCards(allCardsP2[0],
+        allCardsP2[1],
+        allCardsP2[2],
+        allCardsP2[3],
+        allCardsP2[4],
+        allCardsP2[5],
+        allCardsP2[6],
+        useCardsP2[0],
+        useCardsP2[1],
+        useCardsP2[2],
+        useCardsP2[3],
+        useCardsP2[4],
+        useCardsP2[5],
+        useCardsP2[6],
+        isFlushP2,
+        shuffleKeyP1,
+        merkleMapKeyP2,
+        merkleMapValP2,
+        pathP2,
+      )
+    });
+    await txnB.sign();
+    await txnB.send();
+    const blockB = await appChain.produceBlock();
+    const err = blockB?.transactions[0].statusMessage;
+    console.log(err);
+    expect(blockB?.transactions[0].status.toBoolean()).toBe(true);
+
+    // After showing cards should be at settle...
+    const handStageSettle = await appChain.query.runtime.PoZKerApp.handStage.get();
+    expect(handStageSettle).toEqual(pkr.Settle);
+
+    appChain.setSigner(bobPrivateKey);
+    const txn = await appChain.transaction(bob, () => {
+      pkr.settle()
+    });
+    await txn.sign();
+    await txn.send();
+    const blockSettle = await appChain.produceBlock();
+    expect(blockSettle?.transactions[0].status.toBoolean()).toBe(true);
+
+    // After calling settle - hand state should have fully reset
+    const lastAction = await appChain.query.runtime.PoZKerApp.lastAction.get();
+    const handStage = await appChain.query.runtime.PoZKerApp.handStage.get();
+    const pot = await appChain.query.runtime.PoZKerApp.pot.get();
+    const showdownValueP0 = await appChain.query.runtime.PoZKerApp.showdownValueP0.get();
+    const showdownValueP1 = await appChain.query.runtime.PoZKerApp.showdownValueP1.get();
+    const betThisStreet0 = await appChain.query.runtime.PoZKerApp.betThisStreet0.get();
+    const betThisStreet1 = await appChain.query.runtime.PoZKerApp.betThisStreet1.get();
+    const lastBetSize = await appChain.query.runtime.PoZKerApp.lastBetSize.get();
+    const button = await appChain.query.runtime.PoZKerApp.button.get();
+    const playerTurn = await appChain.query.runtime.PoZKerApp.playerTurn.get();
+    const stack0 = await appChain.query.runtime.PoZKerApp.stack0.get();
+    const stack1 = await appChain.query.runtime.PoZKerApp.stack1.get();
+    // So p1 wins with a flush - they should have stack of 200!
+    expect(stack0).toEqual(Field(0));
+    expect(stack1).toEqual(Field(250));
+
+    expect(lastAction).toEqual(pkr.Null);
+    expect(handStage).toEqual(pkr.SBPostStage);
+    expect(pot).toEqual(Field(0));
+    expect(showdownValueP0).toEqual(Field(0));
+    expect(showdownValueP1).toEqual(Field(0));
+    expect(betThisStreet0).toEqual(Field(0));
+    expect(betThisStreet1).toEqual(Field(0));
+    expect(lastBetSize).toEqual(Field(0));
+    // The important check - should have switched to other player's button/SB
+    expect(button).toEqual(Field(1));
+    expect(playerTurn).toEqual(pkr.P1Turn);
+
+    // And after calling 'showdown' we should have transitioned to GameOver
+    // const gameOver = await appChain.query.runtime.PoZKerApp.gameOver.get();
+    // expect(gameOver?.toBoolean()).toEqual(true);
+
+    // When P1 leaves - 
+    appChain.setSigner(bobPrivateKey);
+    const txnWd2 = await appChain.transaction(bob, () => {
+      pkr.leaveTable()
+    });
+    await txnWd2.sign();
+    await txnWd2.send();
+    const blockWd2 = await appChain.produceBlock();
+    expect(blockWd2?.transactions[0].status.toBoolean()).toBe(true);
+
+    // So after p1 leaves, their stack should be 0
+    const stack0B = await appChain.query.runtime.PoZKerApp.stack0.get();
+    const stack1B = await appChain.query.runtime.PoZKerApp.stack1.get();
+    expect(stack0B).toEqual(Field(0));
+    expect(stack1B).toEqual(Field(0));
+    const player0Key = await appChain.query.runtime.PoZKerApp.player0Key.get();
+    const player1Key = await appChain.query.runtime.PoZKerApp.player1Key.get();
+    // expect(player0Key).toEqual(PublicKey.empty())
+    expect(player1Key).toEqual(PublicKey.empty());
+
+
+    appChain.setSigner(alicePrivateKey);
+    const txnWd1 = await appChain.transaction(alice, () => {
+      pkr.leaveTable()
+    });
+    await txnWd1.sign();
+    await txnWd1.send();
+    const blockWd1 = await appChain.produceBlock();
+    expect(blockWd1?.transactions[0].status.toBoolean()).toBe(true);
+
+    // And now both of them should be empty
+    const player0KeyB = await appChain.query.runtime.PoZKerApp.player0Key.get();
+    const player1KeyB = await appChain.query.runtime.PoZKerApp.player1Key.get();
+    expect(player0KeyB).toEqual(PublicKey.empty());
+    expect(player1KeyB).toEqual(PublicKey.empty());
+  })
+
 
 
 });
