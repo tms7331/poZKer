@@ -387,6 +387,8 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const lastAction = this.lastAction.get().value;
     const pot = this.pot.get().value;
 
+    const button = this.button.get().value;
+
     // handOver.assertFalse('Game has already finished!');
     // assert(handOver.not(), 'Game has already finished!');
 
@@ -611,10 +613,18 @@ export class PoZKerApp extends RuntimeModule<unknown> {
       action
     );
 
-    const playerTurnNow = Provable.if(
-      newStreetBool.or(p1turn),
+    // So if button is 0 - it's P0's turn, else p1?
+    const buttonTurn = Provable.if(button.equals(Field(0)),
       this.P0Turn,
-      this.P1Turn
+      this.P1Turn,
+    )
+    const otherPlayerTurn = Provable.if(playerTurn.equals(this.P0Turn),
+      this.P1Turn,
+      this.P0Turn)
+    const playerTurnNow = Provable.if(
+      newStreetBool,
+      buttonTurn,
+      otherPlayerTurn
     );
 
     const handOverNow: Bool = Provable.if(
@@ -818,19 +828,6 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     return cardPoint;
   }
 
-  /*
-  @runtimeMethod()
-  public tallyBoardCards(cardPrime52: Field): void {
-    // Remember - cardPrime52 should be in the 52 format
-    // We'll always store the board card product in slot2
-    const slot2 = this.slot2.getAndRequireEquals();
-   
-    // Remember - we start out having the board card be Null*5
-    // Need to do this so we can ensure at showdown that player submitted all cards
-    const slot2New = slot2.mul(cardPrime52).div(this.NullBoardcard);
-    this.slot2.set(slot2New)
-  }
-  */
 
   convert52to13(c52: Field): Field {
     // takes care of converting a card in cardMapping52 format to cardMapping13

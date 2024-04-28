@@ -7,7 +7,7 @@ import { UInt64, TokenId, BalancesKey } from "@proto-kit/library";
 
 // 
 import fs from 'fs';
-import { MerkleMapSerializable, deserialize } from '../src//merkle_map_serializable.js';
+import { MerkleMapSerializable, deserialize } from '../src/merkle_map_serializable.js';
 import { getMerkleMapWitness, getShowdownData } from '../src/gameutils.js';
 import { Card, addPlayerToCardMask, mask, partialUnmask, createNewCard, cardPrimeToPublicKey } from '../src/mentalpoker.js';
 
@@ -1009,11 +1009,11 @@ describe("poZKer", () => {
     expect(block2?.transactions[0].status.toBoolean()).toBe(true);
 
     // These are what we're committing
-    const card1prime52 = cardMapping52["Ah"];
-    const card2prime52 = cardMapping52["Ad"];
+    const card0prime52 = cardMapping52["Ah"];
+    const card1prime52 = cardMapping52["Ad"];
     // // we'll give p2 a flush
-    const card3prime52 = cardMapping52["Ks"];
-    const card4prime52 = cardMapping52["Ts"];
+    const card2prime52 = cardMapping52["Ks"];
+    const card3prime52 = cardMapping52["Ts"];
 
     const boardcard0 = cardMapping52["Kc"];
     const boardcard1 = cardMapping52["Ac"];
@@ -1044,7 +1044,7 @@ describe("poZKer", () => {
     const jsonDataFlush = fs.readFileSync(merkleMapFlushFn, 'utf8');
     const merkleMapFlush: MerkleMapSerializable = deserialize(jsonDataFlush);
 
-    const allCardsP1: [Field, Field, Field, Field, Field, Field, Field] = [Field(card1prime52), Field(card2prime52), Field(boardcard0), Field(boardcard1), Field(boardcard2), Field(boardcard3), Field(boardcard4)]
+    const allCardsP1: [Field, Field, Field, Field, Field, Field, Field] = [Field(card0prime52), Field(card1prime52), Field(boardcard0), Field(boardcard1), Field(boardcard2), Field(boardcard3), Field(boardcard4)]
     const [useCardsP1, isFlushP1, merkleMapKeyP1, merkleMapValP1] = getShowdownData(allCardsP1);
     const pathP1: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP1.toBoolean(), merkleMapKeyP1)
     // console.log("---- p1 info")
@@ -1059,7 +1059,7 @@ describe("poZKer", () => {
     // console.log(merkleMapKeyP1.toJSON())
     // console.log(merkleMapValP1.toJSON())
 
-    const allCardsP2: [Field, Field, Field, Field, Field, Field, Field] = [Field(card3prime52), Field(card4prime52), Field(boardcard0), Field(boardcard1), Field(boardcard2), Field(boardcard3), Field(boardcard4)]
+    const allCardsP2: [Field, Field, Field, Field, Field, Field, Field] = [Field(card2prime52), Field(card3prime52), Field(boardcard0), Field(boardcard1), Field(boardcard2), Field(boardcard3), Field(boardcard4)]
     const [useCardsP2, isFlushP2, merkleMapKeyP2, merkleMapValP2] = getShowdownData(allCardsP2);
     const pathP2: MerkleMapWitness = getMerkleMapWitness(merkleMapBasic, merkleMapFlush, isFlushP2.toBoolean(), merkleMapKeyP2)
     // console.log("---- p2 info")
