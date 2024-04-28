@@ -28,4 +28,5 @@ export class Balances extends BaseBalances<BalancesConfig> {
     this.circulatingSupply.set(newCirculatingSupply);
     this.mint(tokenId, address, amount);
   }
+
 }

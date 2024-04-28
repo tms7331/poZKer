@@ -1,11 +1,11 @@
+import "reflect-metadata";
 import { RuntimeModule, runtimeModule, state, runtimeMethod } from "@proto-kit/module";
 import { State, assert, StateMap, Option } from "@proto-kit/protocol";
-import { UInt32 } from "@proto-kit/library";
+import { UInt32, UInt64, TokenId } from "@proto-kit/library";
 import { PublicKey, PrivateKey, Group, Field, Bool, Provable, MerkleMapWitness, Scalar } from "o1js";
 import { Card, addPlayerToCardMask, mask, partialUnmaskProvable, createNewCard, cardPrimeToPublicKey } from './mentalpoker.js';
-
-// import { inject } from "tsyringe";
-// import { Balances } from "./balances";
+import { inject } from "tsyringe";
+import { Balances } from "./balances";
 
 // Want a mapping for cards, each represented as a prime so we can multiply
 // them together and get a unique value
@@ -190,12 +190,10 @@ export class PoZKerApp extends RuntimeModule<unknown> {
   @state() public handId = State.from<Field>(Field);
 
 
-  // public constructor(@inject("Balances") public balances: Balances) {
-  //   super();
-  // }
+  public constructor(@inject("Balances") public balances: Balances) {
+    super();
+  }
 
-
-  // this.balances.mint(this.transaction.sender, UInt64.from(1000));
 
   private resetHandState(button: Field): void {
     this.lastAction.set(this.Null);
@@ -300,11 +298,11 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.stack0.set(stack0New);
     this.stack1.set(stack1New);
 
-    // From https://github.com/o1-labs/o1js/blob/5ca43684e98af3e4f348f7b035a0ad7320d88f3d/src/examples/zkapps/escrow/escrow.ts
-    // const payerUpdate = AccountUpdate.createSigned(player);
-
-    // TEMP - disabling this so we can test game without needing to send funds
-    // payerUpdate.send({ to: this.address, amount: gameBuyin64 });
+    // Just hardcode tokenId of 0?
+    const tokenId = TokenId.from(0);
+    const to: PublicKey = PublicKey.empty();
+    const from: PublicKey = this.transaction.sender.value;
+    this.balances.transfer(tokenId, from, to, UInt64.from(depositAmount));
   }
 
   @runtimeMethod()
@@ -367,6 +365,13 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     this.stack0.set(stack0New);
     this.stack1.set(stack1New);
+
+    // And now send their funds back...
+    // Just hardcode tokenId of 0?
+    const tokenId = TokenId.from(0);
+    const from: PublicKey = PublicKey.empty();
+    const to: PublicKey = this.transaction.sender.value;
+    this.balances.transfer(tokenId, from, to, UInt64.from(stack));
   }
 
 

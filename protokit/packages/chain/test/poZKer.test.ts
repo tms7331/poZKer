@@ -1,8 +1,9 @@
 import { TestingAppChain } from "@proto-kit/sdk";
 import { PrivateKey, Field, Poseidon, PublicKey, MerkleMapWitness } from "o1js";
 import { PoZKerApp, cardMapping52 } from "../src/poZKer";
+import { Balances } from "../src/balances";
 import { log } from "@proto-kit/common";
-import { UInt64 } from "@proto-kit/library";
+import { UInt64, TokenId, BalancesKey } from "@proto-kit/library";
 
 // 
 import fs from 'fs';
@@ -17,7 +18,7 @@ describe("poZKer", () => {
 
   async function localDeploy() {
     const appChain = TestingAppChain.fromRuntime({
-      PoZKerApp,
+      PoZKerApp, Balances
     });
     appChain.configurePartial({
       Runtime: {
@@ -31,16 +32,38 @@ describe("poZKer", () => {
     return appChain;
   }
 
-  async function init(appChain: any, pkr: PoZKerApp, playerPrivKey: PrivateKey, playerPubKey: PublicKey) {
+  async function init(appChain: any, pkr: PoZKerApp, alicePrivateKey: PrivateKey, alice: PublicKey, bobPrivateKey: PrivateKey, bob: PublicKey) {
     // Set table state first!
-    appChain.setSigner(playerPrivKey);
-    const txn0 = await appChain.transaction(playerPubKey, () => {
+    appChain.setSigner(alicePrivateKey);
+    const txn0 = await appChain.transaction(alice, () => {
       pkr.resetTableState()
     });
     await txn0.sign();
     await txn0.send();
     const block0 = await appChain.produceBlock();
     expect(block0?.transactions[0].status.toBoolean()).toBe(true);
+
+    // And we need to get tokens for each player
+    const bals = appChain.runtime.resolve("Balances");
+
+    const tokenId = TokenId.from(0);
+    appChain.setSigner(alicePrivateKey);
+    const txn1 = await appChain.transaction(alice, () => {
+      bals.addBalance(tokenId, alice, UInt64.from(1000))
+    });
+    await txn1.sign();
+    await txn1.send();
+    const block = await appChain.produceBlock();
+    expect(block?.transactions[0].status.toBoolean()).toBe(true);
+
+    appChain.setSigner(bobPrivateKey);
+    const txn2 = await appChain.transaction(bob, () => {
+      bals.addBalance(tokenId, bob, UInt64.from(1000))
+    });
+    await txn2.sign();
+    await txn2.send();
+    const block2 = await appChain.produceBlock();
+    expect(block2?.transactions[0].status.toBoolean()).toBe(true);
   }
 
   async function setPlayer(appChain: any, pkr: PoZKerApp, playerPrivKey: PrivateKey, playerPubKey: PublicKey, seatI: Field, depositAmount: Field) {
@@ -230,15 +253,14 @@ describe("poZKer", () => {
     const bobPrivateKey = PrivateKey.random();
     const bob = bobPrivateKey.toPublicKey();
 
-    appChain.setSigner(alicePrivateKey);
-
     const pkr = appChain.runtime.resolve("PoZKerApp");
 
-    await init(appChain, pkr, alicePrivateKey, alice);
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
 
     // First player joining
     const aliceSeat = Field(0);
     const bobSeat = Field(1);
+    appChain.setSigner(alicePrivateKey);
     const tx1 = await appChain.transaction(alice, () => {
       pkr.joinTable(aliceSeat, Field(100))
     });
@@ -287,7 +309,7 @@ describe("poZKer", () => {
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
 
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(150));
 
@@ -354,7 +376,7 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
@@ -420,7 +442,7 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
@@ -442,7 +464,7 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
@@ -472,7 +494,7 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
@@ -516,7 +538,7 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
@@ -580,7 +602,7 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
@@ -637,7 +659,7 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(150));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
@@ -676,7 +698,7 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
@@ -741,7 +763,7 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
@@ -808,7 +830,7 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
@@ -854,7 +876,7 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(100));
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
@@ -941,9 +963,27 @@ describe("poZKer", () => {
     const bob = bobPrivateKey.toPublicKey();
     appChain.setSigner(alicePrivateKey);
     const pkr = appChain.runtime.resolve("PoZKerApp");
-    await init(appChain, pkr, alicePrivateKey, alice)
+    await init(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
+
+    // Adding in balance checks on this test - we should have 1k each at this point
+    const tokenId = TokenId.from(0);
+    const aliceBalKey = new BalancesKey({ tokenId, address: alice });
+    const bobBalKey = new BalancesKey({ tokenId, address: bob });
+    const balAliceA = await appChain.query.runtime.Balances.balances.get(aliceBalKey);
+    const balBobA = await appChain.query.runtime.Balances.balances.get(bobBalKey);
+    expect(balAliceA?.toBigInt()).toEqual(1000n);
+    expect(balBobA?.toBigInt()).toEqual(1000n);
+
     await setPlayer(appChain, pkr, alicePrivateKey, alice, Field(0), Field(100));
     await setPlayer(appChain, pkr, bobPrivateKey, bob, Field(1), Field(150));
+
+    // After joining - alice should have 900, bob should have 850
+    const balAliceB = await appChain.query.runtime.Balances.balances.get(aliceBalKey);
+    const balBobB = await appChain.query.runtime.Balances.balances.get(bobBalKey);
+    expect(balAliceB?.toBigInt()).toEqual(900n);
+    expect(balBobB?.toBigInt()).toEqual(850n);
+
+
     await postBlinds(appChain, pkr, alicePrivateKey, alice, bobPrivateKey, bob);
     const shuffleKeyP0: PrivateKey = PrivateKey.random();
     const shuffleKeyP1: PrivateKey = PrivateKey.random();
@@ -1173,9 +1213,13 @@ describe("poZKer", () => {
     const player1KeyB = await appChain.query.runtime.PoZKerApp.player1Key.get();
     expect(player0KeyB).toEqual(PublicKey.empty());
     expect(player1KeyB).toEqual(PublicKey.empty());
+
+    // And finally after quitting, alice should still have 900, bob should be up to 1100
+    const balAliceC = await appChain.query.runtime.Balances.balances.get(aliceBalKey);
+    const balBobC = await appChain.query.runtime.Balances.balances.get(bobBalKey);
+    expect(balAliceC?.toBigInt()).toEqual(900n);
+    expect(balBobC?.toBigInt()).toEqual(1100n);
   })
-
-
 
 });
 
