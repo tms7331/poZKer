@@ -71,6 +71,8 @@ export default function Component() {
         setShuffleKey(shuffleKeyNew);
     }, [pkrState.handId]);
 
+    const rebuy = async () => { }
+
     const fetchLookupValue = async () => {
         const queryParams = new URLSearchParams({
             card0prime52: holecard0.toString(),
@@ -506,6 +508,15 @@ export default function Component() {
             {/* overall green background */}
             <main className="flex min-h-[calc(100dvh-56px)] flex-col justify-between gap-4 bg-[#111] py-4 sm:flex-row sm:gap-0 sm:px-8">
                 <div className="hidden flex-1 sm:block"></div>
+
+                <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => leaveTable()}>
+                    Leave Table
+                </button>
+                <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => rebuy()}>
+                    Rebuy
+                </button>
+
+
                 {/* poker board border */}
                 <div className="flex h-full w-full flex-1 sm:h-auto sm:flex-none md:w-[750px] md:flex-shrink-0">
                     <div className="mx-auto flex w-full max-w-[750px] flex-1 flex-col overflow-hidden rounded-[50%/200px] border-4 border-[#000201] bg-[#3f3d3d] p-2 sm:h-full sm:p-4 md:rounded-[40%/300px] 2xl:rounded-[60%/500px]">
@@ -642,7 +653,7 @@ export default function Component() {
                             {possibleActions.map((action, index) => (
                                 <div key={index}>
                                     <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => onClickAction(action.action)}>
-                                        Call
+                                        {action.action}
                                     </button>
                                 </div>
                             ))}
