@@ -39,13 +39,22 @@ export default function Component() {
             1.{" "}
             <Link
               className="text-sm font-semibold leading-6 text-gray-300 hover:text-gray-200"
+              href="https://www.aurowallet.com/"
+            >
+              Install the Auro wallet
+            </Link>
+          </p>
+          <p>
+            2.{" "}
+            <Link
+              className="text-sm font-semibold leading-6 text-gray-300 hover:text-gray-200"
               href="gettokens"
             >
               Get Tokens
             </Link>
           </p>
           <p>
-            2.{" "}
+            3.{" "}
             <Link
               className="text-sm font-semibold leading-6 text-gray-300 hover:text-gray-200"
               href="join"
@@ -55,12 +64,12 @@ export default function Component() {
             (and invite a friend to do the same)
           </p>
           <p>
-            3.{" "}
+            4.{" "}
             <Link
               className="text-sm font-semibold leading-6 text-gray-300 hover:text-gray-200"
               href="playgame"
             >
-              Play the Game
+              Play ZK poker!
             </Link>
           </p>
         </div>

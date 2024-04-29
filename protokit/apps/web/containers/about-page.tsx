@@ -19,7 +19,13 @@ export default function Component() {
           </p>
           <p>
             poZKer was started at the zkhack.dev Istanbul hackathon in November
-            2023 with enderNakamoto.
+            2023 with
+            <Link
+              href="https://github.com/enderNakamoto"
+              className="font-semibold underline underline-offset-2"
+            >
+              enderNakamoto.
+            </Link>
           </p>
           <p>
             Work is continuing as part of the Mina Navigators Grants Program

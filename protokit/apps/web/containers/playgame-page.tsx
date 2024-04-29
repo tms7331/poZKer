@@ -649,7 +649,6 @@ export default function Component() {
                             />
                         </div>
                         <div className="flex w-fit justify-start gap-2">
-
                             {possibleActions.map((action, index) => (
                                 <div key={index}>
                                     <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => onClickAction(action.action)}>
@@ -657,17 +656,6 @@ export default function Component() {
                                     </button>
                                 </div>
                             ))}
-
-
-                            <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80">
-                                Call
-                            </button>
-                            <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80">
-                                Fold
-                            </button>
-                            <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80">
-                                Raise
-                            </button>
                         </div>
                     </div>
                 </div>
