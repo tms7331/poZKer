@@ -1,4 +1,3 @@
-import Header from "@/components/header";
 import { Toaster } from "@/components/ui/toaster";
 import { useBalancesStore, useObserveBalance } from "@/lib/stores/balances";
 import { usePoZKerStore, useObservePoZKer } from "@/lib/stores/poZKer";
@@ -6,6 +5,7 @@ import { useChainStore, usePollBlockHeight } from "@/lib/stores/chain";
 import { useClientStore } from "@/lib/stores/client";
 import { useNotifyTransactions, useWalletStore } from "@/lib/stores/wallet";
 import { ReactNode, useEffect, useMemo } from "react";
+import Header from "@/components/header";
 
 export default function AsyncLayout({ children }: { children: ReactNode }) {
   const wallet = useWalletStore();
