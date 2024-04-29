@@ -49,6 +49,7 @@ export interface PoZKerState {
   loadState: (client: Client, address: string) => Promise<void>;
   joinTable: (client: Client, address: string, seatI: number, depositAmount: number) => Promise<PendingTransaction>;
   leaveTable: (client: Client, address: string) => Promise<PendingTransaction>;
+  rebuy: (client: Client, address: string, seatI: number, depositAmount: number) => Promise<PendingTransaction>;
   resetTableState: (client: Client, address: string) => Promise<PendingTransaction>;
   commitBoardcards: (client: Client, address: string) => Promise<PendingTransaction>;
   decodeBoardcards: (client: Client, address: string, cardVal0: number, cardVal1: number, cardVal2: number,) => Promise<PendingTransaction>;
@@ -150,10 +151,23 @@ export const usePoZKerStore = create<
     async joinTable(client: Client, address: string, seatI: number, depositAmount: number) {
       const pkr = client.runtime.resolve("PoZKerApp");
       const sender = PublicKey.fromBase58(address);
-      console.log("Fauced called pozker...");
-
       const tx = await client.transaction(sender, () => {
         pkr.joinTable(Field(seatI), Field(depositAmount))
+      });
+
+      await tx.sign();
+      await tx.send();
+
+      isPendingTransaction(tx.transaction);
+      return tx.transaction;
+    },
+
+
+    async rebuy(client: Client, address: string, seatI: number, depositAmount: number) {
+      const pkr = client.runtime.resolve("PoZKerApp");
+      const sender = PublicKey.fromBase58(address);
+      const tx = await client.transaction(sender, () => {
+        pkr.rebuy(Field(seatI), Field(depositAmount))
       });
 
       await tx.sign();
@@ -350,6 +364,26 @@ export const useJoinTable = () => {
     if (!client.client || !wallet.wallet) return;
 
     const pendingTransaction = await pkrState.joinTable(
+      client.client,
+      wallet.wallet,
+      seatI,
+      depositAmount
+    );
+
+    wallet.addPendingTransaction(pendingTransaction);
+  }, [client.client, wallet.wallet]);
+};
+
+
+export const useRebuy = () => {
+  const client = useClientStore();
+  const pkrState = usePoZKerStore();
+  const wallet = useWalletStore();
+
+  return useCallback(async (seatI: number, depositAmount: number) => {
+    if (!client.client || !wallet.wallet) return;
+
+    const pendingTransaction = await pkrState.rebuy(
       client.client,
       wallet.wallet,
       seatI,

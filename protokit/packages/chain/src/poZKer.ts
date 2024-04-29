@@ -280,6 +280,14 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     this.deposit(seatI, depositAmount);
   }
 
+  @runtimeMethod()
+  public rebuy(seatI: Field, depositAmount: Field): void {
+    // Can only rebuy in between hands!
+    const handStage = this.handStage.get().value;
+    assert(handStage.equals(this.SBPostStage), "Cannot rebuy now!");
+    this.deposit(seatI, depositAmount);
+  }
+
   private deposit(seatI: Field, depositAmount: Field): void {
     // Method is only called when joining table
     // When this is called we will already have verified that seat is free
@@ -287,13 +295,13 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     const stack1: Field = this.stack1.get().value;
     const stack0New = Provable.if(
       seatI.equals(Field(0)),
-      depositAmount,
+      stack0.add(depositAmount),
       stack0
     );
     const stack1New = Provable.if(
       seatI.equals(Field(1)),
-      depositAmount,
-      stack1
+      stack1.add(depositAmount),
+      stack1,
     );
     this.stack0.set(stack0New);
     this.stack1.set(stack1New);

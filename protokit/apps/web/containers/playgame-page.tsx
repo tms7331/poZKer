@@ -10,12 +10,73 @@ import {
     useCommitOpponentHolecards,
     useDecodeBoardcards,
     useCommitBoardcards,
-    useLeaveTable
+    useLeaveTable,
+    useRebuy
 } from "@/lib/stores/poZKer";
 import { useWalletStore } from "@/lib/stores/wallet";
 import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+
+export const cardMapping52 = {
+    "2h": 2,
+    "3h": 3,
+    "4h": 5,
+    "5h": 7,
+    "6h": 11,
+    "7h": 13,
+    "8h": 17,
+    "9h": 19,
+    "Th": 23,
+    "Jh": 29,
+    "Qh": 31,
+    "Kh": 37,
+    "Ah": 41,
+    "2d": 43,
+    "3d": 47,
+    "4d": 53,
+    "5d": 59,
+    "6d": 61,
+    "7d": 67,
+    "8d": 71,
+    "9d": 73,
+    "Td": 79,
+    "Jd": 83,
+    "Qd": 89,
+    "Kd": 97,
+    "Ad": 101,
+    "2c": 103,
+    "3c": 107,
+    "4c": 109,
+    "5c": 113,
+    "6c": 127,
+    "7c": 131,
+    "8c": 137,
+    "9c": 139,
+    "Tc": 149,
+    "Jc": 151,
+    "Qc": 157,
+    "Kc": 163,
+    "Ac": 167,
+    "2s": 173,
+    "3s": 179,
+    "4s": 181,
+    "5s": 191,
+    "6s": 193,
+    "7s": 197,
+    "8s": 199,
+    "9s": 211,
+    "Ts": 223,
+    "Js": 227,
+    "Qs": 229,
+    "Ks": 233,
+    "As": 239,
+    "": 241,
+}
+
+
+
+
 export default function Component() {
     const showCards = useShowCards();
     const takeAction = useTakeAction();
@@ -26,6 +87,7 @@ export default function Component() {
     const decodeBoardcards = useDecodeBoardcards();
     const commitBoardcards = useCommitBoardcards();
     const leaveTable = useLeaveTable();
+    const rebuy = useRebuy();
 
     const [betAmountInput, setBetAmountInput] = useState(0);
     const [maxSlider, setMaxSlider] = useState(100);
@@ -71,7 +133,45 @@ export default function Component() {
         setShuffleKey(shuffleKeyNew);
     }, [pkrState.handId]);
 
-    const rebuy = async () => { }
+    const callRebuy = async () => {
+        // always rebuy for 100?
+        const depositAmount = 100;
+        const seatI: number = (player === "0") ? 0 : 1;
+        // let seatI: number;
+        // if (player === "0") {
+        //     seatI = 0;
+        // }
+        // else if (player === "1") {
+        //     seatI = 1;
+        // }
+        await rebuy(seatI, depositAmount)
+    }
+
+    const quickTest = async () => {
+        console.log("Called quicktest...")
+        const card0prime52 = cardMapping52["Ah"];
+        const card1prime52 = cardMapping52["Ad"];
+        // // we'll give p2 a flush
+        const card2prime52 = cardMapping52["Ks"];
+        const card3prime52 = cardMapping52["Ts"];
+
+        const boardcard0 = cardMapping52["Kc"];
+        const boardcard1 = cardMapping52["Ac"];
+        const boardcard2 = cardMapping52["Qs"];
+        const boardcard3 = cardMapping52["8s"];
+        const boardcard4 = cardMapping52["6s"];
+        setHolecard0(card0prime52);
+        setHolecard1(card1prime52);
+        setBoardcard0(boardcard0);
+        setBoardcard1(boardcard1);
+        setBoardcard2(boardcard2);
+        setBoardcard3(boardcard3);
+        setBoardcard4(boardcard4);
+        const showCardsData = await fetchLookupValue();
+        console.log("GOT SHOW DATA")
+        console.log(showCardsData)
+    };
+
 
     const fetchLookupValue = async () => {
         const queryParams = new URLSearchParams({
@@ -512,7 +612,7 @@ export default function Component() {
                 <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => leaveTable()}>
                     Leave Table
                 </button>
-                <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => rebuy()}>
+                <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => callRebuy()}>
                     Rebuy
                 </button>
 
@@ -656,6 +756,11 @@ export default function Component() {
                                     </button>
                                 </div>
                             ))}
+
+                            <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => quickTest()}>
+                                test
+                            </button>
+
                         </div>
                     </div>
                 </div>
