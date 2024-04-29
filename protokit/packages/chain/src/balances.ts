@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { runtimeModule, state, runtimeMethod } from "@proto-kit/module";
 import { State, assert } from "@proto-kit/protocol";
 import { Balance, Balances as BaseBalances, TokenId } from "@proto-kit/library";
@@ -28,5 +29,4 @@ export class Balances extends BaseBalances<BalancesConfig> {
     this.circulatingSupply.set(newCirculatingSupply);
     this.mint(tokenId, address, amount);
   }
-
 }

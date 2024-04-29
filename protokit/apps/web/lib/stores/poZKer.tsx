@@ -41,15 +41,17 @@ export interface PoZKerState {
   stack0: string;
   stack1: string;
   playerTurn: string,
+  lastAction: string,
   handStage: string,
   pot: string,
   handId: string,
+  button: string,
   loadState: (client: Client, address: string) => Promise<void>;
   joinTable: (client: Client, address: string, seatI: number, depositAmount: number) => Promise<PendingTransaction>;
   leaveTable: (client: Client, address: string) => Promise<PendingTransaction>;
   resetTableState: (client: Client, address: string) => Promise<PendingTransaction>;
   commitBoardcards: (client: Client, address: string) => Promise<PendingTransaction>;
-  decodeBoardcards: (client: Client, address: string, decryptKey: PrivateKey) => Promise<PendingTransaction>;
+  decodeBoardcards: (client: Client, address: string, cardVal0: number, cardVal1: number, cardVal2: number,) => Promise<PendingTransaction>;
   commitOpponentHolecards: (client: Client, address: string) => Promise<PendingTransaction>;
 
   showCards: (client: Client, address: string, holecard0: number,
@@ -94,8 +96,10 @@ export const usePoZKerStore = create<
     stack0: "0",
     stack1: "0",
     playerTurn: "0",
+    lastAction: "0",
     handStage: "0",
     handId: "0",
+    button: "0",
     pot: "0",
 
     async loadState(client: Client, address: string) {
@@ -119,6 +123,8 @@ export const usePoZKerStore = create<
       const pot = await client.query.runtime.PoZKerApp.pot.get();
 
       const handId = await client.query.runtime.PoZKerApp.handId.get();
+      const button = await client.query.runtime.PoZKerApp.button.get();
+      const lastAction = await client.query.runtime.PoZKerApp.lastAction.get();
 
       // So if key is null OR equalty to empty public key, display 0...
       const p1Empty = player0Key?.toBase58() === PublicKey.empty().toBase58();
@@ -132,9 +138,11 @@ export const usePoZKerStore = create<
         state.stack0 = stack0?.toString() ?? "0";
         state.stack1 = stack1?.toString() ?? "0";
         state.playerTurn = playerTurn?.toString() ?? "0";
+        state.lastAction = lastAction?.toString() ?? "0";
         state.handStage = handStage?.toString() ?? "0";
         state.pot = pot?.toString() ?? "0";
         state.handId = handId?.toString() ?? "0";
+        state.button = button?.toString() ?? "0";
         state.loading = false;
       });
     },
@@ -285,12 +293,12 @@ export const usePoZKerStore = create<
       return tx.transaction;
     },
 
-    async decodeBoardcards(client: Client, address: string, decryptKey: PrivateKey) {
+    async decodeBoardcards(client: Client, address: string, cardVal0: number, cardVal1: number, cardVal2: number) {
       const pkr = client.runtime.resolve("PoZKerApp");
       const sender = PublicKey.fromBase58(address);
 
       const tx = await client.transaction(sender, () => {
-        pkr.decodeBoardcards(decryptKey)
+        pkr.decodeBoardcards(Field(cardVal0), Field(cardVal1), Field(cardVal2))
       });
       await tx.sign();
       await tx.send();
@@ -467,7 +475,7 @@ export const useCommitBoardcards = () => {
   const pkrState = usePoZKerStore();
   const wallet = useWalletStore();
 
-  return useCallback(async (decryptKey: PrivateKey) => {
+  return useCallback(async () => {
     if (!client.client || !wallet.wallet) return;
 
     const pendingTransaction = await pkrState.commitBoardcards(
@@ -485,14 +493,16 @@ export const useDecodeBoardcards = () => {
   const pkrState = usePoZKerStore();
   const wallet = useWalletStore();
 
-  return useCallback(async (decryptKeyStr: string) => {
+  return useCallback(async (cardVal0: number, cardVal1: number, cardVal2: number) => {
     if (!client.client || !wallet.wallet) return;
 
-    const decryptKey = PrivateKey.fromBase58(decryptKeyStr);
+    // const decryptKey = PrivateKey.fromBase58(decryptKeyStr);
     const pendingTransaction = await pkrState.decodeBoardcards(
       client.client,
       wallet.wallet,
-      decryptKey,
+      cardVal0,
+      cardVal1,
+      cardVal2,
     );
 
     wallet.addPendingTransaction(pendingTransaction);

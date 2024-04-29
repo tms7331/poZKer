@@ -24,7 +24,7 @@ export function Faucet({
       <div className="mb-2">
         <h2 className="text-xl font-bold">Faucet</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Get testing (L2) MINA tokens for your wallet
+          Get play money PZKR tokens
         </p>
       </div>
       <Form {...form}>
