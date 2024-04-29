@@ -95,6 +95,8 @@ export default function Component() {
 
     const [shuffleKey, setShuffleKey] = useState<string>("");
     const [shuffleComplete, setShuffleComplete] = useState<boolean>(false);
+
+    // All cards will be in prime52 format
     const [holecard0, setHolecard0] = useState<number>(0);
     const [holecard1, setHolecard1] = useState<number>(0);
     const [boardcard0, setBoardcard0] = useState<number>(0);
@@ -147,41 +149,24 @@ export default function Component() {
         await rebuy(seatI, depositAmount)
     }
 
-    const quickTest = async () => {
-        console.log("Called quicktest...")
-        const card0prime52 = cardMapping52["Ah"];
-        const card1prime52 = cardMapping52["Ad"];
-        // // we'll give p2 a flush
-        const card2prime52 = cardMapping52["Ks"];
-        const card3prime52 = cardMapping52["Ts"];
-
-        const boardcard0 = cardMapping52["Kc"];
-        const boardcard1 = cardMapping52["Ac"];
-        const boardcard2 = cardMapping52["Qs"];
-        const boardcard3 = cardMapping52["8s"];
-        const boardcard4 = cardMapping52["6s"];
-        setHolecard0(card0prime52);
-        setHolecard1(card1prime52);
-        setBoardcard0(boardcard0);
-        setBoardcard1(boardcard1);
-        setBoardcard2(boardcard2);
-        setBoardcard3(boardcard3);
-        setBoardcard4(boardcard4);
-        const showCardsData = await fetchLookupValue();
-        console.log("GOT SHOW DATA")
-        console.log(showCardsData)
-    };
-
-
-    const fetchLookupValue = async () => {
+    const fetchLookupValue = async (
+        card0prime52: string,
+        card1prime52: string,
+        boardcard0: string,
+        boardcard1: string,
+        boardcard2: string,
+        boardcard3: string,
+        boardcard4: string,
+    ) => {
+        // Remember - should be in prime52 format
         const queryParams = new URLSearchParams({
-            card0prime52: holecard0.toString(),
-            card1prime52: holecard1.toString(),
-            boardcard0: boardcard0.toString(),
-            boardcard1: boardcard1.toString(),
-            boardcard2: boardcard2.toString(),
-            boardcard3: boardcard3.toString(),
-            boardcard4: boardcard4.toString(),
+            card0prime52: card0prime52,
+            card1prime52: card1prime52,
+            boardcard0: boardcard0,
+            boardcard1: boardcard1,
+            boardcard2: boardcard2,
+            boardcard3: boardcard3,
+            boardcard4: boardcard4
         });
         try {
             const response = await fetch('/api/lookupVal?' + queryParams, {
@@ -226,9 +211,6 @@ export default function Component() {
         }
         console.log("DONE CALLING API...")
     };
-
-
-
 
     const onClickAction = async (methodStr: string) => {
         // Action mappings... we'll use these directly
@@ -322,7 +304,8 @@ export default function Component() {
                     "merkleMapVal": 55,
                     "witnessPath": "",
                 };
-                const showCardsData = await fetchLookupValue();
+
+                const showCardsData = await fetchLookupValue(holecard0.toString(), holecard1.toString(), boardcard0.toString(), boardcard1.toString(), boardcard2.toString(), boardcard3.toString(), boardcard4.toString());
                 await showCards(
                     holecard0,
                     holecard1,
@@ -756,10 +739,6 @@ export default function Component() {
                                     </button>
                                 </div>
                             ))}
-
-                            <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => quickTest()}>
-                                test
-                            </button>
 
                         </div>
                     </div>
