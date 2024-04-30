@@ -52,13 +52,15 @@ export async function GET(request: Request) {
         ind0 = 4;
         ind1 = 7;
     }
+    // For simplicity, with turn/river still return 3 cards
+    // even though we'll only use the first one
     else if (cardKey === "turn") {
         ind0 = 7;
-        ind1 = 8;
+        ind1 = 10;
     }
     else if (cardKey === "river") {
-        ind0 = 8;
-        ind1 = 9;
+        ind0 = 10;
+        ind1 = 13;
     }
     const returnCards = deck.slice(ind0, ind1);
     let jsonData = { "cards": returnCards, "matched": matched };
