@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Field, PublicKey, PrivateKey } from "o1js";
 import {
   usePoZKerStore,
@@ -21,6 +21,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { X } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 // Inverse of the cardMapping52 map we have in our contract
 const cardMapping52Inv = {
   2: "2h",
@@ -349,9 +351,8 @@ export default function Component() {
     fetchData();
   }, [pkrState.p1Hc0, pkrState.p1Hc1]);
 
-  const callRebuy = async () => {
+  const callRebuy = async (depositAmount: number) => {
     // always rebuy for 100?
-    const depositAmount = 100;
     const seatI: number = player === "0" ? 0 : 1;
     // let seatI: number;
     // if (player === "0") {
@@ -780,19 +781,96 @@ export default function Component() {
     }, [actionHistory]);
     */
 
+  const [isOpen, setIsOpen] = useState(false);
+
+  const [rebuyAmountInput, setRebuyAmountInput] = useState(20);
+
+  const toggleModal = () => {
+    setIsOpen(!isOpen);
+  };
+
+  const [currentPlayerTurn, setCurrentPlayerTurn] = useState(1);
+
+  const [opponentBetAmount, setOpponentBetAmount] = useState(0);
+  const [yourBetAmount, setYourBetAmount] = useState(0);
+
   return (
-    <div className="min-h-[calc(100dvh-56px)]">
-      {/* overall green background */}
-      <main className="flex min-h-[calc(100dvh-56px)] flex-col justify-between gap-4 bg-[#111] py-4 sm:flex-row sm:gap-0 sm:px-8">
-        <div className="hidden flex-1 gap-2 sm:flex sm:flex-col">
-          {pkrState.handStage === "0" ? (
+    <div className="min-h-[calc(100dvh-56px)] w-full">
+      <main className="flex min-h-[calc(100dvh-56px)] w-full flex-col justify-between gap-4 bg-[#111] py-4 lg:flex-row lg:gap-0 lg:px-8">
+        {isOpen && (
+          <div
+            className="fixed inset-0 z-10 overflow-y-auto"
+            onClick={toggleModal}
+          >
+            <div className="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center lg:block lg:p-0">
+              <div
+                className="fixed inset-0 transition-opacity"
+                aria-hidden="true"
+              >
+                <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+              </div>
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="inline-block h-full transform overflow-hidden rounded-lg bg-[#222] p-5 text-left align-bottom shadow-xl transition-all lg:mt-32 lg:w-full lg:max-w-lg lg:align-middle"
+              >
+                <div className="bg-[#222] pb-4 text-white">
+                  <div className="flex justify-between pb-4">
+                    <h1 className="mr-5 bg-[#222] pb-3 pl-2 text-white">
+                      Rebuy
+                    </h1>
+                    <button
+                      className="h-fit rounded-xl p-1 transition-all hover:bg-zinc-700"
+                      onClick={toggleModal}
+                    >
+                      <X className="size-4 text-zinc-200" />
+                    </button>
+                  </div>
+                  <div className="flex w-full gap-2 rounded-lg pl-2.5">
+                    <input
+                      type="number"
+                      className="w-[60px] bg-transparent  text-white"
+                      value={rebuyAmountInput}
+                      onChange={(event) =>
+                        setRebuyAmountInput(parseInt(event?.target.value))
+                      }
+                    />
+                    <input
+                      type="range"
+                      min={20}
+                      max={200}
+                      className="custom-range-input w-full"
+                      value={rebuyAmountInput}
+                      onChange={(event) =>
+                        setRebuyAmountInput(parseInt(event.target.value))
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="bg-[#222]  lg:flex lg:flex-row-reverse ">
+                  <button
+                    onClick={() => {
+                      toggleModal();
+                      callRebuy(rebuyAmountInput);
+                    }}
+                    type="button"
+                    className="inline-flex w-full justify-center rounded-md border border-transparent bg-indigo-500 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-600 focus:outline-none lg:ml-3 lg:w-auto lg:text-sm"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="flex gap-2 px-3 lg:h-auto lg:flex-1 lg:flex-col lg:px-0">
+          {pkrState.handStage !== "0" ? (
             <>
               <TooltipProvider>
-                <Tooltip>
+                <Tooltip delayDuration={10}>
                   <TooltipTrigger asChild>
                     <button
-                      className="h-fit w-[150px] rounded-lg bg-zinc-800 px-4 py-3  text-[15px] font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80 disabled:cursor-not-allowed"
-                      disabled={pkrState.handStage === "0"}
+                      className="h-fit w-full rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80 disabled:cursor-not-allowed lg:w-[150px]"
+                      disabled={pkrState.handStage !== "0"}
                       onClick={() => leaveTable()}
                     >
                       Leave Table
@@ -800,7 +878,7 @@ export default function Component() {
                   </TooltipTrigger>
                   <TooltipContent
                     side="right"
-                    className="max-w-[300px] border-none bg-zinc-800 p-4 text-white"
+                    className="max-w-[300px] border-none bg-zinc-800 p-4 text-white disabled:hover:bg-zinc-800"
                     sideOffset={10}
                   >
                     <p>This action can only be performed in between hands.</p>
@@ -809,19 +887,20 @@ export default function Component() {
               </TooltipProvider>
 
               <TooltipProvider>
-                <Tooltip>
+                <Tooltip delayDuration={10}>
                   <TooltipTrigger asChild>
                     <button
-                      className="h-fit w-[150px] rounded-lg bg-zinc-800 px-4 py-3  text-[15px] font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80 disabled:cursor-not-allowed"
-                      disabled={pkrState.handStage === "0"}
-                      onClick={() => callRebuy()}
+                      className="h-fit w-full rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80 disabled:cursor-not-allowed lg:w-[150px]"
+                      disabled={pkrState.handStage !== "0"}
+                      //   onClick={() => callRebuy()}
+                      onClick={toggleModal}
                     >
                       Rebuy
                     </button>
                   </TooltipTrigger>
                   <TooltipContent
                     side="right"
-                    className="max-w-[300px] border-none bg-zinc-800 p-4 text-white"
+                    className="max-w-[300px] border-none bg-zinc-800 p-4 text-white disabled:hover:bg-zinc-800"
                     sideOffset={10}
                   >
                     <p>This action can only be performed in between hands.</p>
@@ -832,16 +911,16 @@ export default function Component() {
           ) : (
             <>
               <button
-                className="h-fit w-[150px] rounded-lg bg-zinc-800 px-4 py-3  text-[15px] font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80"
-                disabled={pkrState.handStage === "0"}
+                className="h-fit w-full rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80 lg:w-[150px]"
+                disabled={pkrState.handStage !== "0"}
                 onClick={() => leaveTable()}
               >
                 Leave Table
               </button>
               <button
-                className="h-fit w-[150px] rounded-lg bg-zinc-800 px-4 py-3  text-[15px] font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80"
-                disabled={pkrState.handStage === "0"}
-                onClick={() => callRebuy()}
+                className="h-fit w-full rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80 lg:w-[150px]"
+                disabled={pkrState.handStage !== "0"}
+                onClick={toggleModal}
               >
                 Rebuy
               </button>
@@ -850,67 +929,93 @@ export default function Component() {
         </div>
 
         {/* poker board border */}
-        <div className="flex h-full w-full flex-1 sm:h-auto sm:flex-none md:w-[750px] md:flex-shrink-0">
-          <div className="mx-auto flex w-full max-w-[750px] flex-1 flex-col overflow-hidden rounded-[50%/200px] border-4 border-[#000201] bg-[#3f3d3d] p-2 sm:h-full sm:p-4 md:rounded-[40%/300px] 2xl:rounded-[60%/500px]">
+        <div className="flex h-full w-full flex-1 lg:h-auto lg:w-[650px] lg:flex-none lg:flex-shrink-0 xl:w-[750px]">
+          <div className="mx-auto flex w-full max-w-[750px] flex-1 flex-col overflow-hidden rounded-[50%/200px] border-4 border-[#000201] bg-[#3f3d3d] p-2 md:rounded-[40%/300px] lg:h-full lg:p-4 2xl:rounded-[60%/500px]">
             {/* poker board */}
-            <div className="poker-board mx-auto flex w-full flex-1 flex-col justify-between overflow-hidden rounded-[50%/200px] border-4 border-[#000201] px-[5px] py-8 sm:h-[calc(100dvh-56px-136px)] md:rounded-[40%/300px] 2xl:rounded-[60%/500px] 2xl:py-12">
-              <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 sm:max-w-[232px]">
-                <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl bg-zinc-800 px-4 py-2 text-white shadow-lg">
-                  <div className="flex">
-                    <span className="text-sm font-bold sm:text-base">
-                      Opponent
-                    </span>
-                    <span className="flex-1 text-center">${"0"}</span>
-                    {/* pkrState.stack2 || */}
+            <div className="poker-board mx-auto flex w-full flex-1 flex-col justify-between overflow-hidden rounded-[50%/200px] border-4 border-[#000201] px-[5px] py-8 md:rounded-[40%/300px] lg:h-[calc(100dvh-56px-136px)] 2xl:rounded-[60%/500px] 2xl:py-12">
+              <div className="flex flex-col gap-2">
+                <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 lg:max-w-[232px]">
+                  {currentPlayerTurn === 2 ? (
+                    <div className="absolute -left-10 bottom-0 top-0 grid h-full items-center text-center">
+                      <Image
+                        className="my-auto h-fit rounded-full bg-black/60"
+                        src="/svg_playing_cards/yellow-chip.png"
+                        width={32}
+                        height={32}
+                        alt="Yellow Casino Chip"
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl bg-zinc-800 px-4 py-2 text-white shadow-lg">
+                    <div className="flex">
+                      <span className="text-sm font-bold lg:text-base">
+                        Opponent
+                      </span>
+                      <span className="flex-1 text-center">${"0"}</span>
+                      {/* pkrState.stack2 || */}
+                    </div>
                   </div>
-                </div>
-                <Image
-                  className="max-w-[80px] sm:max-w-[100px]"
-                  src="/svg_playing_cards/backs/blue.svg"
-                  width={100}
-                  height={142.3}
-                  alt="Poker Card"
-                />
-                <Image
-                  className="max-w-[80px] sm:max-w-[100px]"
-                  src="/svg_playing_cards/backs/blue.svg"
-                  width={100}
-                  height={142.3}
-                  alt="Poker Card"
-                />
-              </section>
-              <div className="flex flex-col gap-2 sm:gap-2.5">
-                <section className="mx-auto flex w-full max-w-[536px] gap-2">
                   <Image
-                    className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                    className="max-w-[70px] lg:max-w-[100px]"
+                    src="/svg_playing_cards/backs/blue.svg"
+                    width={100}
+                    height={142.3}
+                    alt="Poker Card"
+                  />
+                  <Image
+                    className="max-w-[70px] lg:max-w-[100px]"
+                    src="/svg_playing_cards/backs/blue.svg"
+                    width={100}
+                    height={142.3}
+                    alt="Poker Card"
+                  />
+                </section>
+                <div className="mx-auto flex w-fit min-w-[60px] gap-1 rounded-full bg-black/60 px-3 py-2 text-center text-white">
+                  <Image
+                    className="my-auto h-fit"
+                    src="/svg_playing_cards/black-chip.svg"
+                    width={20}
+                    height={20}
+                    alt="Black Casino Chip"
+                  />{" "}
+                  <span className="font-semibold">
+                    {opponentBetAmount || "4000"}
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 lg:gap-2.5">
+                <section className="mx-auto flex w-full max-w-[536px] justify-center gap-2">
+                  <Image
+                    className="my-auto h-fit max-w-[63px] sm:max-w-[90px] lg:max-w-[100px]"
                     src={boardcard0SVG}
                     width={100}
                     height={142.3}
                     alt="Poker Card"
                   />
                   <Image
-                    className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                    className="my-auto h-fit max-w-[63px] sm:max-w-[90px] lg:max-w-[100px]"
                     src={boardcard1SVG}
                     width={100}
                     height={142.3}
                     alt="Poker Card"
                   />
                   <Image
-                    className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                    className="my-auto h-fit max-w-[63px] sm:max-w-[90px] lg:max-w-[100px]"
                     src={boardcard2SVG}
                     width={100}
                     height={142.3}
                     alt="Poker Card"
                   />
                   <Image
-                    className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                    className="my-auto h-fit max-w-[63px] sm:max-w-[90px] lg:max-w-[100px]"
                     src={boardcard3SVG}
                     width={100}
                     height={142.3}
                     alt="Poker Card"
                   />
                   <Image
-                    className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                    className="my-auto h-fit max-w-[63px] sm:max-w-[90px] lg:max-w-[100px]"
                     src={boardcard4SVG}
                     width={100}
                     height={142.3}
@@ -920,10 +1025,10 @@ export default function Component() {
                 {/* pot */}
                 <div className="mx-auto flex w-fit min-w-[60px] gap-1 rounded-full bg-black/60 px-3 py-2 text-center text-white">
                   <Image
-                    className="my-auto h-fit max-w-[80px] sm:max-w-[100px]"
+                    className="my-auto h-fit"
                     src="/svg_playing_cards/red-chip.png"
-                    width={24}
-                    height={24}
+                    width={20}
+                    height={20}
                     alt="Red Casino Chip"
                   />{" "}
                   <span className="font-semibold">
@@ -931,34 +1036,62 @@ export default function Component() {
                   </span>
                 </div>
               </div>
-              <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 sm:max-w-[232px]">
-                <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl bg-zinc-800 px-4 py-2 text-white">
-                  <div className="flex">
-                    <span className="text-sm font-bold sm:text-base">You</span>
-                    <span className="flex-1 text-center">
-                      ${pkrState.stack1}
-                    </span>
-                  </div>
+              <div className="flex flex-col gap-2">
+                <div className="mx-auto flex w-fit min-w-[60px] gap-1 rounded-full bg-black/60 px-3 py-2 text-center text-white">
+                  <Image
+                    className="my-auto h-fit"
+                    src="/svg_playing_cards/black-chip.svg"
+                    width={20}
+                    height={20}
+                    alt="Black Casino Chip"
+                  />{" "}
+                  <span className="font-semibold">
+                    {yourBetAmount || "4000"}
+                  </span>
                 </div>
-                <Image
-                  className="max-w-[80px] sm:max-w-[100px]"
-                  src={holecard0SVG}
-                  width={100}
-                  height={142.3}
-                  alt="Poker Card"
-                />
-                <Image
-                  className="max-w-[80px] sm:max-w-[100px]"
-                  src={holecard1SVG}
-                  width={100}
-                  height={142.3}
-                  alt="Poker Card"
-                />
-              </section>
+                <section className="relative mx-auto flex w-full max-w-[188px] justify-center gap-2 px-1 lg:max-w-[232px]">
+                  {currentPlayerTurn === 1 ? (
+                    <div className="absolute -left-10 bottom-0 top-0 grid h-full items-center text-center">
+                      <Image
+                        className="my-auto h-fit rounded-full bg-black/60"
+                        src="/svg_playing_cards/yellow-chip.png"
+                        width={32}
+                        height={32}
+                        alt="Yellow Casino Chip"
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl bg-zinc-800 px-4 py-2 text-white">
+                    <div className="flex">
+                      <span className="text-sm font-bold lg:text-base">
+                        You
+                      </span>
+                      <span className="flex-1 text-center">
+                        ${pkrState.stack1}
+                      </span>
+                    </div>
+                  </div>
+                  <Image
+                    className="max-w-[70px] lg:max-w-[100px]"
+                    src={holecard0SVG}
+                    width={100}
+                    height={142.3}
+                    alt="Poker Card"
+                  />
+                  <Image
+                    className="max-w-[70px] lg:max-w-[100px]"
+                    src={holecard1SVG}
+                    width={100}
+                    height={142.3}
+                    alt="Poker Card"
+                  />
+                </section>
+              </div>
             </div>
           </div>
         </div>
-        <div className="flex justify-center sm:flex-1 sm:flex-col sm:justify-end">
+        <div className="flex justify-center lg:flex-1 lg:flex-col lg:justify-end">
           <div className="flex w-fit flex-col space-y-3">
             <div className="flex w-full gap-2 rounded-lg bg-zinc-800 p-2 pl-5">
               <input
@@ -980,14 +1113,14 @@ export default function Component() {
                 }
               />
             </div>
-            <div className="flex w-fit justify-start gap-2">
+            <div className="flex w-full justify-start gap-2">
               {possibleActions.map((action, index) => (
-                <div key={index}>
+                <div key={index} className="flex w-full">
                   <button
-                    className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80"
+                    className="w-[120px] rounded-lg bg-zinc-800 px-4 py-3 text-[14px] font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80"
                     onClick={() => onClickAction(action.action)}
                   >
-                    {action.action}
+                    Decode Boardcards
                   </button>
                 </div>
               ))}
