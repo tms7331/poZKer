@@ -14,7 +14,7 @@ export default function HeaderLinks() {
       </Link>
       <Link
         className={`text-sm ${
-          pathname === "/join" ? "font-bold" : ""
+          pathname === "/join" ? "underline" : ""
         } font-medium underline-offset-4 hover:underline`}
         href="/join"
       >
@@ -23,7 +23,7 @@ export default function HeaderLinks() {
 
       <Link
         className={`text-sm ${
-          pathname === "/playgame" ? "font-bold" : ""
+          pathname === "/playgame" ? "underline" : ""
         } font-medium underline-offset-4 hover:underline`}
         href="/playgame"
       >
@@ -32,7 +32,7 @@ export default function HeaderLinks() {
 
       <Link
         className={`text-sm ${
-          pathname === "/gettokens" ? "font-bold" : ""
+          pathname === "/gettokens" ? "underline" : ""
         } font-medium underline-offset-4 hover:underline`}
         href="/gettokens"
       >

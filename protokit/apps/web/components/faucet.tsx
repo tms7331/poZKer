@@ -20,12 +20,10 @@ export function Faucet({
 }: FaucetProps) {
   const form = useForm();
   return (
-    <Card className="w-full p-4">
+    <Card className="w-full border-none bg-[#222] p-6 text-white">
       <div className="mb-2">
         <h2 className="text-xl font-bold">Faucet</h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          Get play money PZKR tokens
-        </p>
+        <p className="mt-1 text-sm text-zinc-200">Get play money PZKR tokens</p>
       </div>
       <Form {...form}>
         <div className="pt-3">
@@ -35,10 +33,11 @@ export function Faucet({
               <FormItem>
                 <FormLabel>
                   To{" "}
-                  <span className="text-sm text-zinc-500">(your wallet)</span>
+                  <span className="text-sm text-zinc-200">(your wallet)</span>
                 </FormLabel>
                 <FormControl>
                   <Input
+                    className="border-none bg-[#18181b] text-white"
                     disabled
                     placeholder={wallet ?? "Please connect a wallet first"}
                   />
@@ -51,7 +50,7 @@ export function Faucet({
         <Button
           size={"lg"}
           type="submit"
-          className="mt-6 w-full"
+          className="mt-6 w-full bg-indigo-500 hover:bg-indigo-600"
           loading={loading}
           onClick={() => {
             wallet ?? onConnectWallet();
