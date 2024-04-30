@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Field, PublicKey, PrivateKey } from "o1js";
 import {
     usePoZKerStore,
@@ -14,68 +13,68 @@ import {
     useRebuy
 } from "@/lib/stores/poZKer";
 import { useWalletStore } from "@/lib/stores/wallet";
-import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-export const cardMapping52 = {
-    "2h": 2,
-    "3h": 3,
-    "4h": 5,
-    "5h": 7,
-    "6h": 11,
-    "7h": 13,
-    "8h": 17,
-    "9h": 19,
-    "Th": 23,
-    "Jh": 29,
-    "Qh": 31,
-    "Kh": 37,
-    "Ah": 41,
-    "2d": 43,
-    "3d": 47,
-    "4d": 53,
-    "5d": 59,
-    "6d": 61,
-    "7d": 67,
-    "8d": 71,
-    "9d": 73,
-    "Td": 79,
-    "Jd": 83,
-    "Qd": 89,
-    "Kd": 97,
-    "Ad": 101,
-    "2c": 103,
-    "3c": 107,
-    "4c": 109,
-    "5c": 113,
-    "6c": 127,
-    "7c": 131,
-    "8c": 137,
-    "9c": 139,
-    "Tc": 149,
-    "Jc": 151,
-    "Qc": 157,
-    "Kc": 163,
-    "Ac": 167,
-    "2s": 173,
-    "3s": 179,
-    "4s": 181,
-    "5s": 191,
-    "6s": 193,
-    "7s": 197,
-    "8s": 199,
-    "9s": 211,
-    "Ts": 223,
-    "Js": 227,
-    "Qs": 229,
-    "Ks": 233,
-    "As": 239,
-    "": 241,
+// Inverse of the cardMapping52 map we have in our contract
+const cardMapping52Inv = { 2: '2h', 3: '3h', 5: '4h', 7: '5h', 11: '6h', 13: '7h', 17: '8h', 19: '9h', 23: 'Th', 29: 'Jh', 31: 'Qh', 37: 'Kh', 41: 'Ah', 43: '2d', 47: '3d', 53: '4d', 59: '5d', 61: '6d', 67: '7d', 71: '8d', 73: '9d', 79: 'Td', 83: 'Jd', 89: 'Qd', 97: 'Kd', 101: 'Ad', 103: '2c', 107: '3c', 109: '4c', 113: '5c', 127: '6c', 131: '7c', 137: '8c', 139: '9c', 149: 'Tc', 151: 'Jc', 157: 'Qc', 163: 'Kc', 167: 'Ac', 173: '2s', 179: '3s', 181: '4s', 191: '5s', 193: '6s', 197: '7s', 199: '8s', 211: '9s', 223: 'Ts', 227: 'Js', 229: 'Qs', 233: 'Ks', 239: 'As' }
+const cardMapping52 = { '2h': 2, '3h': 3, '4h': 5, '5h': 7, '6h': 11, '7h': 13, '8h': 17, '9h': 19, 'Th': 23, 'Jh': 29, 'Qh': 31, 'Kh': 37, 'Ah': 41, '2d': 43, '3d': 47, '4d': 53, '5d': 59, '6d': 61, '7d': 67, '8d': 71, '9d': 73, 'Td': 79, 'Jd': 83, 'Qd': 89, 'Kd': 97, 'Ad': 101, '2c': 103, '3c': 107, '4c': 109, '5c': 113, '6c': 127, '7c': 131, '8c': 137, '9c': 139, 'Tc': 149, 'Jc': 151, 'Qc': 157, 'Kc': 163, 'Ac': 167, '2s': 173, '3s': 179, '4s': 181, '5s': 191, '6s': 193, '7s': 197, '8s': 199, '9s': 211, 'Ts': 223, 'Js': 227, 'Qs': 229, 'Ks': 233, 'As': 239 }
+
+export const cardMapping52SVG: { [key: number]: string } = {
+    0: "/svg_playing_cards/backs/blue.svg",  // this is default value - have background
+    2: "/svg_playing_cards/fronts/hearts_2.svg",
+    3: "/svg_playing_cards/fronts/hearts_3.svg",
+    5: "/svg_playing_cards/fronts/hearts_4.svg",
+    7: "/svg_playing_cards/fronts/hearts_5.svg",
+    11: "/svg_playing_cards/fronts/hearts_6.svg",
+    13: "/svg_playing_cards/fronts/hearts_7.svg",
+    17: "/svg_playing_cards/fronts/hearts_8.svg",
+    19: "/svg_playing_cards/fronts/hearts_9.svg",
+    23: "/svg_playing_cards/fronts/hearts_10.svg",
+    29: "/svg_playing_cards/fronts/hearts_jack.svg",
+    31: "/svg_playing_cards/fronts/hearts_queen.svg",
+    37: "/svg_playing_cards/fronts/hearts_king.svg",
+    41: "/svg_playing_cards/fronts/hearts_ace.svg",
+    43: "/svg_playing_cards/fronts/diamonds_2.svg",
+    47: "/svg_playing_cards/fronts/diamonds_3.svg",
+    53: "/svg_playing_cards/fronts/diamonds_4.svg",
+    59: "/svg_playing_cards/fronts/diamonds_5.svg",
+    61: "/svg_playing_cards/fronts/diamonds_6.svg",
+    67: "/svg_playing_cards/fronts/diamonds_7.svg",
+    71: "/svg_playing_cards/fronts/diamonds_8.svg",
+    73: "/svg_playing_cards/fronts/diamonds_9.svg",
+    79: "/svg_playing_cards/fronts/diamonds_10.svg",
+    83: "/svg_playing_cards/fronts/diamonds_jack.svg",
+    89: "/svg_playing_cards/fronts/diamonds_queen.svg",
+    97: "/svg_playing_cards/fronts/diamonds_king.svg",
+    101: "/svg_playing_cards/fronts/diamonds_ace.svg",
+    103: "/svg_playing_cards/fronts/clubs_2.svg",
+    107: "/svg_playing_cards/fronts/clubs_3.svg",
+    109: "/svg_playing_cards/fronts/clubs_4.svg",
+    113: "/svg_playing_cards/fronts/clubs_5.svg",
+    127: "/svg_playing_cards/fronts/clubs_6.svg",
+    131: "/svg_playing_cards/fronts/clubs_7.svg",
+    137: "/svg_playing_cards/fronts/clubs_8.svg",
+    139: "/svg_playing_cards/fronts/clubs_9.svg",
+    149: "/svg_playing_cards/fronts/clubs_10.svg",
+    151: "/svg_playing_cards/fronts/clubs_jack.svg",
+    157: "/svg_playing_cards/fronts/clubs_queen.svg",
+    163: "/svg_playing_cards/fronts/clubs_king.svg",
+    167: "/svg_playing_cards/fronts/clubs_ace.svg",
+    173: "/svg_playing_cards/fronts/spades_2.svg",
+    179: "/svg_playing_cards/fronts/spades_3.svg",
+    181: "/svg_playing_cards/fronts/spades_4.svg",
+    191: "/svg_playing_cards/fronts/spades_5.svg",
+    193: "/svg_playing_cards/fronts/spades_6.svg",
+    197: "/svg_playing_cards/fronts/spades_7.svg",
+    199: "/svg_playing_cards/fronts/spades_8.svg",
+    211: "/svg_playing_cards/fronts/spades_9.svg",
+    223: "/svg_playing_cards/fronts/spades_10.svg",
+    227: "/svg_playing_cards/fronts/spades_jack.svg",
+    229: "/svg_playing_cards/fronts/spades_queen.svg",
+    233: "/svg_playing_cards/fronts/spades_king.svg",
+    239: "/svg_playing_cards/fronts/spades_ace.svg",
 }
-
-
-
 
 export default function Component() {
     const showCards = useShowCards();
@@ -104,6 +103,14 @@ export default function Component() {
     const [boardcard2, setBoardcard2] = useState<number>(0);
     const [boardcard3, setBoardcard3] = useState<number>(0);
     const [boardcard4, setBoardcard4] = useState<number>(0);
+
+    const [holecard0SVG, setHolecard0SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
+    const [holecard1SVG, setHolecard1SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
+    const [boardcard0SVG, setBoardcard0SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
+    const [boardcard1SVG, setBoardcard1SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
+    const [boardcard2SVG, setBoardcard2SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
+    const [boardcard3SVG, setBoardcard3SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
+    const [boardcard4SVG, setBoardcard4SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
 
     // Which player we are...
     type Player = "0" | "1" | "notInGame";
@@ -135,6 +142,83 @@ export default function Component() {
         setShuffleKey(shuffleKeyNew);
     }, [pkrState.handId]);
 
+
+    useEffect(() => {
+        setBoardcard0(Number(pkrState.flop0));
+        setBoardcard1(Number(pkrState.flop1));
+        setBoardcard2(Number(pkrState.flop2));
+        setBoardcard3(Number(pkrState.turn0));
+        setBoardcard4(Number(pkrState.river0));
+        setBoardcard0SVG(cardMapping52SVG[Number(pkrState.flop0)]);
+        setBoardcard1SVG(cardMapping52SVG[Number(pkrState.flop1)]);
+        setBoardcard2SVG(cardMapping52SVG[Number(pkrState.flop2)]);
+        setBoardcard3SVG(cardMapping52SVG[Number(pkrState.turn0)]);
+        setBoardcard4SVG(cardMapping52SVG[Number(pkrState.river0)]);
+
+    }, [pkrState.flop0, pkrState.flop1, pkrState.flop2, pkrState.turn0, pkrState.river0]);
+
+
+    const fetchAPICards = async (handId: string, seatI: string, cardKey: string) => {
+        const queryParams = new URLSearchParams({
+            "handId": handId,
+            "seatI": seatI,
+            "cardKey": cardKey
+        });
+        try {
+            const response = await fetch('/api/deck?' + queryParams, {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                },
+            });
+            if (response) {
+                const data = await response.json();
+                console.log("GOT API DATA!");
+                console.log(data);
+                console.log(data.cards[0]);
+                console.log(data.matched);
+                return data.cards;
+            }
+            else {
+                console.log("NO RESPONSE FROM API...")
+            }
+        } catch (error) {
+            console.log(error);
+        }
+        console.log("DONE CALLING API...")
+    };
+
+    useEffect(() => {
+        // Only if we're player 0, get cards
+        const fetchData = async () => {
+            if (player === "0") {
+                const seatI = "0";
+                const cards = await fetchAPICards(pkrState.handId, seatI, "holeCards");
+                setHolecard0(cards[0]!);
+                setHolecard1(cards[1]!);
+                setHolecard0SVG(cardMapping52SVG[cards[0]]);
+                setHolecard1SVG(cardMapping52SVG[cards[1]]);
+            }
+        }
+        fetchData();
+    }, [pkrState.p0Hc0, pkrState.p0Hc1]);
+
+    useEffect(() => {
+        // Only if we're player 1, get cards
+        const fetchData = async () => {
+            if (player === "1") {
+                const seatI = "1"
+                const cards = await fetchAPICards(pkrState.handId, seatI, "holeCards");
+                setHolecard0(cards[0]!);
+                setHolecard1(cards[1]!);
+            }
+        }
+        fetchData();
+
+    }, [pkrState.p1Hc0, pkrState.p1Hc1]);
+
+
+
     const callRebuy = async () => {
         // always rebuy for 100?
         const depositAmount = 100;
@@ -149,7 +233,7 @@ export default function Component() {
         await rebuy(seatI, depositAmount)
     }
 
-    const fetchLookupValue = async (
+    const fetchAPILookupValue = async (
         card0prime52: string,
         card1prime52: string,
         boardcard0: string,
@@ -178,30 +262,6 @@ export default function Component() {
             if (response) {
                 const data = await response.json();
                 return data;
-            }
-            else {
-                console.log("NO RESPONSE FROM API...")
-            }
-        } catch (error) {
-            console.log(error);
-        }
-        console.log("DONE CALLING API...")
-    };
-
-    const fetchCards = async (num: number) => {
-        const queryParams = new URLSearchParams({
-            num: num.toString(),
-        });
-        try {
-            const response = await fetch('/api/deck?' + queryParams, {
-                method: 'GET',
-                headers: {
-                    Accept: 'application/json',
-                },
-            });
-            if (response) {
-                const data = await response.json();
-                return data
             }
             else {
                 console.log("NO RESPONSE FROM API...")
@@ -277,35 +337,36 @@ export default function Component() {
                 break;
             case "Commit Opponent Holecards":
                 // TODO - still need to get the cards here...
-                // getCards(handId, 2)
                 // commitOpponentHolecards(card0: Card, card1: Card)
                 await commitOpponentHolecards();
                 break;
             case "Commit Boardcards":
                 // TODO - need to understand card format...
                 // Think we can't pass in groups?
-                const cards = await fetchCards(3);
                 await commitBoardcards();
                 break;
             case "Decode Boardcards":
                 // TODO - actually pull values and decrypt them...
                 // again - dealing with groups might be tricky
-                const cardVal0: number = 1;
-                const cardVal1: number = 2;
-                const cardVal2: number = 3;
-                await decodeBoardcards(cardVal0, cardVal1, cardVal2);
+
+                // FlopDealDec = Field(6); // 'Dec' ones are decode stage
+                // TurnDealDec = Field(9);
+                // RiverDealDec = Field(12);
+                let boardStr: string = "";
+                if (pkrState.handStage === "6") {
+                    boardStr = "flop";
+                }
+                else if (pkrState.handStage === "9") {
+                    boardStr = "turn";
+                }
+                else if (pkrState.handStage === "12") {
+                    boardStr = "river";
+                }
+                const cards = await fetchAPICards(pkrState.handId, "0", boardStr);
+                await decodeBoardcards(cards[0], cards[1], cards[2]);
                 break;
             case "Show Cards":
-                let jsonDataEx = {
-                    "success": true,
-                    "useCards": [true, false, false, true, false, true, true],
-                    "isFlush": true,
-                    "merkleMapKey": 33,
-                    "merkleMapVal": 55,
-                    "witnessPath": "",
-                };
-
-                const showCardsData = await fetchLookupValue(holecard0.toString(), holecard1.toString(), boardcard0.toString(), boardcard1.toString(), boardcard2.toString(), boardcard3.toString(), boardcard4.toString());
+                const showCardsData = await fetchAPILookupValue(holecard0.toString(), holecard1.toString(), boardcard0.toString(), boardcard1.toString(), boardcard2.toString(), boardcard3.toString(), boardcard4.toString());
                 await showCards(
                     holecard0,
                     holecard1,
@@ -634,35 +695,35 @@ export default function Component() {
                                 <section className="mx-auto flex w-full max-w-[536px] gap-2">
                                     <Image
                                         className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
-                                        src="/svg_playing_cards/fronts/hearts_8.svg"
+                                        src={boardcard0SVG}
                                         width={100}
                                         height={142.3}
                                         alt="Poker Card"
                                     />
                                     <Image
                                         className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
-                                        src="/svg_playing_cards/fronts/hearts_9.svg"
+                                        src={boardcard1SVG}
                                         width={100}
                                         height={142.3}
                                         alt="Poker Card"
                                     />
                                     <Image
                                         className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
-                                        src="/svg_playing_cards/fronts/clubs_8.svg"
+                                        src={boardcard2SVG}
                                         width={100}
                                         height={142.3}
                                         alt="Poker Card"
                                     />
                                     <Image
                                         className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
-                                        src="/svg_playing_cards/fronts/diamonds_queen.svg"
+                                        src={boardcard3SVG}
                                         width={100}
                                         height={142.3}
                                         alt="Poker Card"
                                     />
                                     <Image
                                         className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
-                                        src="/svg_playing_cards/fronts/hearts_3.svg"
+                                        src={boardcard4SVG}
                                         width={100}
                                         height={142.3}
                                         alt="Poker Card"
@@ -693,14 +754,14 @@ export default function Component() {
                                 </div>
                                 <Image
                                     className="max-w-[80px] sm:max-w-[100px]"
-                                    src="/svg_playing_cards/fronts/clubs_ace.svg"
+                                    src={holecard0SVG}
                                     width={100}
                                     height={142.3}
                                     alt="Poker Card"
                                 />
                                 <Image
                                     className="max-w-[80px] sm:max-w-[100px]"
-                                    src="/svg_playing_cards/fronts/diamonds_queen.svg"
+                                    src={holecard1SVG}
                                     width={100}
                                     height={142.3}
                                     alt="Poker Card"

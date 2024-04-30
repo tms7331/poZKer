@@ -19,8 +19,7 @@ export default function Component() {
           </p>
           <p>
             poZKer was started at the zkhack.dev Istanbul hackathon in November
-            2023 with
-            <Link
+            2023 with <Link
               href="https://github.com/enderNakamoto"
               className="font-semibold underline underline-offset-2"
             >

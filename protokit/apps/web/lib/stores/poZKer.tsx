@@ -46,6 +46,15 @@ export interface PoZKerState {
   pot: string,
   handId: string,
   button: string,
+  p0Hc0: string,
+  p0Hc1: string,
+  p1Hc0: string,
+  p1Hc1: string,
+  flop0: string,
+  flop1: string,
+  flop2: string,
+  turn0: string,
+  river0: string,
   loadState: (client: Client, address: string) => Promise<void>;
   joinTable: (client: Client, address: string, seatI: number, depositAmount: number) => Promise<PendingTransaction>;
   leaveTable: (client: Client, address: string) => Promise<PendingTransaction>;
@@ -101,6 +110,15 @@ export const usePoZKerStore = create<
     handStage: "0",
     handId: "0",
     button: "0",
+    p0Hc0: "0",
+    p0Hc1: "0",
+    p1Hc0: "0",
+    p1Hc1: "0",
+    flop0: "0",
+    flop1: "0",
+    flop2: "0",
+    turn0: "0",
+    river0: "0",
     pot: "0",
 
     async loadState(client: Client, address: string) {
@@ -127,6 +145,16 @@ export const usePoZKerStore = create<
       const button = await client.query.runtime.PoZKerApp.button.get();
       const lastAction = await client.query.runtime.PoZKerApp.lastAction.get();
 
+      const p0Hc0 = await client.query.runtime.PoZKerApp.p0Hc0.get();
+      const p0Hc1 = await client.query.runtime.PoZKerApp.p0Hc1.get();
+      const p1Hc0 = await client.query.runtime.PoZKerApp.p1Hc0.get();
+      const p1Hc1 = await client.query.runtime.PoZKerApp.p1Hc1.get();
+      const flop0 = await client.query.runtime.PoZKerApp.flop0.get();
+      const flop1 = await client.query.runtime.PoZKerApp.flop1.get();
+      const flop2 = await client.query.runtime.PoZKerApp.flop2.get();
+      const turn0 = await client.query.runtime.PoZKerApp.turn0.get();
+      const river0 = await client.query.runtime.PoZKerApp.river0.get();
+
       // So if key is null OR equalty to empty public key, display 0...
       const p1Empty = player0Key?.toBase58() === PublicKey.empty().toBase58();
       const p2Empty = player1Key?.toBase58() === PublicKey.empty().toBase58();
@@ -144,6 +172,15 @@ export const usePoZKerStore = create<
         state.pot = pot?.toString() ?? "0";
         state.handId = handId?.toString() ?? "0";
         state.button = button?.toString() ?? "0";
+        // state.p0Hc0 = p0Hc0?.toString() ?? "0";
+        // state.p0Hc1 = p0Hc1?.toString() ?? "0";
+        // state.p1Hc0 = p1Hc0?.toString() ?? "0";
+        // state.p1Hc1 = p1Hc1?.toString() ?? "0";
+        state.flop0 = flop0?.toString() ?? "0";
+        state.flop1 = flop1?.toString() ?? "0";
+        state.flop2 = flop2?.toString() ?? "0";
+        state.turn0 = turn0?.toString() ?? "0";
+        state.river0 = river0?.toString() ?? "0";
         state.loading = false;
       });
     },
