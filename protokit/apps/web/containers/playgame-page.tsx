@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Field, PublicKey, PrivateKey } from "o1js";
 import {
     usePoZKerStore,
@@ -10,18 +10,22 @@ import {
     useDecodeBoardcards,
     useCommitBoardcards,
     useLeaveTable,
-    useRebuy
+    useRebuy,
 } from "@/lib/stores/poZKer";
 import { useWalletStore } from "@/lib/stores/wallet";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-
-// Inverse of the cardMapping52 map we have in our contract
-const cardMapping52Inv = { 2: '2h', 3: '3h', 5: '4h', 7: '5h', 11: '6h', 13: '7h', 17: '8h', 19: '9h', 23: 'Th', 29: 'Jh', 31: 'Qh', 37: 'Kh', 41: 'Ah', 43: '2d', 47: '3d', 53: '4d', 59: '5d', 61: '6d', 67: '7d', 71: '8d', 73: '9d', 79: 'Td', 83: 'Jd', 89: 'Qd', 97: 'Kd', 101: 'Ad', 103: '2c', 107: '3c', 109: '4c', 113: '5c', 127: '6c', 131: '7c', 137: '8c', 139: '9c', 149: 'Tc', 151: 'Jc', 157: 'Qc', 163: 'Kc', 167: 'Ac', 173: '2s', 179: '3s', 181: '4s', 191: '5s', 193: '6s', 197: '7s', 199: '8s', 211: '9s', 223: 'Ts', 227: 'Js', 229: 'Qs', 233: 'Ks', 239: 'As' }
-const cardMapping52 = { '2h': 2, '3h': 3, '4h': 5, '5h': 7, '6h': 11, '7h': 13, '8h': 17, '9h': 19, 'Th': 23, 'Jh': 29, 'Qh': 31, 'Kh': 37, 'Ah': 41, '2d': 43, '3d': 47, '4d': 53, '5d': 59, '6d': 61, '7d': 67, '8d': 71, '9d': 73, 'Td': 79, 'Jd': 83, 'Qd': 89, 'Kd': 97, 'Ad': 101, '2c': 103, '3c': 107, '4c': 109, '5c': 113, '6c': 127, '7c': 131, '8c': 137, '9c': 139, 'Tc': 149, 'Jc': 151, 'Qc': 157, 'Kc': 163, 'Ac': 167, '2s': 173, '3s': 179, '4s': 181, '5s': 191, '6s': 193, '7s': 197, '8s': 199, '9s': 211, 'Ts': 223, 'Js': 227, 'Qs': 229, 'Ks': 233, 'As': 239 }
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { X } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 export const cardMapping52SVG: { [key: number]: string } = {
-    0: "/svg_playing_cards/backs/blue.svg",  // this is default value - have background
+    0: "/svg_playing_cards/backs/blue.svg", // this is default value - have background
     2: "/svg_playing_cards/fronts/hearts_2.svg",
     3: "/svg_playing_cards/fronts/hearts_3.svg",
     5: "/svg_playing_cards/fronts/hearts_4.svg",
@@ -74,7 +78,7 @@ export const cardMapping52SVG: { [key: number]: string } = {
     229: "/svg_playing_cards/fronts/spades_queen.svg",
     233: "/svg_playing_cards/fronts/spades_king.svg",
     239: "/svg_playing_cards/fronts/spades_ace.svg",
-}
+};
 
 export default function Component() {
     const showCards = useShowCards();
@@ -123,6 +127,17 @@ export default function Component() {
 
     const [ourBetThisStreet, setOurBetThisStreet] = useState<number>(0);
     const [oppBetThisStreet, setOppBetThisStreet] = useState<number>(0);
+
+    const [betAmount, setBetAmount] = useState<number>(0);
+    const [possibleActions, setPossibleActions] = useState<any[]>([]);
+
+    const [ourButton, setOurButton] = useState<boolean>(false);
+
+    // TODO - ones he added...
+    // const [currentPlayerTurn, setCurrentPlayerTurn] = useState(1);
+
+    // const [opponentBetAmount, setOpponentBetAmount] = useState(0);
+    // const [yourBetAmount, setYourBetAmount] = useState(0);
 
     useEffect(() => {
         const userKey = wallet.wallet;
@@ -189,36 +204,6 @@ export default function Component() {
     }, [pkrState.flop0, pkrState.flop1, pkrState.flop2, pkrState.turn0, pkrState.river0]);
 
 
-    const fetchAPICards = async (handId: string, seatI: string, cardKey: string) => {
-        const queryParams = new URLSearchParams({
-            "handId": handId,
-            "seatI": seatI,
-            "cardKey": cardKey
-        });
-        try {
-            const response = await fetch('/api/deck?' + queryParams, {
-                method: 'GET',
-                headers: {
-                    Accept: 'application/json',
-                },
-            });
-            if (response) {
-                const data = await response.json();
-                console.log("GOT API DATA!");
-                console.log(data);
-                console.log(data.cards[0]);
-                console.log(data.matched);
-                return data.cards;
-            }
-            else {
-                console.log("NO RESPONSE FROM API...")
-            }
-        } catch (error) {
-            console.log(error);
-        }
-        console.log("DONE CALLING API...")
-    };
-
     useEffect(() => {
         // Only if we're player 0, get cards
         console.log("HOLECARDS CHANGED FOR p0!!!!")
@@ -257,10 +242,99 @@ export default function Component() {
 
 
 
-    const callRebuy = async () => {
+    useEffect(() => {
+        const randNum: number = Math.floor(Math.random() * 1_000_000_000_000);
+        // For every hand we need to generate a new shuffleKey for the shuffling
+        const shuffleKeyNew: string = PrivateKey.fromBigInt(
+            BigInt(randNum),
+        ).toBase58();
+        setShuffleKey(shuffleKeyNew);
+    }, [pkrState.handId]);
+
+    useEffect(() => {
+        setBoardcard0(Number(pkrState.flop0));
+        setBoardcard1(Number(pkrState.flop1));
+        setBoardcard2(Number(pkrState.flop2));
+        setBoardcard3(Number(pkrState.turn0));
+        setBoardcard4(Number(pkrState.river0));
+        setBoardcard0SVG(cardMapping52SVG[Number(pkrState.flop0)]);
+        setBoardcard1SVG(cardMapping52SVG[Number(pkrState.flop1)]);
+        setBoardcard2SVG(cardMapping52SVG[Number(pkrState.flop2)]);
+        setBoardcard3SVG(cardMapping52SVG[Number(pkrState.turn0)]);
+        setBoardcard4SVG(cardMapping52SVG[Number(pkrState.river0)]);
+    }, [
+        pkrState.flop0,
+        pkrState.flop1,
+        pkrState.flop2,
+        pkrState.turn0,
+        pkrState.river0,
+    ]);
+
+    const fetchAPICards = async (
+        handId: string,
+        seatI: string,
+        cardKey: string,
+    ) => {
+        const queryParams = new URLSearchParams({
+            handId: handId,
+            seatI: seatI,
+            cardKey: cardKey,
+        });
+        try {
+            const response = await fetch("/api/deck?" + queryParams, {
+                method: "GET",
+                headers: {
+                    Accept: "application/json",
+                },
+            });
+            if (response) {
+                const data = await response.json();
+                console.log("GOT API DATA!");
+                console.log(data);
+                console.log(data.cards[0]);
+                console.log(data.matched);
+                return data.cards;
+            } else {
+                console.log("NO RESPONSE FROM API...");
+            }
+        } catch (error) {
+            console.log(error);
+        }
+        console.log("DONE CALLING API...");
+    };
+
+    useEffect(() => {
+        // Only if we're player 0, get cards
+        const fetchData = async () => {
+            if (player === "0") {
+                const seatI = "0";
+                const cards = await fetchAPICards(pkrState.handId, seatI, "holeCards");
+                setHolecard0(cards[0]!);
+                setHolecard1(cards[1]!);
+                setHolecard0SVG(cardMapping52SVG[cards[0]]);
+                setHolecard1SVG(cardMapping52SVG[cards[1]]);
+            }
+        };
+        fetchData();
+    }, [pkrState.p0Hc0, pkrState.p0Hc1]);
+
+    useEffect(() => {
+        // Only if we're player 1, get cards
+        const fetchData = async () => {
+            if (player === "1") {
+                const seatI = "1";
+                const cards = await fetchAPICards(pkrState.handId, seatI, "holeCards");
+                setHolecard0(cards[0]!);
+                setHolecard1(cards[1]!);
+            }
+        };
+        fetchData();
+    }, [pkrState.p1Hc0, pkrState.p1Hc1]);
+
+
+    const callRebuy = async (depositAmount: number) => {
         // always rebuy for 100?
-        const depositAmount = 100;
-        const seatI: number = (player === "0") ? 0 : 1;
+        const seatI: number = player === "0" ? 0 : 1;
         // let seatI: number;
         // if (player === "0") {
         //     seatI = 0;
@@ -268,8 +342,8 @@ export default function Component() {
         // else if (player === "1") {
         //     seatI = 1;
         // }
-        await rebuy(seatI, depositAmount)
-    }
+        await rebuy(seatI, depositAmount);
+    };
 
     const fetchAPILookupValue = async (
         card0prime52: string,
@@ -288,26 +362,25 @@ export default function Component() {
             boardcard1: boardcard1,
             boardcard2: boardcard2,
             boardcard3: boardcard3,
-            boardcard4: boardcard4
+            boardcard4: boardcard4,
         });
         try {
-            const response = await fetch('/api/lookupVal?' + queryParams, {
-                method: 'GET',
+            const response = await fetch("/api/lookupVal?" + queryParams, {
+                method: "GET",
                 headers: {
-                    Accept: 'application/json',
+                    Accept: "application/json",
                 },
             });
             if (response) {
                 const data = await response.json();
                 return data;
-            }
-            else {
-                console.log("NO RESPONSE FROM API...")
+            } else {
+                console.log("NO RESPONSE FROM API...");
             }
         } catch (error) {
             console.log(error);
         }
-        console.log("DONE CALLING API...")
+        console.log("DONE CALLING API...");
     };
 
     const onClickAction = async (methodStr: string) => {
@@ -352,8 +425,7 @@ export default function Component() {
                 // it's actually the preflopCall action
                 if (pkrState.lastAction === "8") {
                     actF = 6;
-                }
-                else {
+                } else {
                     actF = 2;
                 }
                 await takeAction(actF, 0);
@@ -373,8 +445,7 @@ export default function Component() {
                 // shuffleAndPass() - no contract interaciton, only API:
                 // getDeck() encryptDeck() shuffleDeck() postDeck()
                 break;
-            // case "Commit Opponent Holecards":
-            case "Get Holecards":
+            case "Commit Opponent Holecards":
                 // TODO - still need to get the cards here...
                 // commitOpponentHolecards(card0: Card, card1: Card)
                 await commitOpponentHolecards();
@@ -394,18 +465,24 @@ export default function Component() {
                 let boardStr: string = "";
                 if (pkrState.handStage === "6") {
                     boardStr = "flop";
-                }
-                else if (pkrState.handStage === "9") {
+                } else if (pkrState.handStage === "9") {
                     boardStr = "turn";
-                }
-                else if (pkrState.handStage === "12") {
+                } else if (pkrState.handStage === "12") {
                     boardStr = "river";
                 }
                 const cards = await fetchAPICards(pkrState.handId, "0", boardStr);
                 await decodeBoardcards(cards[0], cards[1], cards[2]);
                 break;
             case "Show Cards":
-                const showCardsData = await fetchAPILookupValue(holecard0.toString(), holecard1.toString(), boardcard0.toString(), boardcard1.toString(), boardcard2.toString(), boardcard3.toString(), boardcard4.toString());
+                const showCardsData = await fetchAPILookupValue(
+                    holecard0.toString(),
+                    holecard1.toString(),
+                    boardcard0.toString(),
+                    boardcard1.toString(),
+                    boardcard2.toString(),
+                    boardcard3.toString(),
+                    boardcard4.toString(),
+                );
                 await showCards(
                     holecard0,
                     holecard1,
@@ -483,17 +560,6 @@ export default function Component() {
 
     // stack, facing bet, action history,  board_cards, hole_cards, pot
     // This is our bet amount
-    const [betAmount, setBetAmount] = useState<number>(0);
-
-    const actions = [
-        { action: "Call", player: "player1" },
-        { action: "Bet", player: "player2" },
-        { action: "Raise", player: "player1" },
-    ];
-    // const [actionHistory, setActionHistory] = useState(actions);
-    // const possibleActionsInit = [{ action: "Call", needsAmount: true }];
-    const [possibleActions, setPossibleActions] = useState<any[]>([]);
-
 
     const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseInt(event.target.value);
@@ -506,7 +572,6 @@ export default function Component() {
         // for each player, at that handStage...
         // Some of the logic is dependent on player0/player1
         // Other logic is dependent-  on who has the button
-
 
         // 'takeAction' actions
         const POSTSB = { "action": "Post SB" };
@@ -785,81 +850,235 @@ export default function Component() {
 
 
 
+    const [isOpen, setIsOpen] = useState(false);
+
+    const [rebuyAmountInput, setRebuyAmountInput] = useState(20);
+
+    const toggleModal = () => {
+        setIsOpen(!isOpen);
+    };
+
     return (
-        <div className="min-h-[calc(100dvh-56px)]">
-            {/* overall green background */}
-            <main className="flex min-h-[calc(100dvh-56px)] flex-col justify-between gap-4 bg-[#111] py-4 sm:flex-row sm:gap-0 sm:px-8">
-                <div className="hidden flex-1 sm:block"></div>
-
-                <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => leaveTable()}>
-                    Leave Table
-                </button>
-                <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => callRebuy()}>
-                    Rebuy
-                </button>
-
-
-                {/* poker board border */}
-                <div className="flex h-full w-full flex-1 sm:h-auto sm:flex-none md:w-[750px] md:flex-shrink-0">
-                    <div className="mx-auto flex w-full max-w-[750px] flex-1 flex-col overflow-hidden rounded-[50%/200px] border-4 border-[#000201] bg-[#3f3d3d] p-2 sm:h-full sm:p-4 md:rounded-[40%/300px] 2xl:rounded-[60%/500px]">
-                        {/* poker board */}
-                        <div className="poker-board mx-auto flex w-full flex-1 flex-col justify-between overflow-hidden rounded-[50%/200px] border-4 border-[#000201] px-[5px] py-8 sm:h-[calc(100dvh-56px-136px)] md:rounded-[40%/300px] 2xl:rounded-[60%/500px] 2xl:py-12">
-                            <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 sm:max-w-[232px]">
-                                <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl bg-zinc-800 px-4 py-2 text-white shadow-lg">
-                                    <div className="flex">
-                                        <span className="text-sm font-bold sm:text-base">
-                                            Opponent
-                                        </span>
-                                        <span className="flex-1 text-center">${oppStack}</span>
+        <div className="min-h-[calc(100dvh-56px)] w-full">
+            <main className="flex min-h-[calc(100dvh-56px)] w-full flex-col justify-between gap-4 bg-[#111] py-4 lg:flex-row lg:gap-0 lg:px-8">
+                {isOpen && (
+                    <div
+                        className="fixed inset-0 z-10 overflow-y-auto"
+                        onClick={toggleModal}
+                    >
+                        <div className="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center lg:block lg:p-0">
+                            <div
+                                className="fixed inset-0 transition-opacity"
+                                aria-hidden="true"
+                            >
+                                <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                            </div>
+                            <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-block h-full transform overflow-hidden rounded-lg bg-[#222] p-5 text-left align-bottom shadow-xl transition-all lg:mt-32 lg:w-full lg:max-w-lg lg:align-middle"
+                            >
+                                <div className="bg-[#222] pb-4 text-white">
+                                    <div className="flex justify-between pb-4">
+                                        <h1 className="mr-5 bg-[#222] pb-3 pl-2 text-white">
+                                            Rebuy
+                                        </h1>
+                                        <button
+                                            className="h-fit rounded-xl p-1 transition-all hover:bg-zinc-700"
+                                            onClick={toggleModal}
+                                        >
+                                            <X className="size-4 text-zinc-200" />
+                                        </button>
+                                    </div>
+                                    <div className="flex w-full gap-2 rounded-lg pl-2.5">
+                                        <input
+                                            type="number"
+                                            className="w-[60px] bg-transparent  text-white"
+                                            value={rebuyAmountInput}
+                                            onChange={(event) =>
+                                                setRebuyAmountInput(parseInt(event?.target.value))
+                                            }
+                                        />
+                                        <input
+                                            type="range"
+                                            min={20}
+                                            max={200}
+                                            className="custom-range-input w-full"
+                                            value={rebuyAmountInput}
+                                            onChange={(event) =>
+                                                setRebuyAmountInput(parseInt(event.target.value))
+                                            }
+                                        />
                                     </div>
                                 </div>
-                                <Image
-                                    className="max-w-[80px] sm:max-w-[100px]"
-                                    src="/svg_playing_cards/backs/blue.svg"
-                                    width={100}
-                                    height={142.3}
-                                    alt="Poker Card"
-                                />
-                                <Image
-                                    className="max-w-[80px] sm:max-w-[100px]"
-                                    src="/svg_playing_cards/backs/blue.svg"
-                                    width={100}
-                                    height={142.3}
-                                    alt="Poker Card"
-                                />
-                            </section>
-                            <div className="flex flex-col gap-2 sm:gap-2.5">
-                                <section className="mx-auto flex w-full max-w-[536px] gap-2">
+                                <div className="bg-[#222]  lg:flex lg:flex-row-reverse ">
+                                    <button
+                                        onClick={() => {
+                                            toggleModal();
+                                            callRebuy(rebuyAmountInput);
+                                        }}
+                                        type="button"
+                                        className="inline-flex w-full justify-center rounded-md border border-transparent bg-indigo-500 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-600 focus:outline-none lg:ml-3 lg:w-auto lg:text-sm"
+                                    >
+                                        Confirm
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                <div className="flex gap-2 px-3 lg:h-auto lg:flex-1 lg:flex-col lg:px-0">
+                    {pkrState.handStage !== "0" ? (
+                        <>
+                            <TooltipProvider>
+                                <Tooltip delayDuration={10}>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            className="h-fit w-full rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80 disabled:cursor-not-allowed lg:w-[150px]"
+                                            disabled={pkrState.handStage !== "0"}
+                                            onClick={() => leaveTable()}
+                                        >
+                                            Leave Table
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                        side="right"
+                                        className="max-w-[300px] border-none bg-zinc-800 p-4 text-white disabled:hover:bg-zinc-800"
+                                        sideOffset={10}
+                                    >
+                                        <p>This action can only be performed in between hands.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                                <Tooltip delayDuration={10}>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            className="h-fit w-full rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80 disabled:cursor-not-allowed lg:w-[150px]"
+                                            disabled={pkrState.handStage !== "0"}
+                                            //   onClick={() => callRebuy()}
+                                            onClick={toggleModal}
+                                        >
+                                            Rebuy
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                        side="right"
+                                        className="max-w-[300px] border-none bg-zinc-800 p-4 text-white disabled:hover:bg-zinc-800"
+                                        sideOffset={10}
+                                    >
+                                        <p>This action can only be performed in between hands.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                className="h-fit w-full rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80 lg:w-[150px]"
+                                disabled={pkrState.handStage !== "0"}
+                                onClick={() => leaveTable()}
+                            >
+                                Leave Table
+                            </button>
+                            <button
+                                className="h-fit w-full rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80 lg:w-[150px]"
+                                disabled={pkrState.handStage !== "0"}
+                                onClick={toggleModal}
+                            >
+                                Rebuy
+                            </button>
+                        </>
+                    )}
+                </div>
+
+                {/* poker board border */}
+                <div className="flex h-full w-full flex-1 lg:h-auto lg:w-[650px] lg:flex-none lg:flex-shrink-0 xl:w-[750px]">
+                    <div className="mx-auto flex w-full max-w-[750px] flex-1 flex-col overflow-hidden rounded-[50%/200px] border-4 border-[#000201] bg-[#3f3d3d] p-2 md:rounded-[40%/300px] lg:h-full lg:p-4 2xl:rounded-[60%/500px]">
+                        {/* poker board */}
+                        <div className="poker-board mx-auto flex w-full flex-1 flex-col justify-between overflow-hidden rounded-[50%/200px] border-4 border-[#000201] px-[5px] py-8 md:rounded-[40%/300px] lg:h-[calc(100dvh-56px-136px)] 2xl:rounded-[60%/500px] 2xl:py-12">
+                            <div className="flex flex-col gap-2">
+                                <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 lg:max-w-[232px]">
+                                    {!ourButton ? (
+                                        <div className="absolute -left-10 bottom-0 top-0 grid h-full items-center text-center">
+                                            <Image
+                                                className="my-auto h-fit rounded-full bg-black/60"
+                                                src="/svg_playing_cards/yellow-chip.png"
+                                                width={32}
+                                                height={32}
+                                                alt="Yellow Casino Chip"
+                                            />
+                                        </div>
+                                    ) : null}
+
+                                    <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl bg-zinc-800 px-4 py-2 text-white shadow-lg">
+                                        <div className="flex">
+                                            <span className="text-sm font-bold lg:text-base">
+                                                Opponent
+                                            </span>
+                                            <span className="flex-1 text-center">${oppStack}</span>
+                                        </div>
+                                    </div>
                                     <Image
-                                        className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                                        className="max-w-[70px] lg:max-w-[100px]"
+                                        src={svgDefault}
+                                        width={100}
+                                        height={142.3}
+                                        alt="Poker Card"
+                                    />
+                                    <Image
+                                        className="max-w-[70px] lg:max-w-[100px]"
+                                        src={svgDefault}
+                                        width={100}
+                                        height={142.3}
+                                        alt="Poker Card"
+                                    />
+                                </section>
+                                <div className="mx-auto flex w-fit min-w-[60px] gap-1 rounded-full bg-black/60 px-3 py-2 text-center text-white">
+                                    <Image
+                                        className="my-auto h-fit"
+                                        src="/svg_playing_cards/black-chip.svg"
+                                        width={20}
+                                        height={20}
+                                        alt="Black Casino Chip"
+                                    />{" "}
+                                    <span className="font-semibold">
+                                        {oppBetThisStreet}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-2 lg:gap-2.5">
+                                <section className="mx-auto flex w-full max-w-[536px] justify-center gap-2">
+                                    <Image
+                                        className="my-auto h-fit max-w-[63px] sm:max-w-[90px] lg:max-w-[100px]"
                                         src={boardcard0SVG}
                                         width={100}
                                         height={142.3}
                                         alt="Poker Card"
                                     />
                                     <Image
-                                        className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                                        className="my-auto h-fit max-w-[63px] sm:max-w-[90px] lg:max-w-[100px]"
                                         src={boardcard1SVG}
                                         width={100}
                                         height={142.3}
                                         alt="Poker Card"
                                     />
                                     <Image
-                                        className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                                        className="my-auto h-fit max-w-[63px] sm:max-w-[90px] lg:max-w-[100px]"
                                         src={boardcard2SVG}
                                         width={100}
                                         height={142.3}
                                         alt="Poker Card"
                                     />
                                     <Image
-                                        className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                                        className="my-auto h-fit max-w-[63px] sm:max-w-[90px] lg:max-w-[100px]"
                                         src={boardcard3SVG}
                                         width={100}
                                         height={142.3}
                                         alt="Poker Card"
                                     />
                                     <Image
-                                        className="my-auto h-fit max-w-[63px] sm:max-w-[100px]"
+                                        className="my-auto h-fit max-w-[63px] sm:max-w-[90px] lg:max-w-[100px]"
                                         src={boardcard4SVG}
                                         width={100}
                                         height={142.3}
@@ -869,10 +1088,10 @@ export default function Component() {
                                 {/* pot */}
                                 <div className="mx-auto flex w-fit min-w-[60px] gap-1 rounded-full bg-black/60 px-3 py-2 text-center text-white">
                                     <Image
-                                        className="my-auto h-fit max-w-[80px] sm:max-w-[100px]"
+                                        className="my-auto h-fit"
                                         src="/svg_playing_cards/red-chip.png"
-                                        width={24}
-                                        height={24}
+                                        width={20}
+                                        height={20}
                                         alt="Red Casino Chip"
                                     />{" "}
                                     <span className="font-semibold">
@@ -880,34 +1099,62 @@ export default function Component() {
                                     </span>
                                 </div>
                             </div>
-                            <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 sm:max-w-[232px]">
-                                <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl bg-zinc-800 px-4 py-2 text-white">
-                                    <div className="flex">
-                                        <span className="text-sm font-bold sm:text-base">You</span>
-                                        <span className="flex-1 text-center">
-                                            ${ourStack}
-                                        </span>
-                                    </div>
+                            <div className="flex flex-col gap-2">
+                                <div className="mx-auto flex w-fit min-w-[60px] gap-1 rounded-full bg-black/60 px-3 py-2 text-center text-white">
+                                    <Image
+                                        className="my-auto h-fit"
+                                        src="/svg_playing_cards/black-chip.svg"
+                                        width={20}
+                                        height={20}
+                                        alt="Black Casino Chip"
+                                    />{" "}
+                                    <span className="font-semibold">
+                                        {ourBetThisStreet}
+                                    </span>
                                 </div>
-                                <Image
-                                    className="max-w-[80px] sm:max-w-[100px]"
-                                    src={holecard0SVG}
-                                    width={100}
-                                    height={142.3}
-                                    alt="Poker Card"
-                                />
-                                <Image
-                                    className="max-w-[80px] sm:max-w-[100px]"
-                                    src={holecard1SVG}
-                                    width={100}
-                                    height={142.3}
-                                    alt="Poker Card"
-                                />
-                            </section>
+                                <section className="relative mx-auto flex w-full max-w-[188px] justify-center gap-2 px-1 lg:max-w-[232px]">
+                                    {ourButton ? (
+                                        <div className="absolute -left-10 bottom-0 top-0 grid h-full items-center text-center">
+                                            <Image
+                                                className="my-auto h-fit rounded-full bg-black/60"
+                                                src="/svg_playing_cards/yellow-chip.png"
+                                                width={32}
+                                                height={32}
+                                                alt="Yellow Casino Chip"
+                                            />
+                                        </div>
+                                    ) : null}
+
+                                    <div className="absolute inset-x-0 -bottom-1 flex h-12 flex-col justify-center rounded-xl bg-zinc-800 px-4 py-2 text-white">
+                                        <div className="flex">
+                                            <span className="text-sm font-bold lg:text-base">
+                                                You
+                                            </span>
+                                            <span className="flex-1 text-center">
+                                                ${ourStack}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <Image
+                                        className="max-w-[70px] lg:max-w-[100px]"
+                                        src={holecard0SVG}
+                                        width={100}
+                                        height={142.3}
+                                        alt="Poker Card"
+                                    />
+                                    <Image
+                                        className="max-w-[70px] lg:max-w-[100px]"
+                                        src={holecard1SVG}
+                                        width={100}
+                                        height={142.3}
+                                        alt="Poker Card"
+                                    />
+                                </section>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div className="flex justify-center sm:flex-1 sm:flex-col sm:justify-end">
+                <div className="flex justify-center lg:flex-1 lg:flex-col lg:justify-end">
                     <div className="flex w-fit flex-col space-y-3">
                         <div className="flex w-full gap-2 rounded-lg bg-zinc-800 p-2 pl-5">
                             <input
@@ -929,15 +1176,17 @@ export default function Component() {
                                 }
                             />
                         </div>
-                        <div className="flex w-fit justify-start gap-2">
+                        <div className="flex w-full justify-start gap-2">
                             {possibleActions.map((action, index) => (
-                                <div key={index}>
-                                    <button className="w-[100px] rounded-lg bg-zinc-800 px-4 py-3 text-[15px]  font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80" onClick={() => onClickAction(action.action)}>
-                                        {action.action}
+                                <div key={index} className="flex w-full">
+                                    <button
+                                        className="w-[120px] rounded-lg bg-zinc-800 px-4 py-3 text-[14px] font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80"
+                                        onClick={() => onClickAction(action.action)}
+                                    >
+                                        Decode Boardcards
                                     </button>
                                 </div>
                             ))}
-
                         </div>
                     </div>
                 </div>

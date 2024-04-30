@@ -35,7 +35,7 @@ export default function Header({
   return (
     <div className={`flex items-center justify-between bg-[#111] shadow-lg`}>
       <div
-        className={`absolute inset-x-0  left-0 top-[56px] z-50 flex flex-col gap-4 px-4 pb-6 pt-4 shadow-lg transition-all ${
+        className={`absolute inset-x-0  left-0 top-[56px] z-50 flex flex-col gap-4 border-b border-zinc-500 bg-[#111] px-4 pb-6 pt-4 shadow-lg transition-all ${
           isOpen ? "" : "hidden"
         } h-fit  text-white`}
       >
@@ -54,13 +54,12 @@ export default function Header({
         </div>
 
         <div className="flex w-full basis-6/12 flex-row items-center justify-end sm:w-auto">
-          {/* balance */}
           {wallet && (
-            <div className="mr-4 flex shrink flex-col items-end justify-center">
-              <div>
+            <div className="mb-1 mr-4 mt-auto flex shrink flex-col items-end justify-center text-white">
+              <div className="flex flex-col justify-end">
                 <p className="text-xs">Your balance</p>
               </div>
-              <div className="w-32 pt-0.5 text-right">
+              <div className="flex w-32 flex-col justify-end pt-0.5 text-right">
                 {balanceLoading && balance === undefined ? (
                   <Skeleton className="h-4 w-full" />
                 ) : (
