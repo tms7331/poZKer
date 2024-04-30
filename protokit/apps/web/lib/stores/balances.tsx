@@ -42,8 +42,8 @@ export const useBalancesStore = create<
       const key = BalancesKey.from(tokenId, PublicKey.fromBase58(address));
 
       const balance = await client.query.runtime.Balances.balances.get(key);
-      console.log("Called to get balance (regular)...");
-      console.log(balance);
+      // console.log("Called to get balance (regular)...");
+      // console.log(balance);
 
       set((state) => {
         state.loading = false;
@@ -53,8 +53,6 @@ export const useBalancesStore = create<
     async faucet(client: Client, address: string) {
       const balances = client.runtime.resolve("Balances");
       const sender = PublicKey.fromBase58(address);
-
-      console.log("Fauced called regular...");
 
       const tx = await client.transaction(sender, () => {
         balances.addBalance(tokenId, sender, UInt64.from(1000));

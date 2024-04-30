@@ -126,14 +126,8 @@ export const usePoZKerStore = create<
         state.loading = true;
       });
 
-      console.log("Calleed useBalanceStore loadBalance...");
       const player0Key = await client.query.runtime.PoZKerApp.player0Key.get();
-      console.log("MADE player1Hash CALL AND GOT");
-      console.log(player0Key?.toBase58());
       const player1Key = await client.query.runtime.PoZKerApp.player1Key.get();
-      console.log("MADE player2Hash CALL AND GOT");
-      console.log(player1Key?.toBase58());
-      console.log("empty key?", PublicKey.empty().toBase58());
       const stack0 = await client.query.runtime.PoZKerApp.stack0.get();
       const stack1 = await client.query.runtime.PoZKerApp.stack1.get();
 
@@ -149,6 +143,53 @@ export const usePoZKerStore = create<
       const p0Hc1 = await client.query.runtime.PoZKerApp.p0Hc1.get();
       const p1Hc0 = await client.query.runtime.PoZKerApp.p1Hc0.get();
       const p1Hc1 = await client.query.runtime.PoZKerApp.p1Hc1.get();
+
+      // console.log("Card string value... ", p0Hc0?.toString())
+      // console.log("Card string value... ", p1Hc0?.toString())
+      // console.log("Card message value... ", p0Hc0?.msg.toString())
+      // console.log("Card message value... ", p1Hc0?.msg.toString())
+      // console.log("Testing...")
+      // 
+
+      const p0Hc0G: Group = p0Hc0?.msg;
+      const p0Hc1G: Group = p0Hc1?.msg;
+      const p1Hc0G: Group = p1Hc0?.msg;
+      const p1Hc1G: Group = p1Hc1?.msg;
+
+      let p0Hc0V = "0"
+      let p0Hc1V = "0"
+      let p1Hc0V = "0"
+      let p1Hc1V = "0"
+      try {
+        // const test = Group.generator;
+        // const r = test.toJSON();
+        // console.log("R GENERATOR", r)
+        // console.log(r.y)
+        // console.log("R PULL", r)
+        // console.log(p1Hc0G.y);
+        // console.log(p1Hc0G.y.value);
+        // console.log(p1Hc0G.y.value[0]);
+        // const rVal = p1Hc0G.y.value[1].toString();
+        p0Hc0V = p0Hc0G.y.value[1].toString()
+        p0Hc1V = p0Hc1G.y.value[1].toString()
+        p1Hc0V = p1Hc0G.y.value[1].toString()
+        p1Hc1V = p1Hc1G.y.value[1].toString()
+
+      } catch (e: any) {
+
+      }
+
+
+
+      /*
+      const v1 = p1Hc0G.toFields();
+      const v2 = p1Hc0G.toFields()[0];
+      const v3 = p1Hc0G.toFields()[0] ? [0];
+      const v4 = p1Hc0G.toFields()[0] ? [1];
+      console.log(v1);
+      console.log(v2);
+      */
+
       const flop0 = await client.query.runtime.PoZKerApp.flop0.get();
       const flop1 = await client.query.runtime.PoZKerApp.flop1.get();
       const flop2 = await client.query.runtime.PoZKerApp.flop2.get();
@@ -158,24 +199,34 @@ export const usePoZKerStore = create<
       // So if key is null OR equalty to empty public key, display 0...
       const p1Empty = player0Key?.toBase58() === PublicKey.empty().toBase58();
       const p2Empty = player1Key?.toBase58() === PublicKey.empty().toBase58();
+
       const player0Key_ = p1Empty ? "0" : player0Key?.toBase58();
       const player1Key_ = p2Empty ? "0" : player1Key?.toBase58();
+      // console.log("PLAYER KEYS:")
+      // console.log(player0Key_);
+      // console.log(player1Key_);
+      // const player0Key_ = "B62qjskaUzuxWfXiEQHRTHoNHCwFqDNhJSxCjkVLJY7VuA7uFjtcGrP";
+      // const player1Key_ = "B62qneaGjjo5CtUsJBCWA6NCmf67qMWz84C5vwkHSdHAxaJS8PMxdfu";
 
+      const playerTurnStr = playerTurn?.toString();
+      // We used 2 and 3 for our encoding due to a past version of the contract
+      // Easier if we convert to 0/1
+      const playerTurn_ = playerTurnStr === "3" ? "1" : "0"
       set((state) => {
         state.player0Key = player0Key_ ?? "0";
         state.player1Key = player1Key_ ?? "0";
         state.stack0 = stack0?.toString() ?? "0";
         state.stack1 = stack1?.toString() ?? "0";
-        state.playerTurn = playerTurn?.toString() ?? "0";
+        state.playerTurn = playerTurn_;
         state.lastAction = lastAction?.toString() ?? "0";
         state.handStage = handStage?.toString() ?? "0";
         state.pot = pot?.toString() ?? "0";
         state.handId = handId?.toString() ?? "0";
         state.button = button?.toString() ?? "0";
-        // state.p0Hc0 = p0Hc0?.toString() ?? "0";
-        // state.p0Hc1 = p0Hc1?.toString() ?? "0";
-        // state.p1Hc0 = p1Hc0?.toString() ?? "0";
-        // state.p1Hc1 = p1Hc1?.toString() ?? "0";
+        state.p0Hc0 = p0Hc0V;
+        state.p0Hc1 = p0Hc1V;
+        state.p1Hc0 = p1Hc0V;
+        state.p1Hc1 = p1Hc1V;
         state.flop0 = flop0?.toString() ?? "0";
         state.flop1 = flop1?.toString() ?? "0";
         state.flop2 = flop2?.toString() ?? "0";
@@ -362,7 +413,9 @@ export const usePoZKerStore = create<
       const sender = PublicKey.fromBase58(address);
 
       const g0: Group = Group.generator;
-      const g1: Group = Group.generator;
+      // Use a random value so it's differentiated from the generator and we detect change
+      const cardPoint: PublicKey = PublicKey.fromPrivateKey(PrivateKey.random());
+      const g1: Group = cardPoint.toGroup();
       const g2: Group = Group.generator;
       const card0: Card = new Card(g0, g1, g2);
       const card1: Card = new Card(g0, g1, g2);

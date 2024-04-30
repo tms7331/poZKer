@@ -104,17 +104,25 @@ export default function Component() {
     const [boardcard3, setBoardcard3] = useState<number>(0);
     const [boardcard4, setBoardcard4] = useState<number>(0);
 
-    const [holecard0SVG, setHolecard0SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
-    const [holecard1SVG, setHolecard1SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
-    const [boardcard0SVG, setBoardcard0SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
-    const [boardcard1SVG, setBoardcard1SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
-    const [boardcard2SVG, setBoardcard2SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
-    const [boardcard3SVG, setBoardcard3SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
-    const [boardcard4SVG, setBoardcard4SVG] = useState<string>("/svg_playing_cards/backs/blue.svg");
+    const svgDefault = "/svg_playing_cards/backs/blue.svg";
+
+    const [holecard0SVG, setHolecard0SVG] = useState<string>(svgDefault);
+    const [holecard1SVG, setHolecard1SVG] = useState<string>(svgDefault);
+    const [boardcard0SVG, setBoardcard0SVG] = useState<string>(svgDefault);
+    const [boardcard1SVG, setBoardcard1SVG] = useState<string>(svgDefault);
+    const [boardcard2SVG, setBoardcard2SVG] = useState<string>(svgDefault);
+    const [boardcard3SVG, setBoardcard3SVG] = useState<string>(svgDefault);
+    const [boardcard4SVG, setBoardcard4SVG] = useState<string>(svgDefault);
 
     // Which player we are...
     type Player = "0" | "1" | "notInGame";
     const [player, setPlayer] = useState<Player>("notInGame");
+
+    const [ourStack, setOurStack] = useState<number>(0);
+    const [oppStack, setOppStack] = useState<number>(0);
+
+    const [ourBetThisStreet, setOurBetThisStreet] = useState<number>(0);
+    const [oppBetThisStreet, setOppBetThisStreet] = useState<number>(0);
 
     useEffect(() => {
         const userKey = wallet.wallet;
@@ -124,22 +132,45 @@ export default function Component() {
         if (userKey === pkrState.player0Key) {
             console.log("Matched player 0...");
             setPlayer("0");
+            setOurStack(Number(pkrState.stack0))
+            setOppStack(Number(pkrState.stack1))
             // Hardcoding player's cards
             // setHoleCards(["Ah", "Ad"]);
         } else if (userKey === pkrState.player1Key) {
             console.log("Matched player 1...");
             setPlayer("1");
+            setOurStack(Number(pkrState.stack1))
+            setOppStack(Number(pkrState.stack0))
         } else {
             console.log("Not in game...");
             setPlayer("notInGame");
+            setOurStack(0)
+            setOppStack(0)
         }
     }, [pkrState.player0Key, pkrState.player1Key, wallet.wallet]);
 
     useEffect(() => {
+        console.log("######### END OF HAND #########")
+        console.log(" RESETTING VALUES! ")
         const randNum: number = Math.floor(Math.random() * 1_000_000_000_000);
         // For every hand we need to generate a new shuffleKey for the shuffling
         const shuffleKeyNew: string = PrivateKey.fromBigInt(BigInt(randNum)).toBase58();
         setShuffleKey(shuffleKeyNew);
+        setShuffleComplete(false);
+        setHolecard0(0);
+        setHolecard1(0);
+        setBoardcard0(0);
+        setBoardcard1(0);
+        setBoardcard2(0);
+        setBoardcard3(0);
+        setBoardcard4(0);
+        setHolecard0SVG(svgDefault);
+        setHolecard1SVG(svgDefault);
+        setBoardcard0SVG(svgDefault);
+        setBoardcard1SVG(svgDefault);
+        setBoardcard2SVG(svgDefault);
+        setBoardcard3SVG(svgDefault);
+        setBoardcard4SVG(svgDefault);
     }, [pkrState.handId]);
 
 
@@ -190,8 +221,11 @@ export default function Component() {
 
     useEffect(() => {
         // Only if we're player 0, get cards
+        console.log("HOLECARDS CHANGED FOR p0!!!!")
+        // Should be in DealHolecardsA (2)
         const fetchData = async () => {
-            if (player === "0") {
+            // Think it can be in 2 or 3?
+            if (player === "0" && (pkrState.handStage === "2" || pkrState.handStage === "3")) {
                 const seatI = "0";
                 const cards = await fetchAPICards(pkrState.handId, seatI, "holeCards");
                 setHolecard0(cards[0]!);
@@ -205,12 +239,16 @@ export default function Component() {
 
     useEffect(() => {
         // Only if we're player 1, get cards
+        console.log("HOLECARDS CHANGED FOR p1!!!!")
+        // Should be in DealHolecardsB (3)
         const fetchData = async () => {
-            if (player === "1") {
+            if (player === "1" && (pkrState.handStage === "3" || pkrState.handStage === "4")) {
                 const seatI = "1"
                 const cards = await fetchAPICards(pkrState.handId, seatI, "holeCards");
                 setHolecard0(cards[0]!);
                 setHolecard1(cards[1]!);
+                setHolecard0SVG(cardMapping52SVG[cards[0]]);
+                setHolecard1SVG(cardMapping52SVG[cards[1]]);
             }
         }
         fetchData();
@@ -335,7 +373,8 @@ export default function Component() {
                 // shuffleAndPass() - no contract interaciton, only API:
                 // getDeck() encryptDeck() shuffleDeck() postDeck()
                 break;
-            case "Commit Opponent Holecards":
+            // case "Commit Opponent Holecards":
+            case "Get Holecards":
                 // TODO - still need to get the cards here...
                 // commitOpponentHolecards(card0: Card, card1: Card)
                 await commitOpponentHolecards();
@@ -451,9 +490,9 @@ export default function Component() {
         { action: "Bet", player: "player2" },
         { action: "Raise", player: "player1" },
     ];
-    const [actionHistory, setActionHistory] = useState(actions);
-    const possibleActionsInit = [{ action: "Call", needsAmount: true }];
-    const [possibleActions, setPossibleActions] = useState(possibleActionsInit);
+    // const [actionHistory, setActionHistory] = useState(actions);
+    // const possibleActionsInit = [{ action: "Call", needsAmount: true }];
+    const [possibleActions, setPossibleActions] = useState<any[]>([]);
 
 
     const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -462,7 +501,7 @@ export default function Component() {
     };
 
     // So we need to figure out this logic too...
-    function getPossibleActions(): any[] {
+    function getPossibleActions(playerI: string): any[] {
         // We need a mapping from every possible handStage to the possible actions - 
         // for each player, at that handStage...
         // Some of the logic is dependent on player0/player1
@@ -479,7 +518,8 @@ export default function Component() {
         const RAISE = { "action": "Raise" };
         // Other methods
         const SHUFFLE_AND_DEAL = { "action": "Shuffle and Pass" };
-        const COMMIT_OPP_HOLECARDS = { "action": "Commit Opponent Holecards" };
+        // const COMMIT_OPP_HOLECARDS = { "action": "Commit Opponent Holecards" };
+        const COMMIT_OPP_HOLECARDS = { "action": "Get Holecards" };
         const COMMIT_BOARDCARDS = { "action": "Commit Boardcards" };
         const DECODE_BOARDCARDS = { "action": "Decode Boardcards" };
         const SHOW_CARDS = { "action": "Show Cards" };
@@ -494,18 +534,21 @@ export default function Component() {
         // HandStage encoding...
         let actionList: any[] = []
 
+        console.log("HAND STAGE", pkrState.handStage)
+        console.log("player vs button...", playerI, pkrState.button, playerI === pkrState.button)
+
         switch (pkrState.handStage) {
             case '0':
                 // SBPostStage = Field(0);
                 // If player is the button, their turn to post, else nothing
-                if (player === pkrState.button) {
+                if (playerI === pkrState.button) {
                     actionList = [POSTSB];
                 }
                 break;
             case '1':
                 // BBPostStage = Field(1);
                 // If player is NOT the button, their turn to post BB, else nothing
-                if (player !== pkrState.button) {
+                if (playerI !== pkrState.button) {
                     actionList = [POSTBB];
                 }
                 break;
@@ -515,70 +558,77 @@ export default function Component() {
                 // TODO - figure out better way to do transitions
                 // both players need to shuffle and pass (step 1)
                 // and after that is done, both players commit cards
-                if (!shuffleComplete) {
-                    actionList = [SHUFFLE_AND_DEAL];
-                }
-                else {
-                    actionList = [COMMIT_OPP_HOLECARDS];
+                if (playerI === "0") {
+                    if (!shuffleComplete) {
+                        actionList = [SHUFFLE_AND_DEAL];
+                    }
+                    else {
+                        actionList = [COMMIT_OPP_HOLECARDS];
+                    }
                 }
                 break;
             case '3':
                 // DealHolecardsB = Field(3);
-                if (player === "1") {
-                    actionList = [SHUFFLE_AND_DEAL];
+                if (playerI === "1") {
+                    if (!shuffleComplete) {
+                        actionList = [SHUFFLE_AND_DEAL];
+                    }
+                    else {
+                        actionList = [COMMIT_OPP_HOLECARDS];
+                    }
                 }
                 break;
             case '5':
                 // FlopDeal = Field(5);
-                if (player === "0") {
+                if (playerI === "0") {
                     actionList = [COMMIT_BOARDCARDS];
                 }
                 break;
             case '6':
                 // FlopDealDec = Field(6); // 'Dec' ones are decode stage
-                if (player === "1") {
+                if (playerI === "1") {
                     actionList = [DECODE_BOARDCARDS];
                 }
                 break;
             case '8':
                 // TurnDeal = Field(8);
-                if (player === "0") {
+                if (playerI === "0") {
                     actionList = [COMMIT_BOARDCARDS];
                 }
                 break;
             case '9':
                 // TurnDealDec = Field(9);
-                if (player === "1") {
+                if (playerI === "1") {
                     actionList = [DECODE_BOARDCARDS];
                 }
                 break;
             case '11':
                 // RiverDeal = Field(11);
-                if (player === "0") {
+                if (playerI === "0") {
                     actionList = [COMMIT_BOARDCARDS];
                 }
                 break;
             case '12':
                 // RiverDealDec = Field(12);
-                if (player === "1") {
+                if (playerI === "1") {
                     actionList = [DECODE_BOARDCARDS];
                 }
                 break;
             case '14':
                 // ShowdownA = Field(14);
-                if (player === "0") {
+                if (playerI === "0") {
                     actionList = [SHOW_CARDS];
                 }
                 break;
             case '15':
                 // ShowdownB = Field(15);
-                if (player === "1") {
+                if (playerI === "1") {
                     actionList = [SHOW_CARDS];
                 }
                 break;
             case '16':
                 // Settle = Field(16);
-                if (player === "0") {
+                if (playerI === "0") {
                     actionList = [SETTLE];
                 }
                 break;
@@ -612,19 +662,46 @@ export default function Component() {
                     "8": "PostBBAct",
                 };
                 const lastActionStr: string = lastActionRef[pkrState.lastAction];
+                console.log("CHECKING FOR BET ACTIONS!")
+                console.log("Player's turn?", playerI, pkrState.playerTurn, playerI == pkrState.playerTurn)
+                console.log("LAST ACTION STR", lastActionStr, "from", pkrState.lastAction);
                 // Can only act if it's their turn!
-                if (player == pkrState.playerTurn) {
+                if (playerI == pkrState.playerTurn) {
                     // Given game state we should specify the subset of actions that are available to the player
+                    // Max bet is always our stack...
+                    setMaxSlider(ourStack);
                     if (lastActionStr === "Null" || lastActionStr === "Check") {
                         // For the preflop scenario - we handle that via separate handStage...
                         actionList = [BET, CHECK, FOLD];
+                        setMinSlider(1);
                     } else if (lastActionStr === "Bet" || lastActionStr === "Raise" || lastActionStr === "Call") {
-                        actionList = [CALL, FOLD, RAISE];
+                        actionList = [RAISE, CALL, FOLD];
+                        const betDiff = oppBetThisStreet - ourBetThisStreet;
+                        if (betDiff * 2 > ourStack) {
+                            setMinSlider(betDiff * 2);
+                        }
+                        else {
+                            setMinSlider(ourStack);
+                        }
                     } else if (lastActionStr === "PreflopCall") {
                         actionList = [RAISE, CHECK];
-                    } else if (lastActionStr === "PostSBAct") {
-                        actionList = [POSTBB];
+                        // Just hardcode it here?  Min raise is to 4?
+                        setMinSlider(2);
                     }
+                    else if (lastActionStr === "PostBBAct") {
+                        actionList = [RAISE, CALL, FOLD];
+                        const betDiff = oppBetThisStreet - ourBetThisStreet;
+                        if (betDiff * 2 > ourStack) {
+                            setMinSlider(betDiff * 2);
+                        }
+                        else {
+                            setMinSlider(ourStack);
+                        }
+                    }
+                    // Handled elsewhere...
+                    // else if (lastActionStr === "PostSBAct") {
+                    //     actionList = [POSTBB];
+                    // }
                     else {
                         console.error("Unexpected facing action:", pkrState.lastAction);
                     }
@@ -635,17 +712,78 @@ export default function Component() {
         return actionList;
     }
 
-    /*
     useEffect(() => {
-        if (actionHistory.length == 0) {
-            return;
+        // Whenever handStage or lastAction changes, the possible actions should change
+        // To enable switching between both players in one browser, also run it when wallet changes...
+        // console.log("Updating possible actions...")
+        // // this will return a "1" if player is not in game, look to clean it up...
+        // const possibleActions = getPossibleActions(player);
+        // console.log("Got possible actions!", possibleActions);
+        // setPossibleActions(possibleActions);
+        const userKey = wallet.wallet;
+        if (userKey === pkrState.player0Key) {
+            console.log("Matched player 0...");
+            setPlayer("0");
+            // Hardcoding player's cards
+            // setHoleCards(["Ah", "Ad"]);
+            const possibleActions = getPossibleActions("0");
+            setPossibleActions(possibleActions);
+            setOurStack(Number(pkrState.stack0))
+            setOppStack(Number(pkrState.stack1))
+        } else if (userKey === pkrState.player1Key) {
+            console.log("Matched player 1...");
+            setPlayer("1");
+            const possibleActions = getPossibleActions("1");
+            setPossibleActions(possibleActions);
+            setOurStack(Number(pkrState.stack1))
+            setOppStack(Number(pkrState.stack0))
+        } else {
+            console.log("Not in game...");
+            setPlayer("notInGame");
+            setOurStack(0)
+            setOppStack(0)
         }
-        console.log("ACTION HISTORY", actionHistory);
-        const facingAction = actionHistory[actionHistory.length - 1]["action"];
-        const possibleActions = getPossibleActions(facingAction);
-        setPossibleActions(possibleActions);
-    }, [actionHistory]);
-    */
+    }, [pkrState.handStage, pkrState.lastAction, wallet.wallet, shuffleComplete]);
+
+
+    useEffect(() => {
+        const userKey = wallet.wallet;
+        if (userKey === pkrState.player0Key) {
+            setOurStack(Number(pkrState.stack0))
+            setOppStack(Number(pkrState.stack1))
+        } else if (userKey === pkrState.player1Key) {
+            setOurStack(Number(pkrState.stack1))
+            setOppStack(Number(pkrState.stack0))
+        } else {
+            setOurStack(0)
+            setOppStack(0)
+        }
+    }, [pkrState.stack0, pkrState.stack1, wallet.wallet]);
+
+
+    // On page load we need to set player and actions...
+    useEffect(() => {
+        const userKey = wallet.wallet;
+        if (userKey === pkrState.player0Key) {
+            console.log("Matched player 0...");
+            setPlayer("0");
+            // Hardcoding player's cards
+            // setHoleCards(["Ah", "Ad"]);
+            const possibleActions = getPossibleActions("0");
+            setPossibleActions(possibleActions);
+        } else if (userKey === pkrState.player1Key) {
+            console.log("Matched player 1...");
+            setPlayer("1");
+            const possibleActions = getPossibleActions("1");
+            setPossibleActions(possibleActions);
+        } else {
+            console.log("Not in game...");
+            setPlayer("notInGame");
+        }
+
+    }, []);
+
+
 
     return (
         <div className="min-h-[calc(100dvh-56px)]">
@@ -672,8 +810,7 @@ export default function Component() {
                                         <span className="text-sm font-bold sm:text-base">
                                             Opponent
                                         </span>
-                                        <span className="flex-1 text-center">${"0"}</span>
-                                        {/* pkrState.stack2 || */}
+                                        <span className="flex-1 text-center">${oppStack}</span>
                                     </div>
                                 </div>
                                 <Image
@@ -748,7 +885,7 @@ export default function Component() {
                                     <div className="flex">
                                         <span className="text-sm font-bold sm:text-base">You</span>
                                         <span className="flex-1 text-center">
-                                            ${pkrState.stack1}
+                                            ${ourStack}
                                         </span>
                                     </div>
                                 </div>
