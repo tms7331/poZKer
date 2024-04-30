@@ -132,44 +132,31 @@ export default function Component() {
 
     const [ourButton, setOurButton] = useState<boolean>(false);
 
-    // TODO - ones he added...
-    // const [currentPlayerTurn, setCurrentPlayerTurn] = useState(1);
-    // const [opponentBetAmount, setOpponentBetAmount] = useState(0);
-    // const [yourBetAmount, setYourBetAmount] = useState(0);
-
     useEffect(() => {
         const userKey = wallet.wallet;
-        console.log("userKey is:", userKey);
 
         // Figure out which player we are...
         if (userKey === pkrState.player0Key) {
-            console.log("Matched player 0...");
             setPlayer("0");
             setOurStack(Number(pkrState.stack0))
             setOppStack(Number(pkrState.stack1))
-            console.log("BUTTON STATE", pkrState.button);
             let ourButton_ = false;
             if (pkrState.button === "0") {
                 ourButton_ = true;
             }
-            console.log("Setting our button to...", ourButton_)
             setOurButton(ourButton_);
             // Hardcoding player's cards
             // setHoleCards(["Ah", "Ad"]);
         } else if (userKey === pkrState.player1Key) {
-            console.log("Matched player 1...");
             setPlayer("1");
             setOurStack(Number(pkrState.stack1))
             setOppStack(Number(pkrState.stack0))
-            console.log("BUTTON STATE", pkrState.button);
             let ourButton_ = false;
             if (pkrState.button === "1") {
                 ourButton_ = true;
             }
-            console.log("Setting our button to...", ourButton_)
             setOurButton(ourButton_);
         } else {
-            console.log("Not in game...");
             setPlayer("notInGame");
             setOurStack(0)
             setOppStack(0)
@@ -193,8 +180,6 @@ export default function Component() {
     }, [pkrState.betThisStreet0, pkrState.betThisStreet1]);
 
     useEffect(() => {
-        console.log("######### END OF HAND #########")
-        console.log(" RESETTING VALUES! ")
         const randNum: number = Math.floor(Math.random() * 1_000_000_000_000);
         // For every hand we need to generate a new shuffleKey for the shuffling
         const shuffleKeyNew: string = PrivateKey.fromBigInt(BigInt(randNum)).toBase58();
@@ -215,11 +200,19 @@ export default function Component() {
         setBoardcard3SVG(svgDefault);
         setBoardcard4SVG(svgDefault);
 
-        if (player === pkrState.button) {
+        // Do it this way to be sure during loading?
+        let player_ = "notInGame"
+        const userKey = wallet.wallet;
+        if (userKey === pkrState.player0Key) {
+            player_ = "0"
+        } else if (userKey === pkrState.player1Key) {
+            player_ = "1"
+        }
+        if (player_ === pkrState.button) {
             setOurButton(true);
         }
         else {
-            setOurButton(true);
+            setOurButton(false);
         }
     }, [pkrState.handId]);
 
@@ -241,7 +234,6 @@ export default function Component() {
 
     useEffect(() => {
         // Only if we're player 0, get cards
-        console.log("HOLECARDS CHANGED FOR p0!!!!")
         // Should be in DealHolecardsA (2)
         const fetchData = async () => {
             // Think it can be in 2 or 3?
@@ -259,7 +251,6 @@ export default function Component() {
 
     useEffect(() => {
         // Only if we're player 1, get cards
-        console.log("HOLECARDS CHANGED FOR p1!!!!")
         // Should be in DealHolecardsB (3)
         const fetchData = async () => {
             if (player === "1" && (pkrState.handStage === "3" || pkrState.handStage === "4")) {
@@ -324,10 +315,6 @@ export default function Component() {
             });
             if (response) {
                 const data = await response.json();
-                console.log("GOT API DATA!");
-                console.log(data);
-                console.log(data.cards[0]);
-                console.log(data.matched);
                 return data.cards;
             } else {
                 console.log("NO RESPONSE FROM API...");
@@ -337,34 +324,6 @@ export default function Component() {
         }
         console.log("DONE CALLING API...");
     };
-
-    useEffect(() => {
-        // Only if we're player 0, get cards
-        const fetchData = async () => {
-            if (player === "0") {
-                const seatI = "0";
-                const cards = await fetchAPICards(pkrState.handId, seatI, "holeCards");
-                setHolecard0(cards[0]!);
-                setHolecard1(cards[1]!);
-                setHolecard0SVG(cardMapping52SVG[cards[0]]);
-                setHolecard1SVG(cardMapping52SVG[cards[1]]);
-            }
-        };
-        fetchData();
-    }, [pkrState.p0Hc0, pkrState.p0Hc1]);
-
-    useEffect(() => {
-        // Only if we're player 1, get cards
-        const fetchData = async () => {
-            if (player === "1") {
-                const seatI = "1";
-                const cards = await fetchAPICards(pkrState.handId, seatI, "holeCards");
-                setHolecard0(cards[0]!);
-                setHolecard1(cards[1]!);
-            }
-        };
-        fetchData();
-    }, [pkrState.p1Hc0, pkrState.p1Hc1]);
 
     const callRebuy = async (depositAmount: number) => {
         // always rebuy for 100?
@@ -633,9 +592,6 @@ export default function Component() {
         // HandStage encoding...
         let actionList: any[] = []
 
-        console.log("HAND STAGE", pkrState.handStage)
-        console.log("player vs button...", playerI, pkrState.button, playerI === pkrState.button)
-
         switch (pkrState.handStage) {
             case '0':
                 // SBPostStage = Field(0);
@@ -761,41 +717,44 @@ export default function Component() {
                     "8": "PostBBAct",
                 };
                 const lastActionStr: string = lastActionRef[pkrState.lastAction];
-                console.log("CHECKING FOR BET ACTIONS!")
-                console.log("Player's turn?", playerI, pkrState.playerTurn, playerI == pkrState.playerTurn)
-                console.log("LAST ACTION STR", lastActionStr, "from", pkrState.lastAction);
                 // Can only act if it's their turn!
                 if (playerI == pkrState.playerTurn) {
                     // Given game state we should specify the subset of actions that are available to the player
                     // Max bet is always our stack...
-                    console.log("SETTING MAX SLIDER TO", ourStack);
                     setMaxSlider(ourStack);
                     if (lastActionStr === "Null" || lastActionStr === "Check") {
                         // For the preflop scenario - we handle that via separate handStage...
                         actionList = [BET, CHECK, FOLD];
                         setMinSlider(1);
+                        setBetAmountInput(1);
                     } else if (lastActionStr === "Bet" || lastActionStr === "Raise" || lastActionStr === "Call") {
                         actionList = [RAISE, CALL, FOLD];
-                        const betDiff = oppBetThisStreet - ourBetThisStreet;
-                        if (betDiff * 2 > ourStack) {
+                        // const betDiff = oppBetThisStreet - ourBetThisStreet;
+                        const betDiff = Math.abs(Number(pkrState.betThisStreet1) - Number(pkrState.betThisStreet0));
+                        if (betDiff * 2 < ourStack) {
                             setMinSlider(betDiff * 2);
+                            setBetAmountInput(betDiff * 2);
                         }
                         else {
                             setMinSlider(ourStack);
+                            setBetAmountInput(ourStack);
                         }
                     } else if (lastActionStr === "PreflopCall") {
                         actionList = [RAISE, CHECK];
                         // Just hardcode it here?  Min raise is to 4?
                         setMinSlider(2);
+                        setBetAmountInput(2);
                     }
                     else if (lastActionStr === "PostBBAct") {
                         actionList = [RAISE, CALL, FOLD];
-                        const betDiff = oppBetThisStreet - ourBetThisStreet;
-                        if (betDiff * 2 > ourStack) {
+                        const betDiff = Math.abs(Number(pkrState.betThisStreet1) - Number(pkrState.betThisStreet0));
+                        if (betDiff * 2 < ourStack) {
                             setMinSlider(betDiff * 2);
+                            setBetAmountInput(betDiff * 2);
                         }
                         else {
                             setMinSlider(ourStack);
+                            setBetAmountInput(ourStack);
                         }
                     }
                     // Handled elsewhere...
@@ -822,7 +781,6 @@ export default function Component() {
         // setPossibleActions(possibleActions);
         const userKey = wallet.wallet;
         if (userKey === pkrState.player0Key) {
-            console.log("Matched player 0...");
             setPlayer("0");
             // Hardcoding player's cards
             // setHoleCards(["Ah", "Ad"]);
@@ -831,14 +789,12 @@ export default function Component() {
             setOurStack(Number(pkrState.stack0))
             setOppStack(Number(pkrState.stack1))
         } else if (userKey === pkrState.player1Key) {
-            console.log("Matched player 1...");
             setPlayer("1");
             const possibleActions = getPossibleActions("1");
             setPossibleActions(possibleActions);
             setOurStack(Number(pkrState.stack1))
             setOppStack(Number(pkrState.stack0))
         } else {
-            console.log("Not in game...");
             setPlayer("notInGame");
             setOurStack(0)
             setOppStack(0)
@@ -865,19 +821,16 @@ export default function Component() {
     useEffect(() => {
         const userKey = wallet.wallet;
         if (userKey === pkrState.player0Key) {
-            console.log("Matched player 0...");
             setPlayer("0");
             // Hardcoding player's cards
             // setHoleCards(["Ah", "Ad"]);
             const possibleActions = getPossibleActions("0");
             setPossibleActions(possibleActions);
         } else if (userKey === pkrState.player1Key) {
-            console.log("Matched player 1...");
             setPlayer("1");
             const possibleActions = getPossibleActions("1");
             setPossibleActions(possibleActions);
         } else {
-            console.log("Not in game...");
             setPlayer("notInGame");
         }
 
@@ -1032,7 +985,7 @@ export default function Component() {
                         <div className="poker-board mx-auto flex w-full flex-1 flex-col justify-between overflow-hidden rounded-[50%/200px] border-4 border-[#000201] px-[5px] py-8 md:rounded-[40%/300px] lg:h-[calc(100dvh-56px-136px)] 2xl:rounded-[60%/500px] 2xl:py-12">
                             <div className="flex flex-col gap-2">
                                 <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 lg:max-w-[232px]">
-                                    {ourButton ? (
+                                    {!ourButton ? (
                                         <div className="absolute -left-10 bottom-0 top-0 grid h-full items-center text-center">
                                             <Image
                                                 className="my-auto h-fit rounded-full bg-black/60"
@@ -1129,6 +1082,8 @@ export default function Component() {
                                     />{" "}
                                     <span className="font-semibold">
                                         {Number(pkrState.pot) - ourBetThisStreet - oppBetThisStreet}
+                                        MIN NUM: {minSlider}
+                                        MAX NUM: {maxSlider}
                                     </span>
                                 </div>
                             </div>
@@ -1146,7 +1101,7 @@ export default function Component() {
                                     </span>
                                 </div>
                                 <section className="relative mx-auto flex w-full max-w-[188px] justify-center gap-2 px-1 lg:max-w-[232px]">
-                                    {!ourButton ? (
+                                    {ourButton ? (
                                         <div className="absolute -left-10 bottom-0 top-0 grid h-full items-center text-center">
                                             <Image
                                                 className="my-auto h-fit rounded-full bg-black/60"
