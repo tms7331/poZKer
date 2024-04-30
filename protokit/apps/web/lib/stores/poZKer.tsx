@@ -44,6 +44,8 @@ export interface PoZKerState {
   lastAction: string,
   handStage: string,
   pot: string,
+  betThisStreet0: string,
+  betThisStreet1: string,
   handId: string,
   button: string,
   p0Hc0: string,
@@ -120,6 +122,8 @@ export const usePoZKerStore = create<
     turn0: "0",
     river0: "0",
     pot: "0",
+    betThisStreet0: "0",
+    betThisStreet1: "0",
 
     async loadState(client: Client, address: string) {
       set((state) => {
@@ -134,7 +138,8 @@ export const usePoZKerStore = create<
       const playerTurn = await client.query.runtime.PoZKerApp.playerTurn.get();
       const handStage = await client.query.runtime.PoZKerApp.handStage.get();
       const pot = await client.query.runtime.PoZKerApp.pot.get();
-
+      const betThisStreet0 = await client.query.runtime.PoZKerApp.betThisStreet0.get();
+      const betThisStreet1 = await client.query.runtime.PoZKerApp.betThisStreet1.get();
       const handId = await client.query.runtime.PoZKerApp.handId.get();
       const button = await client.query.runtime.PoZKerApp.button.get();
       const lastAction = await client.query.runtime.PoZKerApp.lastAction.get();
@@ -179,17 +184,6 @@ export const usePoZKerStore = create<
 
       }
 
-
-
-      /*
-      const v1 = p1Hc0G.toFields();
-      const v2 = p1Hc0G.toFields()[0];
-      const v3 = p1Hc0G.toFields()[0] ? [0];
-      const v4 = p1Hc0G.toFields()[0] ? [1];
-      console.log(v1);
-      console.log(v2);
-      */
-
       const flop0 = await client.query.runtime.PoZKerApp.flop0.get();
       const flop1 = await client.query.runtime.PoZKerApp.flop1.get();
       const flop2 = await client.query.runtime.PoZKerApp.flop2.get();
@@ -221,6 +215,8 @@ export const usePoZKerStore = create<
         state.lastAction = lastAction?.toString() ?? "0";
         state.handStage = handStage?.toString() ?? "0";
         state.pot = pot?.toString() ?? "0";
+        state.betThisStreet0 = betThisStreet0?.toString() ?? "0";
+        state.betThisStreet1 = betThisStreet1?.toString() ?? "0";
         state.handId = handId?.toString() ?? "0";
         state.button = button?.toString() ?? "0";
         state.p0Hc0 = p0Hc0V;

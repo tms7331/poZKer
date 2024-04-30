@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Field, PublicKey, PrivateKey } from "o1js";
+import { PrivateKey } from "o1js";
 import {
     usePoZKerStore,
     useShowCards,
@@ -128,14 +128,12 @@ export default function Component() {
     const [ourBetThisStreet, setOurBetThisStreet] = useState<number>(0);
     const [oppBetThisStreet, setOppBetThisStreet] = useState<number>(0);
 
-    const [betAmount, setBetAmount] = useState<number>(0);
     const [possibleActions, setPossibleActions] = useState<any[]>([]);
 
     const [ourButton, setOurButton] = useState<boolean>(false);
 
     // TODO - ones he added...
     // const [currentPlayerTurn, setCurrentPlayerTurn] = useState(1);
-
     // const [opponentBetAmount, setOpponentBetAmount] = useState(0);
     // const [yourBetAmount, setYourBetAmount] = useState(0);
 
@@ -149,6 +147,13 @@ export default function Component() {
             setPlayer("0");
             setOurStack(Number(pkrState.stack0))
             setOppStack(Number(pkrState.stack1))
+            console.log("BUTTON STATE", pkrState.button);
+            let ourButton_ = false;
+            if (pkrState.button === "0") {
+                ourButton_ = true;
+            }
+            console.log("Setting our button to...", ourButton_)
+            setOurButton(ourButton_);
             // Hardcoding player's cards
             // setHoleCards(["Ah", "Ad"]);
         } else if (userKey === pkrState.player1Key) {
@@ -156,6 +161,13 @@ export default function Component() {
             setPlayer("1");
             setOurStack(Number(pkrState.stack1))
             setOppStack(Number(pkrState.stack0))
+            console.log("BUTTON STATE", pkrState.button);
+            let ourButton_ = false;
+            if (pkrState.button === "1") {
+                ourButton_ = true;
+            }
+            console.log("Setting our button to...", ourButton_)
+            setOurButton(ourButton_);
         } else {
             console.log("Not in game...");
             setPlayer("notInGame");
@@ -163,6 +175,22 @@ export default function Component() {
             setOppStack(0)
         }
     }, [pkrState.player0Key, pkrState.player1Key, wallet.wallet]);
+
+    useEffect(() => {
+        const userKey = wallet.wallet;
+        // Figure out which player we are...
+        if (userKey === pkrState.player0Key) {
+            setOurBetThisStreet(Number(pkrState.betThisStreet0));
+            setOppBetThisStreet(Number(pkrState.betThisStreet1));
+        } else if (userKey === pkrState.player1Key) {
+
+            setOurBetThisStreet(Number(pkrState.betThisStreet1));
+            setOppBetThisStreet(Number(pkrState.betThisStreet0));
+        } else {
+            setOurBetThisStreet(0);
+            setOppBetThisStreet(0);
+        }
+    }, [pkrState.betThisStreet0, pkrState.betThisStreet1]);
 
     useEffect(() => {
         console.log("######### END OF HAND #########")
@@ -186,6 +214,13 @@ export default function Component() {
         setBoardcard2SVG(svgDefault);
         setBoardcard3SVG(svgDefault);
         setBoardcard4SVG(svgDefault);
+
+        if (player === pkrState.button) {
+            setOurButton(true);
+        }
+        else {
+            setOurButton(true);
+        }
     }, [pkrState.handId]);
 
 
@@ -331,9 +366,11 @@ export default function Component() {
         fetchData();
     }, [pkrState.p1Hc0, pkrState.p1Hc1]);
 
-
     const callRebuy = async (depositAmount: number) => {
         // always rebuy for 100?
+        if (player === "notInGame") {
+            return;
+        }
         const seatI: number = player === "0" ? 0 : 1;
         // let seatI: number;
         // if (player === "0") {
@@ -445,7 +482,8 @@ export default function Component() {
                 // shuffleAndPass() - no contract interaciton, only API:
                 // getDeck() encryptDeck() shuffleDeck() postDeck()
                 break;
-            case "Commit Opponent Holecards":
+            case "Get Holecards":
+                // Actually Commit Opponent Holecards, but this labeling is clearer 
                 // TODO - still need to get the cards here...
                 // commitOpponentHolecards(card0: Card, card1: Card)
                 await commitOpponentHolecards();
@@ -561,10 +599,6 @@ export default function Component() {
     // stack, facing bet, action history,  board_cards, hole_cards, pot
     // This is our bet amount
 
-    const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = parseInt(event.target.value);
-        setBetAmount(isNaN(value) ? 0 : value);
-    };
 
     // So we need to figure out this logic too...
     function getPossibleActions(playerI: string): any[] {
@@ -734,6 +768,7 @@ export default function Component() {
                 if (playerI == pkrState.playerTurn) {
                     // Given game state we should specify the subset of actions that are available to the player
                     // Max bet is always our stack...
+                    console.log("SETTING MAX SLIDER TO", ourStack);
                     setMaxSlider(ourStack);
                     if (lastActionStr === "Null" || lastActionStr === "Check") {
                         // For the preflop scenario - we handle that via separate handStage...
@@ -848,11 +883,9 @@ export default function Component() {
 
     }, []);
 
-
-
+    // This is for the rebuy popup
     const [isOpen, setIsOpen] = useState(false);
-
-    const [rebuyAmountInput, setRebuyAmountInput] = useState(20);
+    const [rebuyAmountInput, setRebuyAmountInput] = useState(100);
 
     const toggleModal = () => {
         setIsOpen(!isOpen);
@@ -999,7 +1032,7 @@ export default function Component() {
                         <div className="poker-board mx-auto flex w-full flex-1 flex-col justify-between overflow-hidden rounded-[50%/200px] border-4 border-[#000201] px-[5px] py-8 md:rounded-[40%/300px] lg:h-[calc(100dvh-56px-136px)] 2xl:rounded-[60%/500px] 2xl:py-12">
                             <div className="flex flex-col gap-2">
                                 <section className="relative mx-auto flex w-full max-w-[188px] justify-center  gap-2 px-1 lg:max-w-[232px]">
-                                    {!ourButton ? (
+                                    {ourButton ? (
                                         <div className="absolute -left-10 bottom-0 top-0 grid h-full items-center text-center">
                                             <Image
                                                 className="my-auto h-fit rounded-full bg-black/60"
@@ -1095,7 +1128,7 @@ export default function Component() {
                                         alt="Red Casino Chip"
                                     />{" "}
                                     <span className="font-semibold">
-                                        {pkrState.pot || "4000"}
+                                        {Number(pkrState.pot) - ourBetThisStreet - oppBetThisStreet}
                                     </span>
                                 </div>
                             </div>
@@ -1113,7 +1146,7 @@ export default function Component() {
                                     </span>
                                 </div>
                                 <section className="relative mx-auto flex w-full max-w-[188px] justify-center gap-2 px-1 lg:max-w-[232px]">
-                                    {ourButton ? (
+                                    {!ourButton ? (
                                         <div className="absolute -left-10 bottom-0 top-0 grid h-full items-center text-center">
                                             <Image
                                                 className="my-auto h-fit rounded-full bg-black/60"
@@ -1183,7 +1216,7 @@ export default function Component() {
                                         className="w-[120px] rounded-lg bg-zinc-800 px-4 py-3 text-[14px] font-medium text-zinc-100 shadow-lg transition-colors hover:bg-opacity-80"
                                         onClick={() => onClickAction(action.action)}
                                     >
-                                        Decode Boardcards
+                                        {action.action}
                                     </button>
                                 </div>
                             ))}
