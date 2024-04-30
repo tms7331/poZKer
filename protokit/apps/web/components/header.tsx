@@ -35,7 +35,7 @@ export default function Header({
   return (
     <div className={`flex items-center justify-between bg-[#111] shadow-lg`}>
       <div
-        className={`absolute inset-x-0  left-0 top-[56px] z-50 flex flex-col gap-4 border border-zinc-500 bg-[#111] px-4 pb-6 pt-4 shadow-lg transition-all ${
+        className={`absolute inset-x-0  left-0 top-[56px] z-50 flex flex-col gap-4 border-b border-zinc-500 bg-[#111] px-4 pb-6 pt-4 shadow-lg transition-all ${
           isOpen ? "" : "hidden"
         } h-fit  text-white`}
       >
