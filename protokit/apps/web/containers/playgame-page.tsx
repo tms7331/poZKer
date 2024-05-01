@@ -1082,8 +1082,6 @@ export default function Component() {
                                     />{" "}
                                     <span className="font-semibold">
                                         {Number(pkrState.pot) - ourBetThisStreet - oppBetThisStreet}
-                                        MIN NUM: {minSlider}
-                                        MAX NUM: {maxSlider}
                                     </span>
                                 </div>
                             </div>
