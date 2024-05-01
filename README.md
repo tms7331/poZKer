@@ -4,6 +4,24 @@ poZKer is a decentralized no-limit Texas hold'em application, built with zero kn
 
 Leveraging the power of TypeScript and o1js, poZKer is permissionless and trustless.  Game logic is entirely onchain, and mental poker is used for card shuffling to remove the need for a trusted source for dealing cards.
 
+## Play poZKer
+
+poZKer is deployed (or will be very soon!) at <a href="www.poZKer.com">www.poZKer.com</a>
+
+A few caveats:
+
+Although mental poker logic is implemented in the smart contracts it's not fully integrated with the front end.  The nextjs backend simply sends unecrypted cards to the players and trusts them to not cheat.
+
+Additionally certain checks were disabled in the smart contract due to challenges with serializing several objects, and the port to Protokit is not fully complete, features like player timeouts are still missing.
+
+You can watch a YouTube video demonstrating gameplay here:
+
+<div align="left">
+      <a href="https://youtu.be/mPZUGJS2oKc">
+         <img src="https://img.youtube.com/vi/mPZUGJS2oKc/0.jpg" style="width:100%;">
+      </a>
+</div>
+
 
 ## Mental Poker Explainer
 
@@ -58,33 +76,39 @@ https://geometry.xyz/notebook/mental-poker-in-the-age-of-snarks-part-2
 
 ## How to build
 
-Navigate to the `contracts` folder, and run:
+Navigate to the `protokit` folder, and run:
 
 ```sh
-npm run build
+nvm use
+pnpm install
 ```
 
 ## How to run tests
+
+Navigate to the `protokit/packages/chain` folder, and run:
 
 ```sh
 npm run test
 ```
 
-## How to play via command line
+## How to play locally
 
-Navigate to the `contracts` folder, and after building, run:
+Navigate to the `protokit` folder, and run:
 
 ```sh
-node build/src/playpoker.js
+pnpm dev
 ```
 
-A local Mina blockchain instance will be created and both players can choose their actions via the console.
+Open up localhost:3000 in a web browser to play.
+
 
 ## Missing Features
 
-Testnet deployment and basic UI coming in February 2024
+Full integration of mental poker logic with front end is still needed.
 
-UI improvement and full onchain gameplay coming in March 2024
+The ability to create new tables instead of only having one is needed.
+
+A timer so players cannot take indefinite time on each action is needed.
 
 ## About
 

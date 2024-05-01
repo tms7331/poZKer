@@ -15,7 +15,7 @@ export default function Component() {
           poZKer
         </h1>
         <h1 className="pt-2.5 text-2xl font-medium tracking-tight sm:text-3xl lg:text-4xl">
-          Play Decentralized Poker on Mina
+          Play Decentralized ZK Poker on Mina
         </h1>
         <div className="mt-10 flex items-center justify-center gap-x-6">
           <Link

@@ -1204,6 +1204,10 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
   @runtimeMethod()
   public commitBoardcards(card0: Card, card1: Card, card2: Card): void {
+    // These need to be reset each street...
+    this.betThisStreet0.set(Field(0));
+    this.betThisStreet1.set(Field(0));
+
     // Only valid if we're in the 'deal' stage of flop/turn/river
     // Note that for turn and river we will not be using card1 and card2, so those can be empty Card objects
     const handStage: Field = this.handStage.get().value;

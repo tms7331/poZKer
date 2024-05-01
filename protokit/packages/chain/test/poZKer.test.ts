@@ -1,5 +1,5 @@
 import { TestingAppChain } from "@proto-kit/sdk";
-import { PrivateKey, Field, Poseidon, PublicKey, MerkleMapWitness } from "o1js";
+import { PrivateKey, Field, PublicKey, MerkleMapWitness } from "o1js";
 import { PoZKerApp, cardMapping52 } from "../src/poZKer";
 import { Balances } from "../src/balances";
 import { log } from "@proto-kit/common";
