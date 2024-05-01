@@ -57,7 +57,7 @@ function evaluateHand(
     return [lookupKey, lookupVal, isFlush];
 }
 
-export function getShowdownData(
+function getShowdownData(
     dataMapBasic: { [key: string]: number },
     dataMapFlush: { [key: string]: number },
     allCards: [number, number, number, number, number, number, number]):
