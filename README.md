@@ -8,7 +8,7 @@ Leveraging the power of TypeScript and o1js, poZKer is permissionless and trustl
 
 ## Play poZKer
 
-poZKer is deployed (or will be very soon!) at <a href="www.poZKer.com">www.poZKer.com</a>
+poZKer is deployed and playable at <a href="app.pozker.com">app.pozker.com</a>
 
 A few caveats:
 
@@ -19,8 +19,8 @@ Additionally certain checks were disabled in the smart contract due to challenge
 You can watch a YouTube video demonstrating gameplay here:
 
 <div align="left">
-      <a href="https://youtu.be/mPZUGJS2oKc">
-         <img src="https://img.youtube.com/vi/mPZUGJS2oKc/0.jpg" style="width:35%;">
+      <a href="https://youtu.be/0HTF9QlIxfs">
+         <img src="https://img.youtube.com/vi/0HTF9QlIxfs/0.jpg" style="width:35%;">
       </a>
 </div>
 
