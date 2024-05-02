@@ -10,6 +10,7 @@ import { usePrevious } from "@uidotdev/usehooks";
 import { useClientStore } from "./client";
 import { useChainStore } from "./chain";
 import { Bool, Field, PublicKey, Signature, UInt64 } from "o1js";
+import { redirect } from "next/navigation";
 
 export interface WalletState {
   wallet?: string;
@@ -27,38 +28,32 @@ export const useWalletStore = create<WalletState, [["zustand/immer", never]]>(
     async initializeWallet() {
       if (typeof mina === "undefined") {
         // throw new Error("Auro wallet not installed");
-        console.log("Install Auro wallet!")
-      }
-      else {
+        console.log("Install Auro wallet!");
+      } else {
         const [wallet] = await mina.getAccounts();
 
         set((state) => {
           state.wallet = wallet;
         });
       }
-
     },
     async connectWallet() {
       if (typeof mina === "undefined") {
         // throw new Error("Auro wallet not installed");
-        console.log("Install Auro wallet!")
-      }
-      else {
+        console.log("Install Auro wallet!");
+      } else {
         const [wallet] = await mina.requestAccounts();
 
         set((state) => {
           state.wallet = wallet;
         });
-
       }
-
     },
     observeWalletChange() {
       if (typeof mina === "undefined") {
-        console.log("Install Auro wallet!")
+        console.log("Install Auro wallet!");
         // throw new Error("Auro wallet not installed");
-      }
-      else {
+      } else {
         mina.on("accountsChanged", ([wallet]) => {
           set((state) => {
             state.wallet = wallet;
@@ -136,6 +131,9 @@ export const useNotifyTransactions = () => {
         title: title(),
         description: `Hash: ${hash}`,
       });
+
+      if (status === "SUCCESS" && methodName.includes("joinTable"))
+        redirect("/playgame");
     },
     [client.client],
   );
