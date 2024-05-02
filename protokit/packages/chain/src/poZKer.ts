@@ -582,7 +582,10 @@ export class PoZKerApp extends RuntimeModule<unknown> {
     // Scenarios for this would be:
     // 1. Either player has called - (but not the PreflopCall)
     // 2. Player 2 has checked
-    const newStreetBool = action.equals(this.Call).or(player.equals(player1Key).and(action.equals(this.Check)));
+    const isNotButtonP0: Bool = player.equals(player0Key).and(button.equals(Field(1)));
+    const isNotButtonP1: Bool = player.equals(player1Key).and(button.equals(Field(0)));
+    const isNotButton: Bool = isNotButtonP0.or(isNotButtonP1);
+    const newStreetBool = action.equals(this.Call).or(isNotButton.and(action.equals(this.Check)));
 
     // Is there any way we could simplify this with something like:
     // If newStreetBool and (isPreflop or isTurn) -> Add 2
