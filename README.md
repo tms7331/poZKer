@@ -4,11 +4,12 @@ poZKer is a decentralized no-limit Texas hold'em application, built with zero kn
 
 Leveraging the power of TypeScript and o1js, poZKer is permissionless and trustless.  Game logic is entirely onchain, and mental poker is used for card shuffling to remove the need for a trusted source for dealing cards.
 
-![pozkerscreenshot](https://github.com/tredfern0/poZKer/assets/8098582/5362405e-797a-4e41-9571-c8e44c86c096)
 
 ## Play poZKer
 
 poZKer is deployed and playable at <a href="app.pozker.com">app.pozker.com</a>
+
+![pozkerscreenshot](https://github.com/tredfern0/poZKer/assets/8098582/5362405e-797a-4e41-9571-c8e44c86c096)
 
 A few caveats:
 
