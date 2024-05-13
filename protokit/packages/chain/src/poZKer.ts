@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { RuntimeModule, runtimeModule, state, runtimeMethod } from "@proto-kit/module";
 import { State, assert, StateMap, Option } from "@proto-kit/protocol";
 import { UInt32, UInt64, TokenId } from "@proto-kit/library";
-import { PublicKey, PrivateKey, Group, Field, Bool, Provable, MerkleMapWitness, Scalar } from "o1js";
+import { PublicKey, PrivateKey, Group, Field, Bool, Provable, MerkleMapWitness, Struct, Experimental, Scalar } from "o1js";
 import { Card, addPlayerToCardMask, mask, partialUnmaskProvable, createNewCard, cardPrimeToPublicKey } from './mentalpoker.js';
 import { inject } from "tsyringe";
 import { Balances } from "./balances";
@@ -86,6 +86,57 @@ export const cardMapping52 = {
   "As": 239,
   "": 241,
 }
+
+// These are the proofs for the board card commits
+export class DecodePublicOutput extends Struct({
+  // Decoded values of cards
+  cardVal0: Field,
+  cardVal1: Field,
+  cardVal2: Field,
+  // Encrypted cards (which should match what is in the contract...)
+  card0: Card,
+  card1: Card,
+  card2: Card,
+}) { }
+
+export function verifyMessage(
+  secKey: PrivateKey,
+  card0: Card,
+  card1: Card,
+  card2: Card,
+): DecodePublicOutput {
+  // TODO - Use secKey to decode each of the cards
+  const boardCard: Field = Field(33);
+
+  // Return both the decoded card and the key, we're set
+
+  return new DecodePublicOutput({
+    cardVal0: boardCard,
+    cardVal1: boardCard,
+    cardVal2: boardCard,
+    card0: card0,
+    card1: card1,
+    card2: card2,
+  });
+}
+
+// Not exactly clear what 'twelveChars' is, I asked in Slack but never got a response
+// Assuming it's a field that should be exactly twelve decimal characters long with no leading zeroes
+export class Message extends Struct({ agentId: Field, messageNumber: UInt64, twelveChars: Field, securityCode: Field }) { }
+
+export const messageZKP = Experimental.ZkProgram({
+  publicOutput: DecodePublicOutput,
+  methods: {
+    verifyMessage: {
+      privateInputs: [PrivateKey, Card, Card, Card],
+      method: verifyMessage,
+    },
+  },
+});
+export class MessageProof extends Experimental.ZkProgram.Proof(messageZKP) { }
+
+
+
 
 @runtimeModule()
 export class PoZKerApp extends RuntimeModule<unknown> {
@@ -1326,5 +1377,80 @@ export class PoZKerApp extends RuntimeModule<unknown> {
 
     this.handStage.set(handStageNew);
   }
+
+
+
+  @runtimeMethod()
+  public decodeBoardcardsProof(msgProof: MessageProof): void {
+
+    // Make sure proof was valid
+    msgProof.verify();
+
+    const cardVal0: Field = msgProof.publicOutput.cardVal0
+    const cardVal1: Field = msgProof.publicOutput.cardVal1
+    const cardVal2: Field = msgProof.publicOutput.cardVal2
+    const card0: Card = msgProof.publicOutput.card0
+    const card1: Card = msgProof.publicOutput.card1
+    const card2: Card = msgProof.publicOutput.card2
+
+    const flop0C = this.flop0C.get().value;
+    const flop1C = this.flop1C.get().value;
+    const flop2C = this.flop2C.get().value;
+    const turn0C = this.turn0C.get().value;
+    const river0C = this.river0C.get().value;
+
+    // TODO - 
+    // Since we've verified it we know the proof is valid
+    // But we need to confirm they started with the correct card
+    // to be sure they're not cheating
+    // So need to check that card0/card1/card2 equals flop or turn or river...
+
+    // We should still be in the handStage phase... if cards aren't committed this will just fail
+    const handStage: Field = this.handStage.get().value;
+    assert(handStage.equals(this.FlopDealDec).or(handStage.equals(this.TurnDealDec)).or(handStage.equals(this.RiverDealDec)), "Not in decode stage!");
+
+    const flop0 = this.flop0.get().value;
+    const flop1 = this.flop1.get().value;
+    const flop2 = this.flop2.get().value;
+    const turn0 = this.turn0.get().value;
+    const river0 = this.river0.get().value;
+
+    const flop0New = Provable.if(handStage.equals(this.FlopDealDec),
+      cardVal0,
+      flop0)
+    const flop1New = Provable.if(handStage.equals(this.FlopDealDec),
+      cardVal1,
+      flop1)
+    const flop2New = Provable.if(handStage.equals(this.FlopDealDec),
+      cardVal2,
+      flop2)
+    const turn0New = Provable.if(handStage.equals(this.TurnDealDec),
+      cardVal0,
+      turn0)
+    const river0New = Provable.if(handStage.equals(this.RiverDealDec),
+      cardVal0,
+      river0)
+
+    this.flop0.set(flop0New);
+    this.flop1.set(flop1New);
+    this.flop2.set(flop2New);
+    this.turn0.set(turn0New);
+    this.river0.set(river0New);
+
+    const stack0 = this.stack0.get().value;
+    const stack1 = this.stack1.get().value;
+    const allIn = stack0.equals(0).or(stack1.equals(0));
+    // If someone is all-in we should skip the betting round
+    const handStageNew = Provable.if(allIn,
+      handStage.add(2),
+      handStage.add(1)
+    )
+
+    this.handStage.set(handStageNew);
+  }
+
+
+
+
 
 }
